@@ -10,7 +10,6 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Hello World Demo',
       home: Scaffold(
-        ss
         appBar: AppBar(title: Text('Hello World App')),
         body: Center(child: Text('Hello World', style: TextStyle(fontSize: 24))),
       ),
