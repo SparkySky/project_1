@@ -1,4 +1,4 @@
-package com.example.project_1
+package com.meowResQ.mysafezone
 
 import io.flutter.embedding.android.FlutterActivity
 

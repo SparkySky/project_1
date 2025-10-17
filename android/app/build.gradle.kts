@@ -1,12 +1,13 @@
 plugins {
     id("com.android.application")
     id("kotlin-android")
+    id("com.huawei.agconnect")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
 
 android {
-    namespace = "com.example.project_1"
+    namespace = "com.meowResQ.mysafezone"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -21,7 +22,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.project_1"
+        applicationId = "com.meowResQ.mysafezone"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
@@ -41,4 +42,10 @@ android {
 
 flutter {
     source = "../.."
+}
+
+// Kotlin Format
+dependencies {
+    // Add Huawei HMS Core dependencies.
+    implementation("com.huawei.agconnect:agconnect-core:1.9.1.301")
 }
