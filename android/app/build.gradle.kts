@@ -25,8 +25,8 @@ android {
         applicationId = "com.meowResQ.mysafezone"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        minSdk = 29
+        targetSdk = 33
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
@@ -38,6 +38,22 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+    packaging {
+        resources {
+            excludes += listOf(
+                // Exclude all codec-related resources
+                "org/apache/commons/codec/**",
+                "org/apache/commons/codec/language/**",
+                "org/apache/commons/codec/language/bm/**",
+                "okhttp3/internal/**",
+                "META-INF/commons-codec*",
+                "META-INF/LICENSE.txt",
+                "META-INF/NOTICE.txt"
+            )
+        }
+    }
+
 }
 
 flutter {
@@ -48,4 +64,10 @@ flutter {
 dependencies {
     // Add Huawei HMS Core dependencies.
     implementation("com.huawei.agconnect:agconnect-core:1.9.1.301")
+    implementation("com.huawei.hms:location:6.16.0.302")
+    implementation("com.huawei.hms:push:6.13.0.300")
+    implementation("com.huawei.hms:maps:6.11.2.301")
+    implementation("com.huawei.hms:hwid:6.12.0.300")
+    implementation("com.huawei.hms:drive:5.2.0.300")
+
 }
