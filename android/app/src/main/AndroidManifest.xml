@@ -29,6 +29,12 @@
             android:value="${HUAWEI_API_KEY}"
         />
 
+        <provider
+            android:name="com.huawei.agconnect.core.provider.AGConnectInitializeProvider"
+            android:authorities="${applicationId}.AGCInitializeProvider"
+            android:exported="false"
+            android:multiprocess="true" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

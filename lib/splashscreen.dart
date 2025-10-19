@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'signup_login/auth_page.dart';
+import 'package:agconnect_auth/agconnect_auth.dart';
+import 'package:project_1/homepage/homepage.dart';
+import 'package:project_1/signup_login/auth_page.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({Key? key}) : super(key: key);
@@ -27,15 +29,36 @@ class _SplashScreenState extends State<SplashScreen>
     );
     _animationController.forward();
 
-    // Navigate to main screen after 3 seconds
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const AuthScreen()),
-        );
-      }
-    });
+    // Start the process to check the current user and navigate.
+    _checkCurrentUser();
+  }
+
+  // This method checks the user's login status and navigates accordingly.
+  Future<void> _checkCurrentUser() async {
+    // Wait for the splash animation and for services to initialize.
+    await Future.delayed(const Duration(seconds: 3));
+
+    // Check if the widget is still in the tree before proceeding.
+    if (!mounted) return;
+
+    final AGCUser? user = await AGCAuth.instance.currentUser;
+
+    // Check mounted again before navigating to avoid errors.
+    if (!mounted) return;
+
+    if (user != null) {
+      // User is already logged in, go to the homepage.
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const HomePage()),
+      );
+    } else {
+      // User is not logged in, go to the authentication screen.
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const AuthScreen(isLogin: true)),
+      );
+    }
   }
 
   @override
@@ -72,7 +95,7 @@ class _SplashScreenState extends State<SplashScreen>
 
               const SizedBox(height: 20),
 
-              // App Name with Goldman font
+              // App Name
               const Text(
                 'MYSafeZone',
                 style: TextStyle(
@@ -86,7 +109,7 @@ class _SplashScreenState extends State<SplashScreen>
 
               const SizedBox(height: 10),
 
-              // Tagline with Goldman font
+              // Tagline
               Text(
                 'Your Safety, Our Priority',
                 style: TextStyle(
