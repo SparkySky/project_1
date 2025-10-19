@@ -1,8 +1,8 @@
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    id("dev.flutter.flutter-gradle-plugin")
     id("com.huawei.agconnect")
+    id("dev.flutter.flutter-gradle-plugin")
 }
 
 android {
@@ -13,6 +13,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
@@ -63,8 +64,10 @@ flutter {
 
 // Kotlin Format
 dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
     // Add Huawei HMS Core dependencies.
     implementation("com.huawei.agconnect:agconnect-core:1.9.1.301")
+    implementation("com.huawei.agconnect:agconnect-cloud-database:1.5.3.300")
     implementation("com.huawei.hms:maps:6.11.0.300")
     implementation("com.huawei.hms:location:6.11.0.301")
     implementation("com.huawei.hms:push:6.13.0.300")
