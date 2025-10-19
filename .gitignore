@@ -8,6 +8,7 @@
 .buildlog/
 .history
 .idea/
+.vscode/
 test/
 .metadata
 
