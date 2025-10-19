@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'post_model.dart';
-import 'post_card.dart';
 import 'map_widget.dart';
 import '../app_theme.dart';
-import '../community_page.dart';
+import '../community/community_page.dart';
 import '../notification_page.dart';
 import '../profile_page.dart';
 
@@ -17,72 +15,43 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   
-  final List<Post> incidents = [
-    Post(
-      id: 1,
-      author: 'Sarah Chen',
-      district: 'Bukit Mertajam',
-      postcode: '14000',
-      time: '2 hours ago',
-      type: 'discuss',
-      title: 'Street lighting improvement needed',
-      content: 'The street lights along Jalan Besar are not working properly at night.',
-      likes: 24,
-      comments: 8,
-      avatar: '👩‍🦰',
-    ),
-    Post(
-      id: 2,
-      author: 'Ahmad Rashid',
-      district: 'Bukit Mertajam',
-      postcode: '14000',
-      time: '4 hours ago',
-      type: 'alert',
-      title: '🚨 Traffic accident on Jalan Raja',
-      content: 'Accident between Jalan Raja and Jalan Dato - expect delays.',
-      likes: 45,
-      comments: 12,
-      avatar: '👨‍💼',
-    ),
-    Post(
-      id: 3,
-      author: 'Mei Ling Wong',
-      district: 'Bukit Mertajam',
-      postcode: '14000',
-      time: '6 hours ago',
-      type: 'discuss',
-      title: 'Community watch group forming',
-      content: 'Interested in joining a neighborhood watch? We are organizing regular patrols.',
-      likes: 67,
-      comments: 31,
-      avatar: '👩‍🦱',
-    ),
-    Post(
-      id: 4,
-      author: 'Ravi Kumar',
-      district: 'Bukit Mertajam',
-      postcode: '14000',
-      time: '8 hours ago',
-      type: 'alert',
-      title: '🚨 Suspicious activity reported',
-      content: 'Multiple reports of loitering near the market area. Police notified.',
-      likes: 38,
-      comments: 15,
-      avatar: '👨‍🦱',
-    ),
-    Post(
-      id: 5,
-      author: 'Priya Sharma',
-      district: 'Bukit Mertajam',
-      postcode: '14000',
-      time: '10 hours ago',
-      type: 'discuss',
-      title: 'Health and safety at the community center',
-      content: 'Planning a first aid training workshop. Anyone interested?',
-      likes: 22,
-      comments: 9,
-      avatar: '👩‍⚕️',
-    ),
+  // Dummy incident data - will be replaced with cloud DB
+  final List<Map<String, dynamic>> incidents = [
+    {
+      'id': 1,
+      'title': 'Suspicious Person Spotted',
+      'timestamp': '3 min ago',
+      'location': 'Jalan Pasar, Bukit Mertajam, 14000',
+      'severity': 'high', // high, medium, low
+    },
+    {
+      'id': 2,
+      'title': 'Vehicle Break-in Reported',
+      'timestamp': '15 min ago',
+      'location': 'Persiaran Bukit Mertajam, 14000',
+      'severity': 'medium',
+    },
+    {
+      'id': 3,
+      'title': 'Theft Attempt',
+      'timestamp': '1 hour ago',
+      'location': 'Jalan Besar, Bukit Mertajam, 14000',
+      'severity': 'high',
+    },
+    {
+      'id': 4,
+      'title': 'Vandalism Spotted',
+      'timestamp': '2 hours ago',
+      'location': 'Taman Bukit Mertajam, 14000',
+      'severity': 'low',
+    },
+    {
+      'id': 5,
+      'title': 'Assault Reported',
+      'timestamp': '3 hours ago',
+      'location': 'Jalan Raja Uda, Bukit Mertajam, 14000',
+      'severity': 'high',
+    },
   ];
 
   @override
@@ -187,9 +156,9 @@ class _HomePageState extends State<HomePage> {
               Expanded(
                 child: ListView.builder(
                   itemCount: incidents.length,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   itemBuilder: (context, index) {
-                    return PostCard(post: incidents[index]);
+                    return _buildIncidentCard(incidents[index]);
                   },
                 ),
               ),
@@ -197,6 +166,113 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildIncidentCard(Map<String, dynamic> incident) {
+    // Determine border color based on severity
+    Color borderColor;
+    switch (incident['severity']) {
+      case 'high':
+        borderColor = Colors.red;
+        break;
+      case 'medium':
+        borderColor = Colors.orange;
+        break;
+      case 'low':
+        borderColor = Colors.yellow;
+        break;
+      default:
+        borderColor = Colors.grey;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Left colored border
+            Container(
+              width: 4,
+              decoration: BoxDecoration(
+                color: borderColor,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(8),
+                  bottomLeft: Radius.circular(8),
+                ),
+              ),
+            ),
+            // Content
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Title and timestamp row
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            incident['title'],
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          incident['timestamp'],
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    // Location
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.location_on_outlined,
+                          size: 16,
+                          color: Colors.grey[600],
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            incident['location'],
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
