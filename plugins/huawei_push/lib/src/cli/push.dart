@@ -1,5 +1,5 @@
 /*
-    Copyright 2020-2024. Huawei Technologies Co., Ltd. All rights reserved.
+    Copyright 2020-2025. Huawei Technologies Co., Ltd. All rights reserved.
 
     Licensed under the Apache License, Version 2.0 (the "License")
     you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
     limitations under the License.
 */
 
-part of huawei_push;
+part of '../../huawei_push.dart';
 
 abstract class Push {
   /// Enables the function of receiving notification messages.
@@ -230,7 +230,7 @@ abstract class Push {
   /// AAID and applies for a token.
   ///
   /// Auto Initialization can also be enabled by adding the meta-data under below
-  /// to project's AndroidManifest.xml file, inside the <application> tag
+  /// to project's AndroidManifest.xml file, inside the 'application' tag
   ///
   /// ```
   /// <meta-data

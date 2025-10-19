@@ -1,5 +1,5 @@
 /*
- * Copyright 2020-2024. Huawei Technologies Co., Ltd. All rights reserved.
+ * Copyright 2020-2025. Huawei Technologies Co., Ltd. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License")
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,6 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.core.app.JobIntentService;
 
-import io.flutter.plugin.common.PluginRegistry.PluginRegistrantCallback;
 
 import java.util.Collections;
 import java.util.LinkedList;
@@ -42,11 +41,6 @@ public class BackgroundMessagingService extends JobIntentService {
 
     private synchronized void setBackgroundRunner(FlutterBackgroundRunner bgRunner) {
         BackgroundMessagingService.backgroundRunner = bgRunner;
-    }
-
-    // For Backwards Compatibility with V1 Plugin registration.
-    public static void setPluginRegistrantCallback(final PluginRegistrantCallback callback) {
-        FlutterBackgroundRunner.setPluginRegistrantCallback(callback);
     }
 
     public static void setUserCallback(final Context context, final long userCallback) {

@@ -1,3 +1,16 @@
+## 6.13.0+300
+
+- Updated Push SDK to the latest version 6.13.0.300.
+
+## 6.12.0+303
+
+- Minor optimization.
+
+## 6.12.0+302
+
+- Fixed stability and performance issues.
+  > You are advised to use this version. To use it, you only need to update the version number and do not need to modify any code for adaptation.
+
 ## 6.12.0+301
 
 - Minor optimization.

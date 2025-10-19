@@ -26,8 +26,23 @@ dependencies:
     path: plugins/huawei_ml_language
   huawei_account:
     path: plugins/huawei_account
-#  huawei_push:
-#    path: plugins/huawei_push
+  huawei_push:
+    path: plugins/huawei_push
+  huawei_drive:
+      path: plugins/huawei_drive
+  agconnect_core:
+      path: plugins/agconnect_core
+  agconnect_auth:
+      path: plugins/agconnect_auth
+  agconnect_cloudstorage:
+      path: plugins/agconnect_cloudstorage
+  agconnect_cloudfunctions:
+      path: plugins/agconnect_cloudfunctions
+  agconnect_clouddb:
+      path: plugins/agconnect_clouddb
+  agconnect_crash:
+      path: plugins/agconnect_crash
+
 
 
   permission_handler: ^11.0.1

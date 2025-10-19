@@ -24,13 +24,13 @@ rootProject.allprojects {
 apply plugin: "com.android.library"
 
 android {
-    compileSdkVersion 33
-    buildToolsVersion '31.0.0'
+    compileSdkVersion 34
     namespace 'com.huawei.hms.flutter.push'
+    buildToolsVersion '31.0.0'
 
     defaultConfig {
         minSdkVersion 19
-        targetSdkVersion 33
+        targetSdkVersion 34
     }
 
     lintOptions {
@@ -44,6 +44,6 @@ android {
 }
 
 dependencies {
-    implementation "com.huawei.hms:push:6.12.0.300"
+    implementation "com.huawei.hms:push:6.13.0.300"
     implementation "com.facebook.fresco:fresco:3.1.3"
 }
