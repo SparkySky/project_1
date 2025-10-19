@@ -11,9 +11,25 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
+  #  Huawei/HMS
   huawei_map:
     path: plugins/huawei_map
-  huawei_location: 6.11.0+301
+  huawei_location:
+    path: plugins/huawei_location
+  huawei_ml_text:
+    path: plugins/huawei_ml_text
+  huawei_ml_body:
+    path: plugins/huawei_ml_body
+  huawei_ml_image:
+    path: plugins/huawei_ml_image
+  huawei_ml_language:
+    path: plugins/huawei_ml_language
+  huawei_account:
+    path: plugins/huawei_account
+#  huawei_push:
+#    path: plugins/huawei_push
+
+
   permission_handler: ^11.0.1
 
 dev_dependencies:

@@ -1,0 +1,3 @@
+https://developer.huawei.com/consumer/en/doc/HMS-Plugin-Library-V1/
+https://developer.huawei.com/consumer/en/doc/HMSCore-Guides/
+https://pub.dev/packages?q=sdk%3Aflutter+platform%3Aandroid+agconnect
