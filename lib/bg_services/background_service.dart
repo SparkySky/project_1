@@ -4,6 +4,7 @@ import 'dart:convert'; // For JSON encoding sensor data
 import 'dart:math';
 import 'dart:ui';
 import 'dart:io'; // For File path manipulation if needed by Drive
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart'; // Needed for WidgetsFlutterBinding, but avoid UI code
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_background_service_android/flutter_background_service_android.dart'; // For AndroidServiceInstance
@@ -32,6 +33,9 @@ import '/models/clouddb_model.dart' as db;
 
 // --- Service Initialization (Called from main.dart) ---
 Future<void> initializeBackgroundService() async {
+  if (kDebugMode) {
+    print("Initializing Background Service - Emergency Response Module");
+  }
   final service = FlutterBackgroundService();
 
   // Basic notification channel setup (optional, can be expanded)
@@ -99,13 +103,6 @@ void onStart(ServiceInstance service) async {
   } catch (e) {
     print("[BG_SERVICE] CRITICAL CloudDB init error: $e");
     // Consider stopping if CloudDB fails, as we can't save incidents
-    service.stopSelf();
-    return;
-  }
-
-  // Check again after initialization attempt
-  if (cloudDB == null) {
-    print("[BG_SERVICE] CRITICAL: CloudDB instance is null after init.");
     service.stopSelf();
     return;
   }

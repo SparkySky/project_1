@@ -46,7 +46,7 @@ Future<void> main() async {
 
   // CRITICAL: Longer delay for HMS Core to fully initialize and authenticate
   // This prevents 403 errors on first map load
-  await Future.delayed(const Duration(milliseconds: 1500));
+  await Future.delayed(const Duration(milliseconds: 3000));
 
   runApp(const MyApp());
 }
