@@ -1,9 +1,8 @@
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    id("com.huawei.agconnect")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    id("com.huawei.agconnect")
 }
 
 android {
@@ -29,6 +28,8 @@ android {
         targetSdk = 33
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        manifestPlaceholders.put("HUAWEI_API_KEY", project.property("HUAWEI_MAP_API_KEY") as String)
     }
 
     buildTypes {
@@ -64,9 +65,9 @@ flutter {
 dependencies {
     // Add Huawei HMS Core dependencies.
     implementation("com.huawei.agconnect:agconnect-core:1.9.1.301")
-    implementation("com.huawei.hms:location:6.16.0.302")
+    implementation("com.huawei.hms:maps:6.11.0.300")
+    implementation("com.huawei.hms:location:6.11.0.301")
     implementation("com.huawei.hms:push:6.13.0.300")
-    implementation("com.huawei.hms:maps:6.11.2.301")
     implementation("com.huawei.hms:hwid:6.12.0.300")
     implementation("com.huawei.hms:drive:5.2.0.300")
 
