@@ -42,34 +42,51 @@ class MapBuilder implements MapMethods {
     private final HuaweiMapOptions options = new HuaweiMapOptions();
 
     private List<HashMap<String, Object>> markers;
+
     private List<HashMap<String, Object>> polygons;
+
     private List<HashMap<String, Object>> polylines;
+
     private List<HashMap<String, Object>> circles;
+
     private List<HashMap<String, Object>> groundOverlays;
+
     private List<HashMap<String, Object>> tileOverlays;
+
     private List<HashMap<String, Object>> heatMaps;
 
     private boolean trackCameraPosition = false;
+
     private boolean myLocationEnabled = false;
+
     private boolean myLocationButtonEnabled = false;
+
     private boolean trafficEnabled = false;
+
     private boolean buildingsEnabled = true;
+
     private boolean markersClustering = false;
 
     private Boolean allGesturesEnabled;
+
     private boolean scrollGesturesEnabledDuringRotateOrZoom = true;
+
     private boolean gestureScaleByMapCenter = false;
 
     private Rect padding = new Rect(0, 0, 0, 0);
+
     private Point pointToCenter;
 
     private Integer clusterMarkerColor;
+
     private Integer clusterMarkerTextColor;
+
     private BitmapDescriptor iconDescriptor;
 
     private MyLocationStyle myLocationStyle;
 
     private int logoPosition;
+
     private Rect logoPadding = new Rect(0, 0, 0, 0);
 
     private final HMSLogger logger;
@@ -78,28 +95,11 @@ class MapBuilder implements MapMethods {
         logger = HMSLogger.getInstance(application);
     }
 
-    MapController build(
-        final int id,
-        @NonNull final Context context,
-        final Activity mActivity,
-        final AtomicInteger state,
-        final BinaryMessenger binaryMessenger,
-        final Application application,
-        final Lifecycle lifecycle,
-        final int activityHashCode
-    ) {
-        final MapController controller = new MapController(
-                id,
-                context,
-                mActivity,
-                state,
-                binaryMessenger,
-                application,
-                lifecycle,
-                activityHashCode,
-                options
-        );
-
+    MapController build(final int id, @NonNull final Context context, final Activity mActivity,
+        final AtomicInteger state, final BinaryMessenger binaryMessenger, final Application application,
+        final Lifecycle lifecycle, final int activityHashCode) {
+        final MapController controller = new MapController(id, context, mActivity, state, binaryMessenger, application,
+            lifecycle, activityHashCode, options);
         controller.init();
         controller.setAllGesturesEnabled(allGesturesEnabled);
         controller.setScrollGesturesEnabledDuringRotateOrZoom(scrollGesturesEnabledDuringRotateOrZoom);

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'map_widget.dart';
 import '../app_theme.dart';
+import 'chatbot_widget.dart';
 import '../community/community_page.dart';
 import '../notification_page.dart';
 import '../profile_page.dart';
@@ -22,7 +23,7 @@ class _HomePageState extends State<HomePage> {
       'title': 'Suspicious Person Spotted',
       'timestamp': '3 min ago',
       'location': 'Jalan Pasar, Bukit Mertajam, 14000',
-      'severity': 'high', // high, medium, low
+      'severity': 'high',
     },
     {
       'id': 2,
@@ -54,13 +55,35 @@ class _HomePageState extends State<HomePage> {
     },
   ];
 
+  Widget _buildCurrentPage() {
+    switch (_selectedIndex) {
+      case 0:
+        return _buildHomePage();
+      case 1:
+        return const CommunityPage();
+      case 2:
+        return const NotificationPage();
+      case 3:
+        return const ProfilePage();
+      default:
+        return _buildHomePage();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    print('HomePage building, selectedIndex: $_selectedIndex');
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('MYSafeZone'),
       ),
-      body: _buildPage(_selectedIndex),
+      body: Stack(
+        children: [
+          _buildCurrentPage(),
+          const ChatbotWidget(),
+        ],
+      ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           border: Border(top: BorderSide(color: Colors.grey[300]!)),
@@ -84,6 +107,7 @@ class _HomePageState extends State<HomePage> {
       color: Colors.transparent,
       child: InkWell(
         onTap: () {
+          print('Navigation tapped: $index');
           setState(() {
             _selectedIndex = index;
           });
@@ -117,29 +141,16 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildPage(int index) {
-    switch (index) {
-      case 0:
-        return _buildHomePage();
-      case 1:
-        return const CommunityPage();
-      case 2:
-        return const NotificationPage();
-      case 3:
-        return const ProfilePage();
-      default:
-        return _buildHomePage();
-    }
-  }
-
   Widget _buildHomePage() {
+    print('Building HomePage content');
     return Column(
+      key: const PageStorageKey<String>('homePage'),
       children: [
-        // Map Section - 1/3 of screen
-        MapWidget(
-          height: MediaQuery.of(context).size.height * 0.30,
+        // Map Section - Fixed height
+        const MapWidget(
+          height: 250,
         ),
-        // Nearby Incidents Section - 2/3 of screen
+        // Nearby Incidents Section
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
