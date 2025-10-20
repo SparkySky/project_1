@@ -87,6 +87,13 @@ class _HomePageState extends State<HomePage> {
       'location': 'Jalan Raja Uda, Bukit Mertajam, 14000',
       'severity': 'high',
     },
+    {
+      'id': 6,
+      'title': 'Assault Reported',
+      'timestamp': '2 hours ago',
+      'location': 'Jalan Taman Star 12, Jalan Taman Star, Kampung Simee, 31400 Ipoh, Perak',
+      'severity': 'high',
+    },
   ];
 
   Widget _buildCurrentPage() {

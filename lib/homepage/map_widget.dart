@@ -56,81 +56,109 @@ class _MapWidgetState extends State<MapWidget> {
 
   // Geocode incidents and create markers ---
   Future<void> _geocodeAndBuildMarkers() async {
-    if (!mounted) return;
-    setState(() {
-      _isLoadingMarkers = true;
-      _incidentMarkers = {}; // Clear previous markers
-    });
+    print("--- Starting geocoding ---");
+    if (!mounted) {
+      print("Widget not mounted, exiting geocoding.");
+      return;
+    }
+    if (mounted) { // Check mounted again before setState
+      setState(() {
+        _isLoadingMarkers = true;
+        _incidentMarkers = {};
+      });
+    }
 
     final Set<Marker> markers = {};
     int markerIndex = 0;
+    final hwLocation.Locale geocodingLocale = hwLocation.Locale(language: 'en', country: 'my');
 
-    // --- FIX: Construct the locale using the NAMED 'language' parameter ---
-    final hwLocation.Locale geocodingLocale = hwLocation.Locale(language: 'en'); // Use named parameter 'language'
-    // ----------------------------------------------------------------------
+    // Use Future.wait to handle all geocoding concurrently for better performance
+    // and clearer error handling for individual requests.
+    List<Future<void>> geocodingFutures = [];
 
     for (final incident in widget.incidents) {
-      final String address = incident['location'] ?? '';
-      final String title = incident['title'] ?? 'Incident';
-      final String snippet = incident['timestamp'] ?? '';
+      geocodingFutures.add(Future<void>(() async {
+        final String address = incident['location'] ?? '';
+        final String title = incident['title'] ?? 'Incident';
+        final String snippet = incident['timestamp'] ?? '';
 
-      if (address.isNotEmpty) {
-        try {
-          final hwLocation.GetFromLocationNameRequest request =
-          hwLocation.GetFromLocationNameRequest(locationName: address, maxResults: 1);
+        print("Processing incident: '$title' at '$address'"); //
 
-          final List<hwLocation.HWLocation> locations =
-          await _geocoderService.getFromLocationName(request, geocodingLocale); // Pass the correctly constructed Locale
+        if (address.isNotEmpty) {
+          try {
+            final hwLocation.GetFromLocationNameRequest request =
+            hwLocation.GetFromLocationNameRequest(locationName: address, maxResults: 1);
 
-          if (locations.isNotEmpty) {
-            final hwLocation.HWLocation hwLoc = locations.first;
-            if (hwLoc.latitude != null && hwLoc.longitude != null) {
-              final LatLng position = LatLng(hwLoc.latitude!, hwLoc.longitude!);
+            print("  Calling geocoder for: $address");
+            final List<hwLocation.HWLocation> locations =
+            await _geocoderService.getFromLocationName(request, geocodingLocale);
+            print("  Geocoder returned ${locations.length} results for '$address'."); // Add address context
 
-              double markerHue;
-              switch (incident['severity']?.toLowerCase()) {
-                case 'high':
-                  markerHue = BitmapDescriptor.hueRed;
-                  break;
-                case 'medium':
-                  markerHue = BitmapDescriptor.hueOrange;
-                  break;
-                case 'low':
-                  markerHue = BitmapDescriptor.hueYellow;
-                  break;
-                default:
-                  markerHue = BitmapDescriptor.hueAzure;
-              }
+            if (locations.isNotEmpty) {
+              final hwLocation.HWLocation hwLoc = locations.first;
+              if (hwLoc.latitude != null && hwLoc.longitude != null) {
+                final LatLng position = LatLng(hwLoc.latitude!, hwLoc.longitude!);
+                print("Geocoded '$address' to: $position");
 
-              markers.add(
-                Marker(
-                  markerId: MarkerId('incident_${incident['id']}_$markerIndex'),
-                  position: position,
-                  icon: BitmapDescriptor.defaultMarkerWithHue(markerHue),
-                  infoWindow: InfoWindow(
-                    title: title,
-                    snippet: snippet,
+                double markerHue;
+                // ... (switch statement remains the same) ...
+                switch (incident['severity']?.toLowerCase()) {
+                  case 'high':
+                    markerHue = BitmapDescriptor.hueRed;
+                    break;
+                  case 'medium':
+                    markerHue = BitmapDescriptor.hueOrange;
+                    break;
+                  case 'low':
+                    markerHue = BitmapDescriptor.hueYellow;
+                    break;
+                  default:
+                    markerHue = BitmapDescriptor.hueAzure;
+                }
+
+                markers.add(
+                  Marker(
+                    markerId: MarkerId('incident_${incident['id']}_$markerIndex'), // Consider using just incident['id'] if unique
+                    position: position,
+                    icon: BitmapDescriptor.defaultMarkerWithHue(markerHue),
+                    infoWindow: InfoWindow(
+                      title: title,
+                      snippet: snippet,
+                    ),
                   ),
-                ),
-              );
-              markerIndex++;
+                );
+                markerIndex++;
+              } else {
+                print('    Geocoding result for "$address" missing coordinates.'); //
+              }
             } else {
-              print('Geocoding result for "$address" missing coordinates.');
+              print('    Geocoding failed for address: $address (No results found)'); //
             }
-          } else {
-            print('Geocoding failed for address: $address (No results found)');
+          } catch (e, stackTrace) { // CATCH ERROR AND STACKTRACE
+            print('    !!!!!!!! ERROR during geocoding for "$address": $e');
+            print('    !!!!!!!! StackTrace: $stackTrace'); // Print stacktrace
           }
-        } catch (e) {
-          print('Error during geocoding for "$address": $e');
+        } else {
+          print("  Skipping incident due to empty address."); //
         }
-      }
+      }));
     }
 
+    try {
+      await Future.wait(geocodingFutures);
+    } catch (e) {
+      // This catch might not be strictly necessary if errors are handled inside the loop's catch
+      print("Error occurred during Future.wait: $e");
+    }
+
+    print("--- Finished geocoding. Found ${markers.length} markers. Updating state. ---"); //
     if (mounted) {
       setState(() {
         _incidentMarkers = markers;
         _isLoadingMarkers = false;
       });
+    } else {
+      print("Widget unmounted before final setState."); //
     }
   }
 
@@ -215,6 +243,7 @@ class _MapWidgetState extends State<MapWidget> {
 
   @override
   Widget build(BuildContext context) {
+    print("Building MapWidget with ${_incidentMarkers.length} markers.");
     return Stack( // Use Stack to show loading indicator
       children: [
         HuaweiMap(
