@@ -7,7 +7,7 @@ import 'package:huawei_ml_language/huawei_ml_language.dart';
 
 class SensorManager {
   // HMS Listeners
-  MLSoundDetector? _soundDetector;
+  MLSpeechRealTimeTranscription? _speechRealTimeTranscription;
 
   // Sensor Listener Subscriptions
   StreamSubscription<AccelerometerEvent>? _accelSubscription;
@@ -18,28 +18,76 @@ class SensorManager {
   AccelerometerEvent? _lastAccelEvent;
   GyroscopeEvent? _lastGyroEvent;
   Function(String)? _onTrigger;
+  bool _isSpeechRealTimeTranscriptionStarted = false;
 
   SensorManager(); // Constructor
 
   void startMonitoring({required Function(String) onTrigger}) {
     print("[SENSOR_MANAGER] Starting sensor monitoring...");
     _onTrigger = onTrigger;
-    _startSoundDetector();
+    _startSpeechRealTimeTranscription();
     _startImuSensors();
     _startDebugTimer();
   }
 
-  void _startSoundDetector() async {
-     try {
-      _soundDetector = MLSoundDetector();
-      _soundDetector?.setSoundDetectListener(_onSoundDetect);
-      await _soundDetector?.start();
-      print("[SENSOR_MANAGER] SoundDetector started.");
-    } catch(e) {
-      print("[SENSOR_MANAGER] Error starting SoundDetector: $e");
-      _soundDetector = null;
+  void _startSpeechRealTimeTranscription() async {
+    print("[SENSOR_MANAGER] - _startSpeechRealTimeTranscription()");
+    try {
+      _speechRealTimeTranscription = MLSpeechRealTimeTranscription();
+      
+      // Create an anonymous implementation of MLSpeechRealTimeTranscriptionListener
+      _speechRealTimeTranscription?.setRealTimeTranscriptionListener(
+        MLSpeechRealTimeTranscriptionListener(
+          onResult: (
+            MLSpeechRealTimeTranscriptionResult result,
+          ) {
+            final text = result.result; // Get the transcribed text using the 'result' property
+            print("[SENSOR_MANAGER] - Text: '$text'");
+            if (text != null && text.toLowerCase().contains("help")) {
+              print("[SENSOR_MANAGER] TRIGGER: 'Help' keyword detected! Transcribed: '$text'");
+              _onTrigger?.call("Help Keyword Detected");
+              // Stop and restart recognizer to avoid multiple triggers on the same utterance
+              _speechRealTimeTranscription?.destroy();
+              _speechRealTimeTranscription = null;
+              _isSpeechRealTimeTranscriptionStarted = false;
+              _startSpeechRealTimeTranscription(); // Restart for continuous monitoring
+            }
+          },
+          onError: (
+            int errCode,
+            String errorMessage,
+          ) {
+            print("[SENSOR_MANAGER] MLSpeechRealTimeTranscription Error: $errCode - $errorMessage");
+            // Handle error, e.g., restart recognizer
+            _speechRealTimeTranscription?.destroy();
+            _speechRealTimeTranscription = null;
+            _isSpeechRealTimeTranscriptionStarted = false;
+            _startSpeechRealTimeTranscription();
+          },
+          // You can add other optional callbacks here if needed:
+          // onStartListening: () { print("[SENSOR_MANAGER] RealTimeTranscription: onStartListening"); },
+          // onStartingOfSpeech: () { print("[SENSOR_MANAGER] RealTimeTranscription: onStartingOfSpeech"); },
+          // onState: (int state) { print("[SENSOR_MANAGER] RealTimeTranscription: onState: $state"); },
+          // onVoiceDataReceived: (Uint8List voiceData) { /* Handle voice data */ },
+        ),
+      );
+
+      final config = MLSpeechRealTimeTranscriptionConfig(
+        language: MLSpeechRealTimeTranscriptionConfig.LAN_EN_US,
+        // You can add other configurations here if needed, e.g., enablePunctuation
+      );
+
+      _speechRealTimeTranscription?.startRecognizing(config); // Removed 'await'
+      _isSpeechRealTimeTranscriptionStarted = true;
+      print("[SENSOR_MANAGER] MLSpeechRealTimeTranscription started for keyword detection.");
+    } catch (e) {
+      print("[SENSOR_MANAGER] Error starting MLSpeechRealTimeTranscription: $e");
+      _isSpeechRealTimeTranscriptionStarted = false;
+      _speechRealTimeTranscription = null;
     }
   }
+
+  // The _onRealTimeTranscriptionResult function is no longer needed as the listener is implemented anonymously.
 
   void _startImuSensors() {
     try {
@@ -65,21 +113,6 @@ class SensorManager {
         print("[SENSOR_DEBUG] Accel(x: ${accel.x.toStringAsFixed(2)}, y: ${accel.y.toStringAsFixed(2)}, z: ${accel.z.toStringAsFixed(2)}) | Gyro(x: ${gyro.x.toStringAsFixed(2)}, y: ${gyro.y.toStringAsFixed(2)}, z: ${gyro.z.toStringAsFixed(2)})");
       }
     });
-  }
-
-  void _onSoundDetect({int? result, int? errCode}) {
-    if (errCode != null) {
-      print("[SENSOR_MANAGER] SoundDetect Error Code: $errCode");
-      return;
-    }
-    if (result != null) {
-      const int soundEventScream = 12;
-      print("[SENSOR_MANAGER] Sound detected: ID $result");
-      if (result == soundEventScream) {
-        print("[SENSOR_MANAGER] TRIGGER: Scream detected!");
-        _onTrigger?.call("Scream Detected");
-      }
-    }
   }
 
   void _onAccelEvent(AccelerometerEvent event) {
@@ -109,10 +142,15 @@ class SensorManager {
     _accelSubscription = null;
     _gyroSubscription = null;
 
-    try {
-      _soundDetector?.destroy();
-    } catch (e) { print("[SENSOR_MANAGER] Error destroying SoundDetector: $e"); }
-    _soundDetector = null;
+    if (_speechRealTimeTranscription != null && _isSpeechRealTimeTranscriptionStarted) {
+      try {
+        _speechRealTimeTranscription?.destroy();
+      } catch (e) {
+        print("[SENSOR_MANAGER] Error destroying MLSpeechRealTimeTranscription: $e");
+      }
+    }
+    _speechRealTimeTranscription = null;
+    _isSpeechRealTimeTranscriptionStarted = false;
     print("[SENSOR_MANAGER] Sensor listeners stopped.");
   }
 }

@@ -1,7 +1,5 @@
 // lib/background_service.dart
 import 'dart:async';
-import 'dart:convert'; // For JSON encoding sensor data
-import 'dart:math';
 import 'dart:ui';
 import 'dart:io'; // For File path manipulation if needed by Drive
 import 'package:flutter/foundation.dart';
@@ -13,11 +11,14 @@ import 'package:permission_handler/permission_handler.dart'; // Might need for c
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
+import 'package:record/record.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import 'package:agconnect_clouddb/agconnect_clouddb.dart';
 import 'package:huawei_location/huawei_location.dart';
 import 'package:huawei_drive/huawei_drive.dart';
 import 'package:huawei_account/huawei_account.dart'; // Needed for Drive credentials
+
 
 // Import your generated CloudDB model file
 import '../models/clouddb_model.dart' as db;
@@ -165,14 +166,15 @@ void onStart(ServiceInstance service) async {
 class SafetyTriggerManager {
   final AGConnectCloudDB _cloudDB;
   final SensorManager _sensorManager;
+  var micStatus;
 
   // HMS Listeners
   FusedLocationProviderClient? _locationProvider;
 
   // Audio Recorder
-  flutterSound.FlutterSoundRecorder? _audioRecorder;
+  AudioRecorder? _audioRecorder;
   String? _audioPath;
-  bool _isRecording = false;
+  bool _isRecording = false; // We can use the package's isRecording()
 
   // State
   Function(String)? _onTrigger;
@@ -181,17 +183,22 @@ class SafetyTriggerManager {
 
   SafetyTriggerManager(this._cloudDB) : _sensorManager = SensorManager() {
     _locationProvider = FusedLocationProviderClient();
-    _audioRecorder = flutterSound.FlutterSoundRecorder();
+    // Instantiate the new recorder
+    _audioRecorder = AudioRecorder();
   }
 
   void startMonitoring({required Function(String) onTrigger}) async {
     print("[BG_SERVICE_MANAGER] Starting monitoring...");
     _onTrigger = onTrigger;
 
-    var micStatus = await Permission.microphone.status;
+    micStatus = await Permission.microphone.status;
+    if (micStatus != PermissionStatus.granted) {
+      print("[BG_SERVICE_MANAGER] ERROR: Required permissions (Microphone) not granted.");
+      return;
+    }
     var locStatus = await Permission.locationAlways.status;
-    if (!micStatus.isGranted || !locStatus.isGranted) {
-      print("[BG_SERVICE_MANAGER] ERROR: Required permissions (Mic/LocationAlways) not granted.");
+    if (locStatus != PermissionStatus.granted) {
+      print("[BG_SERVICE_MANAGER] ERROR: Required permissions (LocationAlways) not granted.");
       return;
     }
 
@@ -200,20 +207,33 @@ class SafetyTriggerManager {
   }
 
   Future<void> _startAudioRecording() async {
-    if (_isRecording) {
-      await _audioRecorder?.stopRecorder();
+    // Check if already recording
+    if (await _audioRecorder?.isRecording() ?? false) {
+      await _audioRecorder?.stop();
     }
     try {
       final directory = await getTemporaryDirectory();
       _audioPath = '${directory.path}/safety_trigger_${DateTime.now().millisecondsSinceEpoch}.aac';
 
-      await _audioRecorder?.openRecorder();
-      await _audioRecorder?.startRecorder(
-        toFile: _audioPath,
-        codec: flutterSound.Codec.aacADTS,
+      // 1. Create the configuration object
+      const config = RecordConfig(
+        encoder: AudioEncoder.aacLc, // Set encoder here
+        // You can optionally set other config parameters:
+        // sampleRate: 44100,
+        // bitRate: 128000,
+        // numChannels: 1,
       );
-      _isRecording = true;
-      print("[BG_SERVICE_MANAGER] Audio recording started to $_audioPath");
+
+      // 2. Pass config as the first argument, path as named argument
+      //    Ensure _audioPath is not null before calling start.
+      if (_audioPath != null) {
+        await _audioRecorder?.start(config, path: _audioPath!); // Pass config and path
+        _isRecording = true;
+        print("[BG_SERVICE_MANAGER] Audio recording started to $_audioPath");
+      } else {
+        print("[BG_SERVICE_MANAGER] Error: Audio path is null, cannot start recording.");
+        _isRecording = false;
+      }
     } catch (e) {
       print("[BG_SERVICE_MANAGER] Error starting audio recording: $e");
       _audioPath = null;
@@ -224,9 +244,10 @@ class SafetyTriggerManager {
   Future<bool> handleIncidentTrigger(String triggerType, ServiceInstance service) async {
     print("[BG_SERVICE_MANAGER] Handling trigger: $triggerType");
     String? finalizedAudioPath = _audioPath;
-    if (_isRecording) {
+    if (_isRecording) { // Use our internal flag
       try {
-        await _audioRecorder?.stopRecorder();
+        // Stop the recorder. The path is already in _audioPath
+        await _audioRecorder?.stop();
         _isRecording = false;
         print("[BG_SERVICE_MANAGER] Audio recording stopped. File: $finalizedAudioPath");
       } catch (e) {
@@ -234,7 +255,8 @@ class SafetyTriggerManager {
         finalizedAudioPath = null;
       }
     } else {
-      finalizedAudioPath = null;
+      // If not recording, the path might still be valid from a previous run
+      finalizedAudioPath = _audioPath;
     }
 
     Location? location;
@@ -383,13 +405,15 @@ class SafetyTriggerManager {
       _locationRequestCode = null;
     }
 
-    if (_isRecording) {
+    // Use AudioRecorder's methods
+    if (await _audioRecorder?.isRecording() ?? false) {
       try {
-        await _audioRecorder?.stopRecorder();
-        _isRecording = false;
-      } catch (e) { print("[BG_SERVICE_MANAGER] Error stopping dangling recording: $e");}
+        await _audioRecorder?.stop();
+        _isRecording = false; // Update our flag
+      } catch (e) {
+        print("[BG_SERVICE_MANAGER] Error stopping dangling recording: $e");
+      }
     }
     print("[BG_SERVICE_MANAGER] Listeners stopped.");
   }
-
 }
