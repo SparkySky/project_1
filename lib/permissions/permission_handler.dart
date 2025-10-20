@@ -1,6 +1,6 @@
 import 'package:permission_handler/permission_handler.dart';
 
-Future<void> requestPermissions() async {
+Future<Map<Permission, PermissionStatus>> requestPermissions() async {
   Map<Permission, PermissionStatus> statuses = await [
     Permission.location,
     Permission.locationAlways, // Crucial for background
@@ -19,4 +19,5 @@ Future<void> requestPermissions() async {
     print("WARNING: Microphone permission not granted. Audio detection will fail.");
   }
   print("Permission statuses: $statuses");
+  return statuses;
 }

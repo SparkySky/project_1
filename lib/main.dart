@@ -1,13 +1,17 @@
 import 'dart:async';
+import 'package:agconnect_clouddb/agconnect_clouddb.dart';
 import 'package:agconnect_core/agconnect_core.dart';
 import 'app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'bg_services/background_service.dart';
 import 'permissions/permission_handler.dart';
 import 'splashscreen.dart';
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   // Ensures that plugin services are initialized before runApp
@@ -32,17 +36,19 @@ Future<void> main() async {
   // 2. Initialize the Background Service configuration
   await initializeBackgroundService();
 
-  // 3. Initialize AGConnect Core & CloudDB (only needs initialize now)
-  // These might throw errors if agconnect-services.json is missing/invalid
-  // or if native plugins fail.
+  // 3. Initialize AGConnect Core & CloudDB in the main isolate
   try {
     // Core initialization is handled natively by the agconnect plugin reading the json file.
-    // We only need to initialize CloudDB service itself.
-    //import 'package:agconnect_clouddb/agconnect_clouddb.dart'; // Add this import at the top
-    //await AGConnectCloudDB.getInstance().initialize(); // This might belong inside background service? Let's keep it simple first.
-    print("AGConnect should be initialized natively.");
+    final cloudDB = AGConnectCloudDB.getInstance();
+    await cloudDB.initialize();
+    await cloudDB.createObjectType(); // Ensure models are created before service starts
+    if (kDebugMode) {
+      print("[MAIN] AGConnect and CloudDB Initialized in main isolate.");
+    }
   } catch (e) {
-    print("Error during potential AGConnect/CloudDB init check: $e");
+    if (kDebugMode) {
+      print("[MAIN] CRITICAL Error during AGConnect/CloudDB init: $e");
+    }
   }
 
   runApp(const MyApp());
@@ -54,6 +60,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: 'MYSafeZone',
       theme: AppTheme.lightTheme,
       debugShowCheckedModeBanner: false, // Debug: Remove the top right banner

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:agconnect_auth/agconnect_auth.dart'; // Import ACG Auth
 import 'package:huawei_account/huawei_account.dart'; // Import Account Kit for button & Scope
-import 'auth_service.dart'; // Import our updated service
+
+import '../signup_login/auth_service.dart';
+import '../util/snackbar_helper.dart';
 import '../app_theme.dart';
 import '../homepage/homepage.dart';
 
@@ -31,8 +32,10 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _obscureConfirmPassword = true;
   bool _isLoading = false;
   late bool _isLoginMode;
-  bool _showPasswordError = false; // Used only for confirm password matching visual
-  bool _showValidationErrors = false; // Used for general form validation visuals
+  bool _showPasswordError =
+      false; // Used only for confirm password matching visual
+  bool _showValidationErrors =
+      false; // Used for general form validation visuals
 
   @override
   void initState() {
@@ -85,32 +88,14 @@ class _AuthScreenState extends State<AuthScreen> {
       });
     }
     // Also clear confirm password specific error visual if user edits either password field
-    if (!_isLoginMode && _showPasswordError && ( _passwordController.text.isNotEmpty || _confirmPasswordController.text.isNotEmpty)) {
+    if (!_isLoginMode &&
+        _showPasswordError &&
+        (_passwordController.text.isNotEmpty ||
+            _confirmPasswordController.text.isNotEmpty)) {
       setState(() {
         _showPasswordError = false;
       });
     }
-  }
-
-  // --- Snackbar Helpers (Unchanged) ---
-  void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-        duration: const Duration(seconds: 3),
-      ),
-    );
-  }
-
-  void _showSuccessSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.green,
-        duration: const Duration(seconds: 3),
-      ),
-    );
   }
 
   // --- Handle Email/Password Submit ---
@@ -139,16 +124,18 @@ class _AuthScreenState extends State<AuthScreen> {
             MaterialPageRoute(builder: (context) => const HomePage()),
           );
         } else {
-          _showErrorSnackBar("Login failed. Please check credentials."); // Fallback error
+          Snackbar.error(
+            "Login failed. Please check credentials.",
+          ); // Fallback error
         }
       } else {
         // --- SIGN UP (Step 1: Request Code) ---
         await _authService.requestEmailCodeForSignUp(email);
-        _showSuccessSnackBar("Verification code sent to $email");
+        Snackbar.success("Verification code sent to $email");
         _showVerifyCodeDialog(); // Proceed to ask for the code
       }
     } catch (e) {
-      _showErrorSnackBar(e.toString());
+      Snackbar.error(e.toString());
     } finally {
       if (mounted) {
         setState(() {
@@ -174,7 +161,9 @@ class _AuthScreenState extends State<AuthScreen> {
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text("Enter the code sent to ${_emailController.text.trim()}"),
+                  Text(
+                    "Enter the code sent to ${_emailController.text.trim()}",
+                  ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: codeController,
@@ -189,44 +178,57 @@ class _AuthScreenState extends State<AuthScreen> {
               actions: [
                 TextButton(
                   child: const Text("Cancel"),
-                  onPressed: isDialogLoading ? null : () => Navigator.of(context).pop(),
+                  onPressed: isDialogLoading
+                      ? null
+                      : () => Navigator.of(context).pop(),
                 ),
                 ElevatedButton(
-                  onPressed: isDialogLoading ? null : () async {
-                    final code = codeController.text.trim();
-                    if (code.isEmpty) {
-                      _showErrorSnackBar("Please enter the code"); // Show error inside dialog context
-                      return;
-                    }
+                  onPressed: isDialogLoading
+                      ? null
+                      : () async {
+                          final code = codeController.text.trim();
+                          if (code.isEmpty) {
+                            Snackbar.error(
+                              "Please enter the code",
+                            ); // Show error inside dialog context
+                            return;
+                          }
 
-                    setDialogState(() => isDialogLoading = true);
+                          setDialogState(() => isDialogLoading = true);
 
-                    try {
-                      // --- SIGN UP (Step 2: Create User) ---
-                      await _authService.createEmailUser(
-                        _emailController.text.trim(),
-                        _passwordController.text, // Get password from main page state
-                        code,
-                      );
+                          try {
+                            // --- SIGN UP (Step 2: Create User) ---
+                            await _authService.createEmailUser(
+                              _emailController.text.trim(),
+                              _passwordController
+                                  .text, // Get password from main page state
+                              code,
+                            );
 
-                      if (mounted) {
-                        Navigator.of(context).pop(); // Close dialog
-                        _showSuccessSnackBar("Account created! Please log in.");
-                        _toggleMode(); // Switch to login mode
-                      }
-                    } catch (e) {
-                      // Show error without closing dialog
-                      _showErrorSnackBar(e.toString());
-                    } finally {
-                      // Only update state if dialog is still mounted
-                      // Check mounted state of the main widget, implicitly checks dialog too
-                      if(mounted) {
-                        setDialogState(() => isDialogLoading = false);
-                      }
-                    }
-                  },
+                            if (mounted) {
+                              Navigator.of(context).pop(); // Close dialog
+                              Snackbar.success(
+                                "Account created! Please log in.",
+                              );
+                              _toggleMode(); // Switch to login mode
+                            }
+                          } catch (e) {
+                            // Show error without closing dialog
+                            Snackbar.error(e.toString());
+                          } finally {
+                            // Only update state if dialog is still mounted
+                            // Check mounted state of the main widget, implicitly checks dialog too
+                            if (mounted) {
+                              setDialogState(() => isDialogLoading = false);
+                            }
+                          }
+                        },
                   child: isDialogLoading
-                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
                       : const Text("Create Account"),
                 ),
               ],
@@ -237,22 +239,26 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
-
   // --- Handle Huawei ID Sign-In ---
   Future<void> _handleHuaweiSignIn() async {
     setState(() => _isLoading = true);
     try {
+      debugPrint('[HuaweiSignIn] Starting sign-in');
       final user = await _authService.signInWithHuaweiID();
+      debugPrint('[HuaweiSignIn] Sign-in completed: ${user?.uid}');
+
       if (user != null && mounted) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const HomePage()),
         );
       } else {
-        _showErrorSnackBar("Huawei ID Sign-In failed."); // Fallback if user is null without exception
+        Snackbar.error(
+          "Huawei ID Sign-In failed.",
+        ); // Fallback if user is null without exception
       }
     } catch (e) {
-      _showErrorSnackBar(e.toString());
+      Snackbar.error(e.toString());
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -262,20 +268,25 @@ class _AuthScreenState extends State<AuthScreen> {
 
   // --- MODIFIED: Show Forgot Password Flow ---
   void _showForgotPasswordDialog() {
-    final forgotEmailController = TextEditingController(text: _emailController.text); // Pre-fill if available
+    final forgotEmailController = TextEditingController(
+      text: _emailController.text,
+    ); // Pre-fill if available
     bool isRequestingCode = false;
 
     showDialog(
       context: context,
       builder: (context) {
-        return StatefulBuilder( // Use StatefulBuilder for loading state
+        return StatefulBuilder(
+          // Use StatefulBuilder for loading state
           builder: (context, setDialogState) {
             return AlertDialog(
               title: const Text("Reset Password"),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text("Enter your email to receive a password reset code."),
+                  const Text(
+                    "Enter your email to receive a password reset code.",
+                  ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: forgotEmailController,
@@ -290,37 +301,52 @@ class _AuthScreenState extends State<AuthScreen> {
               actions: [
                 TextButton(
                   child: const Text("Cancel"),
-                  onPressed: isRequestingCode ? null : () => Navigator.of(context).pop(),
+                  onPressed: isRequestingCode
+                      ? null
+                      : () => Navigator.of(context).pop(),
                 ),
                 ElevatedButton(
-                  onPressed: isRequestingCode ? null : () async {
-                    final email = forgotEmailController.text.trim();
-                    if (email.isEmpty || !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
-                      _showErrorSnackBar("Please enter a valid email.");
-                      return;
-                    }
+                  onPressed: isRequestingCode
+                      ? null
+                      : () async {
+                          final email = forgotEmailController.text.trim();
+                          if (email.isEmpty ||
+                              !RegExp(
+                                r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+                              ).hasMatch(email)) {
+                            Snackbar.error("Please enter a valid email.");
+                            return;
+                          }
 
-                    setDialogState(() => isRequestingCode = true);
-                    try {
-                      await _authService.requestPasswordResetCode(email);
-                      if (mounted) {
-                        Navigator.of(context).pop(); // Close this dialog
-                        _showSuccessSnackBar("Password reset code sent to $email");
-                        _showResetPasswordEnterCodeDialog(email); // Open the next dialog
-                      }
-                    } catch (e) {
-                      if (mounted) {
-                        // Keep dialog open, show error
-                        _showErrorSnackBar(e.toString());
-                      }
-                    } finally {
-                      if (mounted) {
-                        setDialogState(() => isRequestingCode = false);
-                      }
-                    }
-                  },
+                          setDialogState(() => isRequestingCode = true);
+                          try {
+                            await _authService.requestPasswordResetCode(email);
+                            if (mounted) {
+                              Navigator.of(context).pop(); // Close this dialog
+                              Snackbar.success(
+                                "Password reset code sent to $email",
+                              );
+                              _showResetPasswordEnterCodeDialog(
+                                email,
+                              ); // Open the next dialog
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              // Keep dialog open, show error
+                              Snackbar.error(e.toString());
+                            }
+                          } finally {
+                            if (mounted) {
+                              setDialogState(() => isRequestingCode = false);
+                            }
+                          }
+                        },
                   child: isRequestingCode
-                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
                       : const Text("Get Code"),
                 ),
               ],
@@ -349,13 +375,17 @@ class _AuthScreenState extends State<AuthScreen> {
           builder: (context, setDialogState) {
             return AlertDialog(
               title: const Text("Enter Code & New Password"),
-              content: Form( // Use a Form for validation
+              content: Form(
+                // Use a Form for validation
                 key: formKey,
-                child: SingleChildScrollView( // Allow scrolling if needed
+                child: SingleChildScrollView(
+                  // Allow scrolling if needed
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text("Enter the code sent to $email and your new password."),
+                      Text(
+                        "Enter the code sent to $email and your new password.",
+                      ),
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: codeController,
@@ -364,7 +394,8 @@ class _AuthScreenState extends State<AuthScreen> {
                           labelText: "Verification Code",
                           prefixIcon: Icon(Icons.pin_outlined),
                         ),
-                        validator: (v) => v == null || v.isEmpty ? 'Please enter code' : null,
+                        validator: (v) =>
+                            v == null || v.isEmpty ? 'Please enter code' : null,
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
@@ -374,11 +405,18 @@ class _AuthScreenState extends State<AuthScreen> {
                           labelText: "New Password",
                           prefixIcon: const Icon(Icons.lock_outline),
                           suffixIcon: IconButton(
-                            icon: Icon(obscureNewPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-                            onPressed: () => setDialogState(() => obscureNewPassword = !obscureNewPassword),
+                            icon: Icon(
+                              obscureNewPassword
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                            ),
+                            onPressed: () => setDialogState(
+                              () => obscureNewPassword = !obscureNewPassword,
+                            ),
                           ),
                         ),
-                        validator: _validatePassword, // Reuse password validation
+                        validator:
+                            _validatePassword, // Reuse password validation
                       ),
                       const SizedBox(height: 16),
                       TextFormField(
@@ -388,13 +426,22 @@ class _AuthScreenState extends State<AuthScreen> {
                           labelText: "Confirm New Password",
                           prefixIcon: const Icon(Icons.lock_outline),
                           suffixIcon: IconButton(
-                            icon: Icon(obscureConfirmPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-                            onPressed: () => setDialogState(() => obscureConfirmPassword = !obscureConfirmPassword),
+                            icon: Icon(
+                              obscureConfirmPassword
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                            ),
+                            onPressed: () => setDialogState(
+                              () => obscureConfirmPassword =
+                                  !obscureConfirmPassword,
+                            ),
                           ),
                         ),
                         validator: (v) {
-                          if (v == null || v.isEmpty) return 'Please confirm password';
-                          if (v != newPasswordController.text) return 'Passwords do not match';
+                          if (v == null || v.isEmpty)
+                            return 'Please confirm password';
+                          if (v != newPasswordController.text)
+                            return 'Passwords do not match';
                           return null;
                         },
                       ),
@@ -405,41 +452,56 @@ class _AuthScreenState extends State<AuthScreen> {
               actions: [
                 TextButton(
                   child: const Text("Cancel"),
-                  onPressed: isResetting ? null : () => Navigator.of(context).pop(),
+                  onPressed: isResetting
+                      ? null
+                      : () => Navigator.of(context).pop(),
                 ),
                 ElevatedButton(
-                  onPressed: isResetting ? null : () async {
-                    if (!formKey.currentState!.validate()) {
-                      return; // Validation failed
-                    }
+                  onPressed: isResetting
+                      ? null
+                      : () async {
+                          if (!formKey.currentState!.validate()) {
+                            return; // Validation failed
+                          }
 
-                    final code = codeController.text.trim();
-                    final newPassword = newPasswordController.text;
+                          final code = codeController.text.trim();
+                          final newPassword = newPasswordController.text;
 
-                    setDialogState(() => isResetting = true);
-                    try {
-                      await _authService.resetPasswordWithCode(email, newPassword, code);
-                      if (mounted) {
-                        Navigator.of(context).pop(); // Close this dialog
-                        _showSuccessSnackBar("Password has been reset successfully. Please log in.");
-                        // Optionally clear fields if staying on login page
-                        _emailController.text = email; // Keep email filled
-                        _passwordController.clear();
-                        _confirmPasswordController.clear();
-                      }
-                    } catch (e) {
-                      if (mounted) {
-                        // Keep dialog open, show error
-                        _showErrorSnackBar(e.toString());
-                      }
-                    } finally {
-                      if (mounted) {
-                        setDialogState(() => isResetting = false);
-                      }
-                    }
-                  },
+                          setDialogState(() => isResetting = true);
+                          try {
+                            await _authService.resetPasswordWithCode(
+                              email,
+                              newPassword,
+                              code,
+                            );
+                            if (mounted) {
+                              Navigator.of(context).pop(); // Close this dialog
+                              Snackbar.success(
+                                "Password has been reset successfully. Please log in.",
+                              );
+                              // Optionally clear fields if staying on login page
+                              _emailController.text =
+                                  email; // Keep email filled
+                              _passwordController.clear();
+                              _confirmPasswordController.clear();
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              // Keep dialog open, show error
+                              Snackbar.error(e.toString());
+                            }
+                          } finally {
+                            if (mounted) {
+                              setDialogState(() => isResetting = false);
+                            }
+                          }
+                        },
                   child: isResetting
-                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
                       : const Text("Reset Password"),
                 ),
               ],
@@ -472,7 +534,9 @@ class _AuthScreenState extends State<AuthScreen> {
 
     Color labelColor = isFocused
         ? AppTheme.primaryOrange
-        : (hasError ? Colors.red : Colors.grey); // Label matches border unless focused
+        : (hasError
+              ? Colors.red
+              : Colors.grey); // Label matches border unless focused
 
     return InputDecoration(
       labelText: labelText,
@@ -481,17 +545,29 @@ class _AuthScreenState extends State<AuthScreen> {
         color: hasError && !isFocused ? Colors.red : Colors.grey,
       ),
       // Floating label style: Follows focus/error state logic
-      floatingLabelStyle: TextStyle(
-        color: labelColor,
-      ),
+      floatingLabelStyle: TextStyle(color: labelColor),
       prefixIcon: Icon(prefixIcon),
       suffixIcon: suffixIcon,
       border: _buildBorder(Colors.grey[300]!), // Default border
-      enabledBorder: _buildBorder(borderColor), // Border when enabled (takes error state)
-      focusedBorder: _buildBorder(AppTheme.primaryOrange, width: 2), // Orange when focused
-      errorBorder: _buildBorder(Colors.red, width: 2), // Red error border when not focused
-      focusedErrorBorder: _buildBorder(AppTheme.primaryOrange, width: 2), // Orange error border WHEN focused
-      errorStyle: const TextStyle(fontSize: 0, height: 0), // Hide default error text below field
+      enabledBorder: _buildBorder(
+        borderColor,
+      ), // Border when enabled (takes error state)
+      focusedBorder: _buildBorder(
+        AppTheme.primaryOrange,
+        width: 2,
+      ), // Orange when focused
+      errorBorder: _buildBorder(
+        Colors.red,
+        width: 2,
+      ), // Red error border when not focused
+      focusedErrorBorder: _buildBorder(
+        AppTheme.primaryOrange,
+        width: 2,
+      ), // Orange error border WHEN focused
+      errorStyle: const TextStyle(
+        fontSize: 0,
+        height: 0,
+      ), // Hide default error text below field
     );
   }
 
@@ -538,7 +614,8 @@ class _AuthScreenState extends State<AuthScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // --- Logo and Title ---
-                  Container( /* ... Logo ... */
+                  Container(
+                    /* ... Logo ... */
                     width: 120,
                     height: 120,
                     decoration: BoxDecoration(
@@ -553,7 +630,8 @@ class _AuthScreenState extends State<AuthScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  const Text( /* ... Title ... */
+                  const Text(
+                    /* ... Title ... */
                     'MYSafeZone',
                     textAlign: TextAlign.center,
                     style: TextStyle(
@@ -565,13 +643,13 @@ class _AuthScreenState extends State<AuthScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text( /* ... Subtitle ... */
-                    _isLoginMode ? 'Welcome Back' : 'Join MYSafeZone community today',
+                  Text(
+                    /* ... Subtitle ... */
+                    _isLoginMode
+                        ? 'Welcome Back'
+                        : 'Join MYSafeZone community today',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 40),
 
@@ -586,14 +664,21 @@ class _AuthScreenState extends State<AuthScreen> {
                       prefixIcon: Icons.email_outlined,
                       isFocused: _emailFocus.hasFocus,
                       // Error visual if general validation failed AND field is empty/invalid
-                      hasError: _showValidationErrors && (_emailController.text.isEmpty || !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(_emailController.text)),
+                      hasError:
+                          _showValidationErrors &&
+                          (_emailController.text.isEmpty ||
+                              !RegExp(
+                                r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+                              ).hasMatch(_emailController.text)),
                       focusNode: _emailFocus,
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Please enter your email';
                       }
-                      if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value)) {
+                      if (!RegExp(
+                        r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+                      ).hasMatch(value)) {
                         return 'Please enter a valid email address';
                       }
                       return null;
@@ -611,15 +696,30 @@ class _AuthScreenState extends State<AuthScreen> {
                       labelText: 'Password',
                       prefixIcon: Icons.lock_outline,
                       suffixIcon: IconButton(
-                        icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-                        onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
+                        ),
+                        onPressed: () => setState(
+                          () => _obscurePassword = !_obscurePassword,
+                        ),
                       ),
                       isFocused: _passwordFocus.hasFocus,
                       // Error visual if general validation failed AND field is empty/invalid
-                      hasError: _showValidationErrors && _validatePassword(_passwordController.text, isLoginCheck: _isLoginMode) != null,
+                      hasError:
+                          _showValidationErrors &&
+                          _validatePassword(
+                                _passwordController.text,
+                                isLoginCheck: _isLoginMode,
+                              ) !=
+                              null,
                       focusNode: _passwordFocus,
                     ),
-                    validator: (v) => _validatePassword(v, isLoginCheck: _isLoginMode), // Use wrapper validator
+                    validator: (v) => _validatePassword(
+                      v,
+                      isLoginCheck: _isLoginMode,
+                    ), // Use wrapper validator
                   ),
 
                   // --- Confirm Password Field (Sign Up only) ---
@@ -634,12 +734,23 @@ class _AuthScreenState extends State<AuthScreen> {
                         labelText: 'Confirm Password',
                         prefixIcon: Icons.lock_outline,
                         suffixIcon: IconButton(
-                          icon: Icon(_obscureConfirmPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-                          onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                          icon: Icon(
+                            _obscureConfirmPassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                          ),
+                          onPressed: () => setState(
+                            () => _obscureConfirmPassword =
+                                !_obscureConfirmPassword,
+                          ),
                         ),
                         isFocused: _confirmPasswordFocus.hasFocus,
                         // Error visual if general validation failed AND passwords don't match or empty
-                        hasError: _showValidationErrors && (_confirmPasswordController.text.isEmpty || _confirmPasswordController.text != _passwordController.text),
+                        hasError:
+                            _showValidationErrors &&
+                            (_confirmPasswordController.text.isEmpty ||
+                                _confirmPasswordController.text !=
+                                    _passwordController.text),
                         focusNode: _confirmPasswordFocus,
                       ),
                       validator: (value) {
@@ -653,10 +764,12 @@ class _AuthScreenState extends State<AuthScreen> {
                         }
                         return null;
                       },
-                      onChanged: (value) { // Trigger re-validation of password field if confirm changes
+                      onChanged: (value) {
+                        // Trigger re-validation of password field if confirm changes
                         _formKey.currentState?.validate();
                         // Optionally reset specific mismatch flag if user edits confirm field
-                        if(_showPasswordError) setState(() => _showPasswordError = false);
+                        if (_showPasswordError)
+                          setState(() => _showPasswordError = false);
                       },
                     ),
                   ],
@@ -668,10 +781,15 @@ class _AuthScreenState extends State<AuthScreen> {
                       child: Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
-                          onPressed: _isLoading ? null : _showForgotPasswordDialog,
+                          onPressed: _isLoading
+                              ? null
+                              : _showForgotPasswordDialog,
                           child: const Text(
                             'Forgot Password?',
-                            style: TextStyle(color: AppTheme.primaryOrange, fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                              color: AppTheme.primaryOrange,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
@@ -685,44 +803,74 @@ class _AuthScreenState extends State<AuthScreen> {
                     child: ElevatedButton(
                       onPressed: _isLoading ? null : _handleSubmit,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryOrange, foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), elevation: 2,
+                        backgroundColor: AppTheme.primaryOrange,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 2,
                       ),
                       child: _isLoading
-                          ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : Text(_isLoginMode ? 'Login' : 'Sign Up', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : Text(
+                              _isLoginMode ? 'Login' : 'Sign Up',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                     ),
                   ),
                   const SizedBox(height: 24),
 
                   // --- Toggle Login/Sign Up ---
-                  Row( /* ... Toggle Row ... */
+                  Row(
+                    /* ... Toggle Row ... */
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        _isLoginMode ? "Don't have an account? " : 'Already have an account? ',
+                        _isLoginMode
+                            ? "Don't have an account? "
+                            : 'Already have an account? ',
                         style: TextStyle(color: Colors.grey[600]),
                       ),
                       TextButton(
-                        onPressed: _isLoading ? null : _toggleMode, // Disable toggle while loading
+                        onPressed: _isLoading
+                            ? null
+                            : _toggleMode, // Disable toggle while loading
                         child: Text(
                           _isLoginMode ? 'Sign Up' : 'Login',
-                          style: const TextStyle(color: AppTheme.primaryOrange, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            color: AppTheme.primaryOrange,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 16), // Added spacing before OR
-
                   // --- Divider ---
-                  const Padding( /* ... OR Divider ... */
-                    padding: EdgeInsets.symmetric(vertical: 8.0), // Reduced vertical padding
+                  const Padding(
+                    /* ... OR Divider ... */
+                    padding: EdgeInsets.symmetric(
+                      vertical: 8.0,
+                    ), // Reduced vertical padding
                     child: Row(
                       children: [
                         Expanded(child: Divider()),
                         Padding(
                           padding: EdgeInsets.symmetric(horizontal: 8.0),
-                          child: Text("OR", style: TextStyle(color: Colors.grey)),
+                          child: Text(
+                            "OR",
+                            style: TextStyle(color: Colors.grey),
+                          ),
                         ),
                         Expanded(child: Divider()),
                       ],
@@ -732,7 +880,8 @@ class _AuthScreenState extends State<AuthScreen> {
                   // --- Huawei ID Button ---
                   SizedBox(
                     height: 50,
-                    child: HuaweiIdAuthButton( // Make sure this widget is correctly imported/available
+                    child: HuaweiIdAuthButton(
+                      // Make sure this widget is correctly imported/available
                       onPressed: _isLoading ? () {} : _handleHuaweiSignIn,
                       buttonColor: AuthButtonBackground.RED,
                       borderRadius: AuthButtonRadius.MEDIUM,

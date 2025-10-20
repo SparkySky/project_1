@@ -98,7 +98,7 @@ class _HomePageState extends State<HomePage> {
       case 2:
         return const NotificationPage();
       case 3:
-        return const ProfilePage();
+        return ProfilePage();
       default:
         return _buildHomePage();
     }
