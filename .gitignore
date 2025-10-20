@@ -4,10 +4,20 @@
 *.log
 *.pyc
 *.swp
+*.iml
 .buildlog/
 .history
 .idea/
 .vscode/
+test/
+.metadata
+
+# Not focused platform dir
+linux/
+macos/
+web/
+windows/
+ios/
 
 # Flutter repo-specific
 /bin/cache/

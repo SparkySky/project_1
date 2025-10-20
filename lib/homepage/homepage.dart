@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 import 'map_widget.dart';
 import '../app_theme.dart';
 import 'chatbot_widget.dart';
@@ -10,12 +11,45 @@ class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  _HomePageState createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
+  // states for service status - Safety Trigger
+  bool _isServiceRunning = false;
+  final _backgroundService = FlutterBackgroundService();
+
   int _selectedIndex = 0;
-  
+
+  // Init Safety Trigger BG process
+  @override
+  void initState() {
+    super.initState();
+    // Check initial service status when the widget loads
+    _backgroundService.isRunning().then((value) {
+      if (mounted) {
+        setState(() {
+          _isServiceRunning = value;
+        });
+      }
+    });
+  }
+
+  // Start/Stop Safety Trigger BG process
+  void _toggleService(bool value) async {
+    if (value) {
+      // Start the service configured in main.dart
+      await _backgroundService.startService();
+    } else {
+      // Invoke the 'stopService' command defined in background_service.dart
+      _backgroundService.invoke("stopService");
+    }
+    setState(() {
+      _isServiceRunning = value;
+    });
+  }
+
+
   // Dummy incident data - will be replaced with cloud DB
   final List<Map<String, dynamic>> incidents = [
     {
@@ -77,6 +111,23 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('MYSafeZone'),
+        // Add the toggle switch to the AppBar actions
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(_isServiceRunning ? "ON" : "OFF", style: TextStyle(fontSize: 10)),
+                Switch(
+                  value: _isServiceRunning,
+                  onChanged: _toggleService,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ],
+            ),
+          )
+        ],
       ),
       body: Stack(
         children: [
