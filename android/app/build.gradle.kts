@@ -21,16 +21,17 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.meowResQ.mysafezone"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 29
         targetSdk = 33
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 
         manifestPlaceholders.put("HUAWEI_API_KEY", project.property("HUAWEI_MAP_API_KEY") as String)
+
+        ndk {
+            abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a"))
+        }
     }
 
     buildTypes {
@@ -68,8 +69,9 @@ dependencies {
     // Add Huawei HMS Core dependencies.
     implementation("com.huawei.agconnect:agconnect-core:1.9.1.301")
     implementation("com.huawei.agconnect:agconnect-cloud-database:1.5.3.300")
-    implementation("com.huawei.hms:maps:6.11.0.300")
-    implementation("com.huawei.hms:location:6.11.0.301")
+    implementation("com.huawei.hms:maps:6.11.0.301")
+    implementation("com.huawei.hms:maps-basic:6.11.0.300")
+    implementation("com.huawei.hms:location:6.12.0.300")
     implementation("com.huawei.hms:push:6.13.0.300")
     implementation("com.huawei.hms:hwid:6.12.0.300")
     implementation("com.huawei.hms:drive:5.2.0.300")
