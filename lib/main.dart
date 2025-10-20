@@ -1,21 +1,25 @@
 import 'dart:async';
 import 'package:agconnect_clouddb/agconnect_clouddb.dart';
-import 'package:agconnect_core/agconnect_core.dart';
+import 'package:huawei_map/huawei_map.dart';
 import 'app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'bg_services/background_service.dart';
 import 'permissions/permission_handler.dart';
 import 'splashscreen.dart';
+import 'util/debug_state.dart';
+import 'util/debug_overlay.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   // Ensures that plugin services are initialized before runApp
   WidgetsFlutterBinding.ensureInitialized();
+
+  await DebugState().loadState(); // Debug: Load debug state from storage
+
 
   // Create Notification Channel
   const AndroidNotificationChannel channel = AndroidNotificationChannel(
@@ -24,8 +28,7 @@ Future<void> main() async {
     description: 'Background service for safety monitoring.',
     importance: Importance.low, // Use low to avoid sound/vibration
   );
-  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-  FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
   await flutterLocalNotificationsPlugin
       .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
       ?.createNotificationChannel(channel);
@@ -50,12 +53,44 @@ Future<void> main() async {
       print("[MAIN] CRITICAL Error during AGConnect/CloudDB init: $e");
     }
   }
-
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+
+// StatefulWidget to listen for DebugState changes
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  final DebugState _debugState = DebugState();
+  bool _showDebugOverlay = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Set the initial state
+    _showDebugOverlay = _debugState.showDebugOverlay;
+    // Listen for future changes
+    _debugState.addListener(_onDebugStateChanged);
+  }
+
+  @override
+  void dispose() {
+    _debugState.removeListener(_onDebugStateChanged);
+    super.dispose();
+  }
+
+  void _onDebugStateChanged() {
+    if (mounted) {
+      setState(() {
+        _showDebugOverlay = _debugState.showDebugOverlay;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -64,6 +99,20 @@ class MyApp extends StatelessWidget {
       title: 'MYSafeZone',
       theme: AppTheme.lightTheme,
       debugShowCheckedModeBanner: false, // Debug: Remove the top right banner
+      // MaterialApp.builder to stack the overlay
+      builder: (context, child) {
+        if (!_showDebugOverlay) {
+          return child!; // Return the normal app
+        }
+
+        // If overlay is on, wrap the app in a Stack and add the overlay
+        return Stack(
+          children: [
+            child!, // The normal app
+            const DebugOverlayWidget(), // Our new overlay widget
+          ],
+        );
+      },
       home: const SplashScreen(),
     );
   }

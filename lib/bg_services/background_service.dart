@@ -7,6 +7,7 @@ import 'package:flutter/material.dart'; // Needed for WidgetsFlutterBinding, but
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_background_service_android/flutter_background_service_android.dart'; // For AndroidServiceInstance
 import 'package:flutter_sound/flutter_sound.dart' as flutterSound;
+import 'package:huawei_ml_language/huawei_ml_language.dart';
 import 'package:permission_handler/permission_handler.dart'; // Might need for checks inside service
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -58,8 +59,19 @@ void onStart(ServiceInstance service) async {
   WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
 
+
   // Add a small delay to allow native initialization to complete
-  await Future.delayed(const Duration(seconds: 2));
+  await Future.delayed(const Duration(seconds: 1));
+
+  try {
+    print("[BG_SERVICE] Trying to get RTT languages...");
+    MLSpeechRealTimeTranscription tempRtt = MLSpeechRealTimeTranscription();
+    List<String>? langs = await tempRtt.getLanguages();
+    print("[BG_SERVICE] RTT Languages: $langs");
+    // Don't call destroy on tempRtt here if it's just for testing registration
+  } catch (e) {
+    print("[BG_SERVICE] ERROR calling getLanguages in onStart: $e"); // Does this also throw MissingPluginException?
+  }
 
   // --- Get Pre-Initialized CloudDB Instance ---
   // Initialization is now handled in main.dart to avoid isolate issues.

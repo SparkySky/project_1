@@ -1,276 +1,242 @@
+import 'dart:async'; // Import async
 import 'package:flutter/material.dart';
+import 'package:huawei_location/huawei_location.dart' as hwLocation;
 import 'package:huawei_map/huawei_map.dart';
 import 'package:huawei_location/huawei_location.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class MapWidget extends StatefulWidget {
-  final double height;
-  final double initialZoom;
+  // Accept incidents
+  final List<Map<String, dynamic>> incidents;
 
   const MapWidget({
-    Key? key,
-    this.height = 300,
-    this.initialZoom = 15,
-  }) : super(key: key);
+    super.key,
+    required this.incidents, // Make incidents required
+  });
 
   @override
   State<MapWidget> createState() => _MapWidgetState();
 }
 
 class _MapWidgetState extends State<MapWidget> {
-  final GlobalKey _mapKey = GlobalKey();
   HuaweiMapController? _mapController;
-  final FusedLocationProviderClient _locationService = FusedLocationProviderClient();
-  LatLng? _currentLocation;
-  bool _isLoading = true;
-  final Set<Marker> _markers = {};
-  bool _mapBuilt = false;
+  final hwLocation.FusedLocationProviderClient _locationService =
+  hwLocation.FusedLocationProviderClient();
+  hwLocation.Location? _currentLocation;
+
+  // Geocoder and Markers State ---
+  final hwLocation.GeocoderService _geocoderService = hwLocation.GeocoderService();
+  Set<Marker> _incidentMarkers = {};
+  bool _isLoadingMarkers = true; // Flag for loading state
+
+  // Default camera position (e.g., center of Bukit Mertajam)
+  // Adjusted initial position to be closer to the dummy data locations
+  static const CameraPosition _kInitialPosition = CameraPosition(
+    target: LatLng(5.3644, 100.4660), // Bukit Mertajam Area
+    zoom: 13.0, // Zoom in a bit more
+  );
 
   @override
   void initState() {
     super.initState();
-    _initializeLocation();
+    HuaweiMapInitializer.initializeMap();
+    _requestLocationPermissionAndFetch();
+    _geocodeAndBuildMarkers();
   }
 
-  Future<void> _initializeLocation() async {
-    try {
-      // Request storage permission for tile database
-      print('Requesting storage permission...');
-      final storageStatus = await Permission.storage.request();
-      if (!storageStatus.isGranted) {
-        print('Storage permission denied.');
-        if (await Permission.storage.isPermanentlyDenied) {
-          print('Storage permission permanently denied, directing to settings.');
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Please enable storage permission in app settings.'),
-                duration: Duration(seconds: 3),
-              ),
-            );
-            await openAppSettings(); // Guide user to settings
-          }
-          if (mounted) setState(() => _isLoading = false);
-          return; // Exit if storage permission is not granted
-        }
-      } else {
-        print('Storage permission granted.');
-      }
-
-      // Request location permission
-      print('Requesting location permission...');
-      final locationStatus = await Permission.location.request();
-      if (locationStatus.isGranted) {
-        print('Location permission granted.');
-        await _getUserLocation(); // Proceed to get location and initialize map
-      } else {
-        print('Location permission denied.');
-        if (await Permission.location.isPermanentlyDenied) {
-          print('Location permission permanently denied, directing to settings.');
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Please enable location permission in app settings.'),
-                duration: Duration(seconds: 3),
-              ),
-            );
-            await openAppSettings();
-          }
-        } else {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Location permission is required to show the map.'),
-                duration: Duration(seconds: 3),
-              ),
-            );
-          }
-        }
-        if (mounted) setState(() => _isLoading = false);
-      }
-    } catch (e) {
-      print('Error in _initializeLocation: $e');
-      if (mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error initializing location: $e'),
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
+  // Handle incident list changes - Dynamic mapping
+  @override
+  void didUpdateWidget(covariant MapWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // If the incident list changes, rebuild the markers
+    if (widget.incidents != oldWidget.incidents) {
+      _geocodeAndBuildMarkers();
     }
   }
 
-  Future<void> _getUserLocation() async {
-    try {
-      print('Getting last known location...');
-      final location = await _locationService.getLastLocation();
-
-      if (location != null &&
-          location.latitude != null &&
-          location.longitude != null) {
-        print('Got location: ${location.latitude}, ${location.longitude}');
-        _setLocation(location.latitude!, location.longitude!);
-        return;
-      }
-
-      print('No last known location, requesting updates...');
-      await _requestLocationUpdates();
-    } catch (e) {
-      print('Error getting location: $e');
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  Future<void> _requestLocationUpdates() async {
-    try {
-      final locationRequest = LocationRequest();
-      locationRequest.interval = 1000;
-      locationRequest.priority = LocationRequest.PRIORITY_HIGH_ACCURACY;
-
-      await _locationService.requestLocationUpdates(locationRequest);
-
-      // Wait for location to be available
-      int attempts = 0;
-      while (attempts < 10) {
-        await Future.delayed(const Duration(milliseconds: 500));
-        final location = await _locationService.getLastLocation();
-        
-        if (location != null &&
-            location.latitude != null &&
-            location.longitude != null) {
-          print('Got location after ${(attempts + 1) * 500}ms: ${location.latitude}, ${location.longitude}');
-          _setLocation(location.latitude!, location.longitude!);
-          return;
-        }
-        attempts++;
-      }
-
-      print('Unable to get location after retries');
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    } catch (e) {
-      print('Error requesting location updates: $e');
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  void _setLocation(double lat, double lng) {
-    final newLocation = LatLng(lat, lng);
-    print('Setting location: $lat, $lng');
-
+  // Geocode incidents and create markers ---
+  Future<void> _geocodeAndBuildMarkers() async {
     if (!mounted) return;
-
     setState(() {
-      _currentLocation = newLocation;
-      _isLoading = false;
-      _markers.clear();
-      _markers.add(
-        Marker(
-          markerId: const MarkerId('user_location'),
-          position: newLocation,
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-          infoWindow: const InfoWindow(title: 'Your Location'),
-        ),
-      );
+      _isLoadingMarkers = true;
+      _incidentMarkers = {}; // Clear previous markers
     });
 
-    // Force map rebuild
-    if (_mapBuilt && _mapController != null) {
-      _animateToLocation(newLocation);
-      // Trigger a rebuild to ensure map renders
-      Future.delayed(Duration.zero, () {
-        if (mounted) {
-          setState(() {});
+    final Set<Marker> markers = {};
+    int markerIndex = 0;
+
+    // --- FIX: Construct the locale using the NAMED 'language' parameter ---
+    final hwLocation.Locale geocodingLocale = hwLocation.Locale(language: 'en'); // Use named parameter 'language'
+    // ----------------------------------------------------------------------
+
+    for (final incident in widget.incidents) {
+      final String address = incident['location'] ?? '';
+      final String title = incident['title'] ?? 'Incident';
+      final String snippet = incident['timestamp'] ?? '';
+
+      if (address.isNotEmpty) {
+        try {
+          final hwLocation.GetFromLocationNameRequest request =
+          hwLocation.GetFromLocationNameRequest(locationName: address, maxResults: 1);
+
+          final List<hwLocation.HWLocation> locations =
+          await _geocoderService.getFromLocationName(request, geocodingLocale); // Pass the correctly constructed Locale
+
+          if (locations.isNotEmpty) {
+            final hwLocation.HWLocation hwLoc = locations.first;
+            if (hwLoc.latitude != null && hwLoc.longitude != null) {
+              final LatLng position = LatLng(hwLoc.latitude!, hwLoc.longitude!);
+
+              double markerHue;
+              switch (incident['severity']?.toLowerCase()) {
+                case 'high':
+                  markerHue = BitmapDescriptor.hueRed;
+                  break;
+                case 'medium':
+                  markerHue = BitmapDescriptor.hueOrange;
+                  break;
+                case 'low':
+                  markerHue = BitmapDescriptor.hueYellow;
+                  break;
+                default:
+                  markerHue = BitmapDescriptor.hueAzure;
+              }
+
+              markers.add(
+                Marker(
+                  markerId: MarkerId('incident_${incident['id']}_$markerIndex'),
+                  position: position,
+                  icon: BitmapDescriptor.defaultMarkerWithHue(markerHue),
+                  infoWindow: InfoWindow(
+                    title: title,
+                    snippet: snippet,
+                  ),
+                ),
+              );
+              markerIndex++;
+            } else {
+              print('Geocoding result for "$address" missing coordinates.');
+            }
+          } else {
+            print('Geocoding failed for address: $address (No results found)');
+          }
+        } catch (e) {
+          print('Error during geocoding for "$address": $e');
         }
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _incidentMarkers = markers;
+        _isLoadingMarkers = false;
       });
     }
   }
 
-  void _animateToLocation(LatLng location) {
-    if (_mapController == null) return;
+  Future<void> _requestLocationPermissionAndFetch() async {
+    // 1. Check/Request Permission
+    var status = await Permission.locationWhenInUse.status;
+    if (!status.isGranted) {
+      status = await Permission.locationWhenInUse.request();
+      if (!status.isGranted) {
+        // Handle permission denied - maybe show a message
+        print("Location permission denied.");
+        return;
+      }
+    }
 
-    print('Animating to location: $location');
+    // 2. Fetch Location (if permission granted)
     try {
-      _mapController?.animateCamera(
-        CameraUpdate.newLatLngZoom(location, widget.initialZoom),
-      );
+      // Ensure location service is enabled
+      bool serviceEnabled = await _locationService.checkLocationSettings(
+        hwLocation.LocationSettingsRequest(requests: [
+          hwLocation.LocationRequest()..priority = hwLocation.LocationRequest.PRIORITY_HIGH_ACCURACY,
+        ]),
+      ).then((value) => value.hmsLocationUsable);
+
+      if (!serviceEnabled) {
+        print("Location services are disabled.");
+        // Optionally prompt user to enable location services
+        return;
+      }
+
+      hwLocation.Location? location = await _locationService.getLastLocation(); // Use prefix
+      if (location != null && mounted) {
+        setState(() {
+          _currentLocation = location;
+        });
+        _animateToLocation(location);
+      } else {
+        // If last location is null, request a single update
+        int? callbackId; // Store the ID to remove the callback later
+        callbackId = await _locationService.requestLocationUpdatesCb(
+          hwLocation.LocationRequest()..numUpdates = 1, // Request just one update
+          hwLocation.LocationCallback( // Use prefix
+            onLocationResult: (locationResult) {
+              if (locationResult.lastLocation != null && mounted) {
+                setState(() {
+                  _currentLocation = locationResult.lastLocation;
+                });
+                _animateToLocation(locationResult.lastLocation!);
+              }
+              // Remove the callback once the update is received
+              if (callbackId != null) {
+                _locationService.removeLocationUpdates(callbackId);
+              }
+            },
+            onLocationAvailability: (_) {},
+          ),
+        );
+      }
     } catch (e) {
-      print('Error animating camera: $e');
+      print("Error fetching location: $e");
     }
   }
 
   void _onMapCreated(HuaweiMapController controller) {
-    print('Map created');
     _mapController = controller;
-    _mapBuilt = true;
-
-    // Animate if location is already available
-    if (_currentLocation != null && !_isLoading) {
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted && _mapController != null && _currentLocation != null) {
-          _animateToLocation(_currentLocation!);
-        }
-      });
+    // Animate to current location if already fetched when map loads
+    if (_currentLocation != null) {
+      _animateToLocation(_currentLocation!);
     }
   }
 
-  @override
-  void dispose() {
-    _mapController = null;
-    super.dispose();
+  void _animateToLocation(hwLocation.Location location) { // Use prefix
+    _mapController?.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: LatLng(location.latitude!, location.longitude!),
+          zoom: 15.0, // Zoom in closer when location is known
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    print('MapWidget build - isLoading: $_isLoading, hasLocation: ${_currentLocation != null}');
-
-    return SizedBox(
-      height: widget.height,
-      child: Stack(
-        children: [
-          HuaweiMap(
-            key: _mapKey,
-            onMapCreated: _onMapCreated,
-            initialCameraPosition: CameraPosition(
-              target: _currentLocation ?? const LatLng(0.0, 0.0), // Fallback to default
-              zoom: widget.initialZoom,
-            ),
-            myLocationEnabled: _currentLocation != null, // Enable only when location is ready
-            myLocationButtonEnabled: false,
-            markers: _markers,
-            compassEnabled: true,
-            zoomControlsEnabled: true,
+    return Stack( // Use Stack to show loading indicator
+      children: [
+        HuaweiMap(
+          initialCameraPosition: _kInitialPosition,
+          onMapCreated: _onMapCreated,
+          mapType: MapType.normal,
+          compassEnabled: true,
+          zoomControlsEnabled: true,
+          zoomGesturesEnabled: true,
+          scrollGesturesEnabled: true,
+          myLocationEnabled: true,
+          myLocationButtonEnabled: true,
+          buildingsEnabled: true,
+          trafficEnabled: false,
+          markers: _incidentMarkers,
+        ),
+        // Loading indicator while geocoding
+        if (_isLoadingMarkers)
+          const Center(
+            child: CircularProgressIndicator(),
           ),
-          if (_isLoading)
-            Container(
-              color: Colors.grey[200],
-              child: const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 10),
-                    Text('Getting your location...'),
-                  ],
-                ),
-              ),
-            ),
-          if (!_isLoading && _currentLocation == null)
-            Container(
-              color: Colors.grey[200],
-              child: const Center(
-                child: Text('Unable to get location'),
-              ),
-            ),
-        ],
-      ),
+      ],
     );
   }
 }

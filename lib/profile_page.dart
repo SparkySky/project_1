@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:agconnect_auth/agconnect_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // Make sure this is imported
 import '../signup_login/auth_service.dart';
 import '../signup_login/auth_page.dart';
 import '../app_theme.dart';
 import '../constants/provider_types.dart';
+import '../util/debug_state.dart'; // Make sure this is imported
 
 class ProfilePage extends StatefulWidget {
   @override
@@ -15,16 +17,24 @@ class _ProfilePageState extends State<ProfilePage> {
   final AuthService _authService = AuthService();
   AGCUser? _currentUser;
   bool _isLoading = true;
+
+  final DebugState _debugState = DebugState();
   bool _allowDiscoverable = true;
   bool _allowEmergencyAlert = false;
+  bool _allowDebugOverlay = false;
+
+  static const String _discoverableKey = 'allowDiscoverable';
+  static const String _emergencyKey = 'allowEmergencyAlert';
 
   @override
   void initState() {
     super.initState();
     _loadUserInfo();
+    _loadPreferences();
   }
 
   Future<void> _loadUserInfo() async {
+    // ... (Keep the existing _loadUserInfo method)
     try {
       final user = await _authService.currentUser;
       if (mounted) {
@@ -43,7 +53,24 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  Future<void> _loadPreferences() async {
+    // ... (Keep the existing _loadPreferences method)
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _allowDiscoverable = prefs.getBool(_discoverableKey) ?? true;
+      _allowEmergencyAlert = prefs.getBool(_emergencyKey) ?? false;
+      _allowDebugOverlay = _debugState.showDebugOverlay;
+    });
+  }
+
+  Future<void> _savePreference(String key, bool value) async {
+    // ... (Keep the existing _savePreference method)
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(key, value);
+  }
+
   String _getProviderName(int providerId) {
+    // ... (Keep the existing _getProviderName method)
     debugPrint("provider ID = $providerId");
     return AuthProviderName.name(providerId);
   }
@@ -55,6 +82,7 @@ class _ProfilePageState extends State<ProfilePage> {
     }
 
     if (_currentUser == null) {
+      // ... (Keep the existing placeholder widget for logged-out state)
       return Scaffold(
         body: Center(
           child: Column(
@@ -85,7 +113,7 @@ class _ProfilePageState extends State<ProfilePage> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // Header Section with Avatar
+            // ... (Keep the existing Header Section)
             Container(
               width: double.infinity,
               decoration: BoxDecoration(
@@ -99,36 +127,34 @@ class _ProfilePageState extends State<ProfilePage> {
               child: Column(
                 children: [
                   const SizedBox(height: 20),
-                  // Avatar
                   CircleAvatar(
                     radius: 50,
                     backgroundColor: Colors.white,
                     child:
-                        _currentUser!.photoUrl != null &&
-                            _currentUser!.photoUrl!.isNotEmpty
+                    _currentUser!.photoUrl != null &&
+                        _currentUser!.photoUrl!.isNotEmpty
                         ? ClipOval(
-                            child: Image.network(
-                              _currentUser!.photoUrl!,
-                              width: 100,
-                              height: 100,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return const Icon(
-                                  Icons.person,
-                                  size: 50,
-                                  color: AppTheme.primaryOrange,
-                                );
-                              },
-                            ),
-                          )
-                        : const Icon(
+                      child: Image.network(
+                        _currentUser!.photoUrl!,
+                        width: 100,
+                        height: 100,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Icon(
                             Icons.person,
                             size: 50,
                             color: AppTheme.primaryOrange,
-                          ),
+                          );
+                        },
+                      ),
+                    )
+                        : const Icon(
+                      Icons.person,
+                      size: 50,
+                      color: AppTheme.primaryOrange,
+                    ),
                   ),
                   const SizedBox(height: 16),
-                  // Display Name
                   Text(
                     _currentUser!.displayName ?? 'User',
                     style: const TextStyle(
@@ -138,7 +164,6 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  // Email or Phone
                   Text(
                     _currentUser!.email ??
                         _currentUser!.phone ??
@@ -163,30 +188,26 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // User ID Card
+                  // ... (Keep the existing _buildInfoCard section)
                   _buildInfoCard(
                     icon: Icons.fingerprint,
                     title: 'User ID',
                     value: _currentUser!.uid!,
                   ),
-
-                  // Email Card
                   _buildInfoCard(
                     icon: Icons.email_outlined,
                     title: 'Email',
                     value:
-                        (_currentUser!.email != null &&
-                            _currentUser!.email!.isNotEmpty)
+                    (_currentUser!.email != null &&
+                        _currentUser!.email!.isNotEmpty)
                         ? _currentUser!.email!
                         : 'unset',
                     valueColor:
-                        (_currentUser!.email != null &&
-                            _currentUser!.email!.isNotEmpty)
+                    (_currentUser!.email != null &&
+                        _currentUser!.email!.isNotEmpty)
                         ? Colors.black87
                         : Colors.grey,
                   ),
-
-                  // Phone Card
                   if (_currentUser!.phone != null &&
                       _currentUser!.phone!.isNotEmpty)
                     _buildInfoCard(
@@ -194,15 +215,11 @@ class _ProfilePageState extends State<ProfilePage> {
                       title: 'Phone',
                       value: _currentUser!.phone!,
                     ),
-
-                  // Provider Card
                   _buildInfoCard(
                     icon: Icons.login,
                     title: 'Sign-in Method',
                     value: _getProviderName(_currentUser!.providerId!.index),
                   ),
-
-                  // Email Verified Status
                   if (_currentUser!.email != null &&
                       _currentUser!.email!.isNotEmpty)
                     _buildInfoCard(
@@ -220,7 +237,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
                   const SizedBox(height: 32),
 
-                  // Discoverability and Alerts Toggles
+                  // Preferences Section
                   const SizedBox(height: 24),
                   const Text(
                     'Preferences',
@@ -229,122 +246,40 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(height: 12),
 
                   // Allow Discoverable toggle
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.1),
-                          spreadRadius: 1,
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: AppTheme.primaryOrange.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Icon(
-                                Icons.visibility_outlined,
-                                color: AppTheme.primaryOrange,
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            const Text(
-                              'Allow Discoverable',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                        Switch(
-                          activeColor: AppTheme.primaryOrange,
-                          value: _allowDiscoverable,
-                          onChanged: (value) {
-                            setState(() {
-                              _allowDiscoverable = value;
-                            });
-                          },
-                        ),
-                      ],
-                    ),
+                  _buildToggleCard(
+                    icon: Icons.visibility_outlined,
+                    title: 'Allow Discoverable',
+                    value: _allowDiscoverable,
+                    onChanged: (value) {
+                      setState(() => _allowDiscoverable = value);
+                      _savePreference(_discoverableKey, value);
+                    },
                   ),
 
                   // Allow Emergency Alert toggle
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 24),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.1),
-                          spreadRadius: 1,
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: AppTheme.primaryOrange.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Icon(
-                                Icons.warning_amber_outlined,
-                                color: AppTheme.primaryOrange,
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            const Text(
-                              'Allow Emergency Alerts',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                        Switch(
-                          activeColor: AppTheme.primaryOrange,
-                          value: _allowEmergencyAlert,
-                          onChanged: (value) {
-                            setState(() {
-                              _allowEmergencyAlert = value;
-                            });
-                          },
-                        ),
-                      ],
-                    ),
+                  _buildToggleCard(
+                    icon: Icons.warning_amber_outlined,
+                    title: 'Allow Emergency Alerts',
+                    value: _allowEmergencyAlert,
+                    onChanged: (value) {
+                      setState(() => _allowEmergencyAlert = value);
+                      _savePreference(_emergencyKey, value);
+                    },
                   ),
+
+                  // --- HERE IS THE DEBUG OVERLAY TOGGLE ---
+                  _buildToggleCard(
+                    icon: Icons.bug_report_outlined,
+                    title: 'Allow Debug Overlay',
+                    value: _allowDebugOverlay,
+                    onChanged: (value) {
+                      setState(() => _allowDebugOverlay = value);
+                      _debugState.setShowDebugOverlay(value);
+                    },
+                  ),
+                  // ----------------------------------------
+
+                  const SizedBox(height: 12),
 
                   // Logout Button
                   SizedBox(
@@ -370,7 +305,6 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 32),
                 ],
               ),
@@ -381,12 +315,76 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  // --- HERE IS THE DEFINITION of _buildToggleCard ---
+  Widget _buildToggleCard({
+    required IconData icon,
+    required String title,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 12,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryOrange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  icon,
+                  color: AppTheme.primaryOrange,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          Switch(
+            activeColor: AppTheme.primaryOrange,
+            value: value,
+            onChanged: onChanged,
+          ),
+        ],
+      ),
+    );
+  }
+  // ----------------------------------------------------
+
   Widget _buildInfoCard({
     required IconData icon,
     required String title,
     required String value,
     Color? valueColor,
   }) {
+    // ... (Keep the existing _buildInfoCard method)
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -445,7 +443,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _handleLogout() async {
-    // Show confirmation dialog
+    // ... (Keep the existing _handleLogout method)
     final shouldLogout = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -471,7 +469,6 @@ class _ProfilePageState extends State<ProfilePage> {
     if (shouldLogout != true) return;
 
     try {
-      // Show loading indicator
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -481,24 +478,16 @@ class _ProfilePageState extends State<ProfilePage> {
       await _authService.signOut();
 
       if (!mounted) return;
-
-      // Close loading indicator
-      Navigator.of(context).pop();
-
-      // Navigate to login screen
+      Navigator.of(context).pop(); // Close loading indicator
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
           builder: (context) => const AuthScreen(isLogin: true),
         ),
-        (route) => false, // Remove all previous routes
+            (route) => false,
       );
     } catch (e) {
       if (!mounted) return;
-
-      // Close loading indicator
-      Navigator.of(context).pop();
-
-      // Show error message
+      Navigator.of(context).pop(); // Close loading indicator
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Logout failed: $e'),
@@ -507,4 +496,4 @@ class _ProfilePageState extends State<ProfilePage> {
       );
     }
   }
-}
+} // End of _ProfilePageState class
