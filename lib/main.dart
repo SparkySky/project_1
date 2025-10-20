@@ -9,6 +9,8 @@ import 'bg_services/background_service.dart';
 import 'permissions/permission_handler.dart';
 import 'splashscreen.dart';
 
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 Future<void> main() async {
   // Ensures that plugin services (like HMS Core) are initialized before runApp
   WidgetsFlutterBinding.ensureInitialized();
@@ -58,6 +60,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: 'MYSafeZone',
       theme: AppTheme.lightTheme,
       debugShowCheckedModeBanner: false, // Debug: Remove the top right banner

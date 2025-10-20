@@ -54,35 +54,6 @@ dependencies:
   agconnect_crash:
       path: plugins/agconnect_crash
 
-  # --- Core Service ---
-  # Manages the foreground service and background isolate
-  flutter_background_service: ^5.0.0
-  # --- Permissions ---
-  # For requesting Audio, Location, Sensors, etc.
-  permission_handler: ^11.3.1
-  # --- IMU Sensors ---
-  # Access Accelerometer, Gyroscope, etc.
-  sensors_plus: ^5.0.1
-  # --- Audio Recording ---
-  # To capture audio for analysis and upload
-  # We use this to create the audio file for DriveKit
-  flutter_sound: ^9.2.13
-  # --- Huawei HMS Kits ---
-  agconnect_core: ^1.9.0+300
-  agconnect_clouddb: ^1.9.0+300
-  huawei_location: ^6.12.0+300 # Use latest compatible
-  huawei_map: ^6.11.0+301
-  huawei_ml_body: ^3.12.0+300 # For Sound Detect & ASR
-  huawei_drive: ^5.0.0+308
-  huawei_push: ^6.13.0+300
-
-  # --- Utility ---
-  # For generating unique IDs for 'uid' and 'mediaID'
-  uuid: ^4.4.0
-  # For local storage of the device's unique ID
-  shared_preferences: ^2.2.3
-
-
 dev_dependencies:
   flutter_test:
     sdk: flutter
