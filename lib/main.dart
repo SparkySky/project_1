@@ -14,7 +14,7 @@ import 'splashscreen.dart';
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
-  // Ensures that plugin services (like HMS Core) are initialized before runApp
+  // Ensures that plugin services are initialized before runApp
   WidgetsFlutterBinding.ensureInitialized();
 
   // Create Notification Channel
@@ -50,10 +50,6 @@ Future<void> main() async {
       print("[MAIN] CRITICAL Error during AGConnect/CloudDB init: $e");
     }
   }
-
-  // CRITICAL: Longer delay for HMS Core to fully initialize and authenticate
-  // This prevents 403 errors on first map load
-  await Future.delayed(const Duration(milliseconds: 3000));
 
   runApp(const MyApp());
 }

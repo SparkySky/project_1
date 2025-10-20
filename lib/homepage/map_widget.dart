@@ -18,62 +18,84 @@ class MapWidget extends StatefulWidget {
 }
 
 class _MapWidgetState extends State<MapWidget> {
+  final GlobalKey _mapKey = GlobalKey();
   HuaweiMapController? _mapController;
   final FusedLocationProviderClient _locationService = FusedLocationProviderClient();
   LatLng? _currentLocation;
   bool _isLoading = true;
-  bool _hmsReady = false;
-  bool _shouldShowMap = false;
   final Set<Marker> _markers = {};
+  bool _mapBuilt = false;
 
   @override
   void initState() {
     super.initState();
-    _initializeWithHMSCheck();
-  }
-
-  Future<void> _initializeWithHMSCheck() async {
-    print('Starting HMS Core initialization check...');
-    
-    // Wait for widget to be fully built
-    await WidgetsBinding.instance.endOfFrame;
-    
-    // CRITICAL: Give HMS Core extra time to authenticate on first launch
-    // This prevents 403 errors when loading map tiles
-    await Future.delayed(const Duration(milliseconds: 2000));
-    
-    if (!mounted) return;
-    
-    print('HMS Core ready, initializing location...');
-    // Get location FIRST before marking HMS as ready
-    await _initializeLocation();
-    
-    // Only mark HMS ready after we have location
-    if (mounted && _currentLocation != null) {
-      setState(() {
-        _hmsReady = true;
-      });
-    }
+    _initializeLocation();
   }
 
   Future<void> _initializeLocation() async {
-    print('Requesting location permission...');
-    final status = await Permission.location.request();
+    try {
+      // Request storage permission for tile database
+      print('Requesting storage permission...');
+      final storageStatus = await Permission.storage.request();
+      if (!storageStatus.isGranted) {
+        print('Storage permission denied.');
+        if (await Permission.storage.isPermanentlyDenied) {
+          print('Storage permission permanently denied, directing to settings.');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Please enable storage permission in app settings.'),
+                duration: Duration(seconds: 3),
+              ),
+            );
+            await openAppSettings(); // Guide user to settings
+          }
+          if (mounted) setState(() => _isLoading = false);
+          return; // Exit if storage permission is not granted
+        }
+      } else {
+        print('Storage permission granted.');
+      }
 
-    if (status.isGranted) {
-      print('Permission granted.');
-      await _getUserLocation();
-    } else {
-      print('Permission denied.');
+      // Request location permission
+      print('Requesting location permission...');
+      final locationStatus = await Permission.location.request();
+      if (locationStatus.isGranted) {
+        print('Location permission granted.');
+        await _getUserLocation(); // Proceed to get location and initialize map
+      } else {
+        print('Location permission denied.');
+        if (await Permission.location.isPermanentlyDenied) {
+          print('Location permission permanently denied, directing to settings.');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Please enable location permission in app settings.'),
+                duration: Duration(seconds: 3),
+              ),
+            );
+            await openAppSettings();
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Location permission is required to show the map.'),
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
+        }
+        if (mounted) setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      print('Error in _initializeLocation: $e');
       if (mounted) {
         setState(() => _isLoading = false);
-      }
-      // Show error message to user
-      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Location permission is required to show the map'),
-            duration: Duration(seconds: 3),
+          SnackBar(
+            content: Text('Error initializing location: $e'),
+            duration: const Duration(seconds: 3),
           ),
         );
       }
@@ -89,12 +111,12 @@ class _MapWidgetState extends State<MapWidget> {
           location.latitude != null &&
           location.longitude != null) {
         print('Got location: ${location.latitude}, ${location.longitude}');
-        _updateLocationOnMap(location.latitude!, location.longitude!);
-      } else {
-        print('No last known location, requesting updates...');
-        // Try to get current location
-        await _requestLocationUpdates();
+        _setLocation(location.latitude!, location.longitude!);
+        return;
       }
+
+      print('No last known location, requesting updates...');
+      await _requestLocationUpdates();
     } catch (e) {
       print('Error getting location: $e');
       if (mounted) {
@@ -108,22 +130,28 @@ class _MapWidgetState extends State<MapWidget> {
       final locationRequest = LocationRequest();
       locationRequest.interval = 1000;
       locationRequest.priority = LocationRequest.PRIORITY_HIGH_ACCURACY;
-      
+
       await _locationService.requestLocationUpdates(locationRequest);
-      
-      // Wait a bit for location update
-      await Future.delayed(const Duration(seconds: 3));
-      
-      final location = await _locationService.getLastLocation();
-      if (location != null &&
-          location.latitude != null &&
-          location.longitude != null) {
-        _updateLocationOnMap(location.latitude!, location.longitude!);
-      } else {
-        print('Unable to get location after requesting updates');
-        if (mounted) {
-          setState(() => _isLoading = false);
+
+      // Wait for location to be available
+      int attempts = 0;
+      while (attempts < 10) {
+        await Future.delayed(const Duration(milliseconds: 500));
+        final location = await _locationService.getLastLocation();
+        
+        if (location != null &&
+            location.latitude != null &&
+            location.longitude != null) {
+          print('Got location after ${(attempts + 1) * 500}ms: ${location.latitude}, ${location.longitude}');
+          _setLocation(location.latitude!, location.longitude!);
+          return;
         }
+        attempts++;
+      }
+
+      print('Unable to get location after retries');
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
     } catch (e) {
       print('Error requesting location updates: $e');
@@ -133,17 +161,15 @@ class _MapWidgetState extends State<MapWidget> {
     }
   }
 
-  void _updateLocationOnMap(double lat, double lng) {
+  void _setLocation(double lat, double lng) {
     final newLocation = LatLng(lat, lng);
+    print('Setting location: $lat, $lng');
 
     if (!mounted) return;
-
-    print('Updating location on map: $lat, $lng');
 
     setState(() {
       _currentLocation = newLocation;
       _isLoading = false;
-      _shouldShowMap = true;
       _markers.clear();
       _markers.add(
         Marker(
@@ -155,34 +181,41 @@ class _MapWidgetState extends State<MapWidget> {
       );
     });
 
-    print('Location updated, map should show now');
+    // Force map rebuild
+    if (_mapBuilt && _mapController != null) {
+      _animateToLocation(newLocation);
+      // Trigger a rebuild to ensure map renders
+      Future.delayed(Duration.zero, () {
+        if (mounted) {
+          setState(() {});
+        }
+      });
+    }
+  }
 
-    // Delay camera animation to ensure map is fully ready
-    Future.delayed(const Duration(milliseconds: 1000), () {
-      if (mounted && _mapController != null) {
-        print('Animating camera to location');
-        _mapController!.animateCamera(
-          CameraUpdate.newLatLngZoom(newLocation, widget.initialZoom),
-        );
-      }
-    });
+  void _animateToLocation(LatLng location) {
+    if (_mapController == null) return;
+
+    print('Animating to location: $location');
+    try {
+      _mapController?.animateCamera(
+        CameraUpdate.newLatLngZoom(location, widget.initialZoom),
+      );
+    } catch (e) {
+      print('Error animating camera: $e');
+    }
   }
 
   void _onMapCreated(HuaweiMapController controller) {
-    print('Map created callback received.');
-    if (!mounted) return;
-    
-    setState(() {
-      _mapController = controller;
-    });
+    print('Map created');
+    _mapController = controller;
+    _mapBuilt = true;
 
-    // Move camera to current location if available
-    if (_currentLocation != null) {
+    // Animate if location is already available
+    if (_currentLocation != null && !_isLoading) {
       Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted && _mapController != null) {
-          _mapController!.animateCamera(
-            CameraUpdate.newLatLngZoom(_currentLocation!, widget.initialZoom),
-          );
+        if (mounted && _mapController != null && _currentLocation != null) {
+          _animateToLocation(_currentLocation!);
         }
       });
     }
@@ -196,33 +229,48 @@ class _MapWidgetState extends State<MapWidget> {
 
   @override
   Widget build(BuildContext context) {
-    print('Building MapWidget - isLoading: $_isLoading, hmsReady: $_hmsReady, shouldShowMap: $_shouldShowMap, hasLocation: ${_currentLocation != null}');
-    
-    return Container(
+    print('MapWidget build - isLoading: $_isLoading, hasLocation: ${_currentLocation != null}');
+
+    return SizedBox(
       height: widget.height,
-      child: _currentLocation == null || !_shouldShowMap
-          ? const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 10),
-                  Text('Getting your location...'),
-                ],
-              ),
-            )
-          : HuaweiMap(
-              onMapCreated: _onMapCreated,
-              initialCameraPosition: CameraPosition(
-                target: _currentLocation!,
-                zoom: widget.initialZoom,
-              ),
-              myLocationEnabled: true,
-              myLocationButtonEnabled: false,
-              markers: _markers,
-              compassEnabled: true,
-              zoomControlsEnabled: true,
+      child: Stack(
+        children: [
+          HuaweiMap(
+            key: _mapKey,
+            onMapCreated: _onMapCreated,
+            initialCameraPosition: CameraPosition(
+              target: _currentLocation ?? const LatLng(0.0, 0.0), // Fallback to default
+              zoom: widget.initialZoom,
             ),
+            myLocationEnabled: _currentLocation != null, // Enable only when location is ready
+            myLocationButtonEnabled: false,
+            markers: _markers,
+            compassEnabled: true,
+            zoomControlsEnabled: true,
+          ),
+          if (_isLoading)
+            Container(
+              color: Colors.grey[200],
+              child: const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 10),
+                    Text('Getting your location...'),
+                  ],
+                ),
+              ),
+            ),
+          if (!_isLoading && _currentLocation == null)
+            Container(
+              color: Colors.grey[200],
+              child: const Center(
+                child: Text('Unable to get location'),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

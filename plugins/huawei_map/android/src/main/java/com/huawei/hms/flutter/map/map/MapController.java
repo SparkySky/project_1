@@ -157,7 +157,7 @@ final class MapController
         this.context = context;
         this.activityState = activityState;
 
-        MapsInitializer.initialize(application);
+        MapsInitializer.initialize(mActivity.getApplicationContext());
 
         mapView = new MapView(mActivity, options);
         compactness = context.getResources().getDisplayMetrics().density;
@@ -179,6 +179,8 @@ final class MapController
 
     void init() {
         final String caseTag = "MapController init";
+        Log.d(caseTag, "Init called with activityState: " + activityState.get());
+        
         switch (activityState.get()) {
             case HmsMap.STOPPED:
                 Log.i(caseTag, "HmsMap.Stopped");
@@ -216,11 +218,16 @@ final class MapController
             default:
                 throw new IllegalArgumentException("Cannot interpret " + activityState.get() + " as an activity state");
         }
+        
+        // Register lifecycle observer BEFORE calling getMapAsync
         if (lifecycle != null) {
             lifecycle.addObserver(this);
+            Log.d(caseTag, "Lifecycle observer registered, current state: " + lifecycle.getCurrentState());
         } else {
             getApplication().registerActivityLifecycleCallbacks(this);
+            Log.d(caseTag, "Activity lifecycle callbacks registered");
         }
+        
         mapView.getMapAsync(this);
     }
 
@@ -352,6 +359,12 @@ final class MapController
 
     @Override
     public void onMapReady(final HuaweiMap huaweiMap) {
+        if (huaweiMap == null) {
+            Log.e("MapController", "HuaweiMap is null in onMapReady!");
+            return;
+        }
+        
+        Log.d("MapController", "onMapReady called");
         this.huaweiMap = huaweiMap;
 
         if (allGesturesEnabled != null) {
@@ -406,11 +419,9 @@ final class MapController
             logger.sendSingleEvent("MapController-setPointToCenter");
         }
 
-        Log.e("TAG", "setMyLocationStyle dis", null);
         if (myLocationStyle != null) {
             logger.startMethodExecutionTimer("MapController-setMyLocationStyle");
             this.huaweiMap.setMyLocationStyle(myLocationStyle);
-            Log.e("TAG", "setMyLocationStyle ic", null);
             logger.sendSingleEvent("MapController-setMyLocationStyle");
         }
 
@@ -564,7 +575,6 @@ final class MapController
         if (huaweiMap != null) {
             updateMyLocationSettings();
         }
-
     }
 
     @Override
@@ -824,6 +834,7 @@ final class MapController
         if (disposed || activity.hashCode() != getActivityHashCode()) {
             return;
         }
+        Log.d("MapController", "onActivityCreated");
         mapView.onCreate(savedInstanceState);
     }
 
@@ -832,6 +843,7 @@ final class MapController
         if (disposed || activity.hashCode() != getActivityHashCode()) {
             return;
         }
+        Log.d("MapController", "onActivityStarted");
         mapView.onStart();
     }
 
@@ -840,6 +852,7 @@ final class MapController
         if (disposed || activity.hashCode() != getActivityHashCode()) {
             return;
         }
+        Log.d("MapController", "onActivityResumed");
         mapView.onResume();
     }
 
@@ -848,6 +861,7 @@ final class MapController
         if (disposed || activity.hashCode() != getActivityHashCode()) {
             return;
         }
+        Log.d("MapController", "onActivityPaused");
         mapView.onPause();
     }
 
@@ -856,6 +870,7 @@ final class MapController
         if (disposed || activity.hashCode() != getActivityHashCode()) {
             return;
         }
+        Log.d("MapController", "onActivityStopped");
         mapView.onStop();
     }
 
@@ -872,6 +887,7 @@ final class MapController
         if (disposed || activity.hashCode() != getActivityHashCode()) {
             return;
         }
+        Log.d("MapController", "onActivityDestroyed");
         mapView.onDestroy();
     }
 
@@ -880,6 +896,7 @@ final class MapController
         if (disposed) {
             return;
         }
+        Log.d("MapController", "Lifecycle onCreate");
         mapView.onCreate(null);
     }
 
@@ -888,6 +905,7 @@ final class MapController
         if (disposed) {
             return;
         }
+        Log.d("MapController", "Lifecycle onStart");
         mapView.onStart();
     }
 
@@ -896,6 +914,7 @@ final class MapController
         if (disposed) {
             return;
         }
+        Log.d("MapController", "Lifecycle onResume");
         mapView.onResume();
     }
 
@@ -904,7 +923,8 @@ final class MapController
         if (disposed) {
             return;
         }
-        mapView.onResume();
+        Log.d("MapController", "Lifecycle onPause");
+        mapView.onPause();
     }
 
     @Override
@@ -912,6 +932,7 @@ final class MapController
         if (disposed) {
             return;
         }
+        Log.d("MapController", "Lifecycle onStop");
         mapView.onStop();
     }
 
@@ -920,6 +941,7 @@ final class MapController
         if (disposed) {
             return;
         }
+        Log.d("MapController", "Lifecycle onDestroy");
         mapView.onDestroy();
     }
 
@@ -980,4 +1002,3 @@ final class MapController
         return location;
     }
 }
-
