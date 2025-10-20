@@ -10,7 +10,7 @@ import 'permissions/permission_handler.dart';
 import 'splashscreen.dart';
 
 Future<void> main() async {
-  // Ensures that plugin services (like HMS Core) are initialized before runApp
+  // Ensures that plugin services are initialized before runApp
   WidgetsFlutterBinding.ensureInitialized();
 
   // Create Notification Channel
@@ -44,10 +44,6 @@ Future<void> main() async {
   } catch (e) {
     print("Error during potential AGConnect/CloudDB init check: $e");
   }
-
-  // CRITICAL: Longer delay for HMS Core to fully initialize and authenticate
-  // This prevents 403 errors on first map load
-  await Future.delayed(const Duration(milliseconds: 3000));
 
   runApp(const MyApp());
 }
