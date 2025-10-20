@@ -26,8 +26,7 @@ dependencies:
   #  Huawei/HMS
   huawei_map:
     path: plugins/huawei_map
-  huawei_location:
-    path: plugins/huawei_location
+  huawei_location: 6.11.0+301
   huawei_ml_text:
     path: plugins/huawei_ml_text
   huawei_ml_body:
@@ -62,8 +61,8 @@ dev_dependencies:
   flutter_launcher_icons: ^0.13.1
 
 flutter_launcher_icons:
-  android: true
-  ios: true
+  android: "launcher_icon"
+  ios: false
   image_path: "assets/images/mysafezone_logo.png"
 
 flutter:
