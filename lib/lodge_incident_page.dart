@@ -13,6 +13,7 @@ class LodgeIncidentPage extends StatefulWidget {
   final String? district;
   final String? postcode;
   final String? state;
+  final String? audioRecordingPath;
 
   const LodgeIncidentPage({
     Key? key,
@@ -21,6 +22,7 @@ class LodgeIncidentPage extends StatefulWidget {
     this.district,
     this.postcode,
     this.state,
+    this.audioRecordingPath,
   }) : super(key: key);
 
   @override
@@ -51,6 +53,9 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
     _descriptionController = TextEditingController(text: widget.description);
     if (widget.incidentType != null) {
       _incidentType = widget.incidentType!;
+    }
+    if (widget.audioRecordingPath != null) {
+      _mediaFiles.add(File(widget.audioRecordingPath!));
     }
   }
 

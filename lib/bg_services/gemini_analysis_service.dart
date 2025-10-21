@@ -3,45 +3,38 @@ import 'package:flutter/foundation.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 
 //region Adjustable Thresholds and Configuration
-// TODO: Replace with your actual Gemini API key.
-const String GEMINI_API_KEY = "YOUR_GEMINI_API_KEY";
-
-// Tweak this prompt to get the best results from the Gemini model.
+// This prompt is more advanced. It asks the model to look for context
+// and cancel false positives, which is key to your request.
 const String GEMINI_PROMPT = """
-Analyze the following sensor data and recognized speech to determine if a safety incident has occurred.
-The data includes accelerometer and gyroscope readings, along with any spoken words that were detected.
+Analyze the following data collected over a 10-second window to determine if a real safety incident occurred.
 
-Data:
+An initial trigger started this analysis. The initial triggers were: "{initialTriggers}"
+
+During the 10-second window, the following was said:
+Full Speech Transcript: "{transcript}"
+
+Sensor Data Peaks during the window:
 {
-  "accelerometer": {
-    "x": "{accelX}",
-    "y": "{accelY}",
-    "z": "{accelZ}"
-  },
-  "gyroscope": {
-    "x": "{gyroX}",
-    "y": "{gyroY}",
-    "z": "{gyroZ}"
-  },
-  "speech": "{speech}"
+  "accelerometer": { "x": "{accelX}", "y": "{accelY}", "z": "{accelZ}" },
+  "gyroscope": { "x": "{gyroX}", "y": "{gyroY}", "z": "{gyroZ}" }
 }
 
-Based on this data, provide a JSON response with the following structure:
-- "isIncident": boolean (true if an incident is likely, false otherwise)
-- "incidentType": string (e.g., "Fall", "Car Crash", "Argument", "General Alert")
-- "description": string (A concise, one-paragraph summary of what likely happened, suitable for a report.)
-- "district": string (Infer the district from the context if possible, otherwise leave empty)
-- "postcode": string (Infer the postcode from the context if possible, otherwise leave empty)
-- "state": string (Infer the state from the context if possible, otherwise leave empty)
+Your task is to evaluate the full context. If the speech transcript suggests a non-emergency situation (e.g., the user is talking about a movie, telling a story, or the keywords were used in a normal conversation), you MUST classify it as a false positive.
 
-Example of a high-motion event with the word "help":
+Provide a JSON response with the following structure:
+- "isIncident": boolean (true ONLY if you are confident it is a real incident, false for conversational context or false positives)
+- "incidentType": string (e.g., "Fall", "Distress Call", "False Positive")
+- "description": string (A concise, one-paragraph summary. If it is a false positive, briefly explain why.)
+- "district": string (Infer if possible, otherwise leave empty)
+- "postcode": string (Infer if possible, otherwise leave empty)
+- "state": string (Infer if possible, otherwise leave empty)
+
+Example of a false positive:
 {
-  "isIncident": true,
-  "incidentType": "General Alert",
-  "description": "A potential emergency has been detected. The user's device registered a significant impact or fall, and the word 'help' was spoken. Immediate attention may be required.",
-  "district": "",
-  "postcode": "",
-  "state": ""
+  "isIncident": false,
+  "incidentType": "False Positive",
+  "description": "The keyword 'help' was detected, but the full speech transcript indicates the user was likely discussing a movie scene. This does not appear to be a real incident.",
+  "district": "", "postcode": "", "state": ""
 }
 
 Now, analyze the provided data.
@@ -57,7 +50,7 @@ class GeminiAnalysisService {
     required this.apiKey,
     this.modelName = 'gemini-pro',
   }) {
-    if (apiKey.isNotEmpty && apiKey != "YOUR_GEMINI_API_KEY") {
+    if (apiKey.isNotEmpty) {
       _model = GenerativeModel(
         model: modelName,
         apiKey: apiKey,
@@ -72,7 +65,8 @@ class GeminiAnalysisService {
     required double gyroX,
     required double gyroY,
     required double gyroZ,
-    required String speech,
+    required String initialTriggers,
+    required String transcript,
   }) async {
     if (_model == null) {
       if (kDebugMode) {
@@ -90,22 +84,20 @@ class GeminiAnalysisService {
         .replaceAll("{gyroX}", gyroX.toStringAsFixed(2))
         .replaceAll("{gyroY}", gyroY.toStringAsFixed(2))
         .replaceAll("{gyroZ}", gyroZ.toStringAsFixed(2))
-        .replaceAll("{speech}", speech);
+        .replaceAll("{initialTriggers}", initialTriggers)
+        .replaceAll("{transcript}", transcript);
 
     try {
       final content = [Content.text(prompt)];
       final response = await _model!.generateContent(content);
-
-      // Sanitize the response to remove Markdown formatting.
+      
       String sanitizedText = response.text ?? "";
       final jsonStartIndex = sanitizedText.indexOf('{');
       final jsonEndIndex = sanitizedText.lastIndexOf('}');
 
       if (jsonStartIndex != -1 && jsonEndIndex != -1) {
-        sanitizedText =
-            sanitizedText.substring(jsonStartIndex, jsonEndIndex + 1);
+        sanitizedText = sanitizedText.substring(jsonStartIndex, jsonEndIndex + 1);
       } else {
-        // If we can't find a JSON object, return null
         return null;
       }
 
