@@ -22,6 +22,7 @@ dependencies:
   uuid: ^4.4.0
   shared_preferences: ^2.2.3
   path_provider: ^2.0.0 # Often needed with flutter_sound
+  image_picker: ^1.0.4
 
   #  Huawei/HMS
   huawei_map:
