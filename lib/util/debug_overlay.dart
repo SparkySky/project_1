@@ -139,18 +139,6 @@ class _DebugOverlayWidgetState extends State<DebugOverlayWidget> {
     return "Gyro (x/y/z): ${e.x.toStringAsFixed(2)} / ${e.y.toStringAsFixed(2)} / ${e.z.toStringAsFixed(2)}";
   }
 
-  String _formatSoundLevel(double level) {
-    return "Sound Level: ${level.toStringAsFixed(2)} dB";
-  }
-
-  String _formatRecognizedWords(String words) {
-    return "Recognized: '$words'";
-  }
-
-  String _formatKeywordDetected(String keyword) {
-    return "Keyword: '$keyword' DETECTED!";
-  }
-
   @override
   Widget build(BuildContext context) {
     return Positioned(
@@ -191,30 +179,34 @@ class _DebugOverlayWidgetState extends State<DebugOverlayWidget> {
                   _formatGyro(_gyro),
                   style: const TextStyle(color: Colors.white, fontSize: 12),
                 ),
-                const SizedBox(height: 4),
+                const Divider(color: Colors.white54, height: 10),
                 Text(
                   "Sound Service: ${_debugState.soundServiceStatus}",
                   style: const TextStyle(color: Colors.white, fontSize: 12),
                 ),
-                Text(
-                  _formatSoundLevel(_debugState.soundLevel),
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
-                ),
-                Text(
-                  _formatRecognizedWords(_debugState.lastRecognizedWords),
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
-                ),
-                if (_debugState.lastKeywordDetected.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4.0),
-                    child: Text(
-                      _formatKeywordDetected(_debugState.lastKeywordDetected),
-                      style: const TextStyle(
-                          color: AppTheme.primaryOrange,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12),
-                    ),
+                if (_debugState.collectedTriggers.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    "Triggers: ${_debugState.collectedTriggers.join(', ')}",
+                    style: const TextStyle(color: Colors.yellow, fontSize: 12),
                   ),
+                  Text(
+                    "Transcript: ${_debugState.lastRecognizedWords}",
+                    style: const TextStyle(color: Colors.yellow, fontSize: 12),
+                  ),
+                ],
+                if (_debugState.geminiVerdict.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    "Gemini Verdict: ${_debugState.geminiVerdict}",
+                    style: TextStyle(
+                        color: _debugState.geminiVerdict == "True Positive"
+                            ? Colors.red
+                            : Colors.green,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12),
+                  ),
+                ]
               ],
             ),
           ),

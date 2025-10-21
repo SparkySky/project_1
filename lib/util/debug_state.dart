@@ -22,6 +22,13 @@ class DebugState with ChangeNotifier {
   double _soundLevel = 0.0;
   double get soundLevel => _soundLevel;
 
+  // New fields for the 10-second window analysis
+  final List<String> _collectedTriggers = [];
+  List<String> get collectedTriggers => _collectedTriggers;
+
+  String _geminiVerdict = "";
+  String get geminiVerdict => _geminiVerdict;
+
   static const String _prefKey = 'debugOverlayEnabled';
 
   /// Loads the saved preference from SharedPreferences.
@@ -66,6 +73,24 @@ class DebugState with ChangeNotifier {
 
   void updateSoundLevel(double level) {
     _soundLevel = level;
+    notifyListeners();
+  }
+
+  // --- Methods for the new fields ---
+
+  void addTrigger(String trigger) {
+    _collectedTriggers.add(trigger);
+    notifyListeners();
+  }
+
+  void setGeminiVerdict(String verdict) {
+    _geminiVerdict = verdict;
+    notifyListeners();
+  }
+
+  void clearIncidentDebugInfo() {
+    _collectedTriggers.clear();
+    _geminiVerdict = "";
     notifyListeners();
   }
 }
