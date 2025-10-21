@@ -198,12 +198,7 @@ class _HomePageState extends State<HomePage> {
           )
         ],
       ),
-      body: Stack(
-        children: [
-          _buildCurrentPage(),
-          const ChatbotWidget(),
-        ],
-      ),
+      body: _buildCurrentPage(),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           border: Border(top: BorderSide(color: Colors.grey[300]!)),
@@ -263,41 +258,46 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildHomePage() {
     print('Building HomePage content');
-    return Column(
-      key: const PageStorageKey<String>('homePage'),
+    return Stack(
       children: [
-        // Map Section - Fixed height
-        SizedBox( // Apply fixed height here
-          height: 250, // Or whatever height you want for the map
-          child: MapWidget(incidents: _incidents), // Pass the mutable list
-        ),
+        Column(
+          key: const PageStorageKey<String>('homePage'),
+          children: [
+            // Map Section - Fixed height
+            SizedBox(
+              height: 250,
+              child: MapWidget(incidents: incidents),
+            ),
 
-        // Nearby Incidents Section - Takes remaining space
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text(
-                  'Nearby Incidents',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
+            // Nearby Incidents Section - Takes remaining space
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text(
+                      'Nearby Incidents',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                ),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: incidents.length,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      itemBuilder: (context, index) {
+                        return _buildIncidentCard(incidents[index]);
+                      },
+                    ),
+                  ),
+                ],
               ),
-              Expanded( // This Expanded fills the space within the inner Column
-                child: ListView.builder(
-                  itemCount: _incidents.length, // Use the mutable list
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  itemBuilder: (context, index) {
-                    return _buildIncidentCard(_incidents[index]); // Use the mutable list
-                  },
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
+        const ChatbotWidget(), // Add chatbot only to homepage
       ],
     );
   }

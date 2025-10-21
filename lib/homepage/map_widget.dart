@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:huawei_location/huawei_location.dart' as hwLocation;
 import 'package:huawei_map/huawei_map.dart';
+import 'package:huawei_location/huawei_location.dart' as hwLocation;
 import 'package:permission_handler/permission_handler.dart';
 
 class MapWidget extends StatefulWidget {
