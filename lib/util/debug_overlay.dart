@@ -4,6 +4,7 @@ import 'package:sensors_plus/sensors_plus.dart';
 import 'package:huawei_location/huawei_location.dart';
 import '../app_theme.dart'; // Using AppTheme for colors
 import 'package:permission_handler/permission_handler.dart';
+import 'debug_state.dart';
 
 class DebugOverlayWidget extends StatefulWidget {
   const DebugOverlayWidget({super.key});
@@ -13,6 +14,7 @@ class DebugOverlayWidget extends StatefulWidget {
 }
 
 class _DebugOverlayWidgetState extends State<DebugOverlayWidget> {
+  final DebugState _debugState = DebugState();
   Location? _location;
   AccelerometerEvent? _accel;
   GyroscopeEvent? _gyro;
@@ -27,8 +29,15 @@ class _DebugOverlayWidgetState extends State<DebugOverlayWidget> {
   @override
   void initState() {
     super.initState();
+    _debugState.addListener(_onDebugStateChanged);
     _startSensorListeners();
     _startLocationUpdates();
+  }
+
+  void _onDebugStateChanged() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _startSensorListeners() {
@@ -95,6 +104,7 @@ class _DebugOverlayWidgetState extends State<DebugOverlayWidget> {
 
   @override
   void dispose() {
+    _debugState.removeListener(_onDebugStateChanged);
     _accelSub?.cancel();
     _gyroSub?.cancel();
     if (_locCallbackId != null) {
@@ -107,7 +117,6 @@ class _DebugOverlayWidgetState extends State<DebugOverlayWidget> {
     super.dispose();
   }
 
-  // --- MODIFIED: This method includes more accuracy details ---
   String _formatLocation(Location? loc) {
     if (loc == null) return "Location: Waiting...";
     String lat = loc.latitude?.toStringAsFixed(5) ?? 'N/A';
@@ -117,7 +126,6 @@ class _DebugOverlayWidgetState extends State<DebugOverlayWidget> {
     String sAcc = loc.speedAccuracyMetersPerSecond?.toStringAsFixed(1) ?? '?';
     String speed = loc.speed?.toStringAsFixed(1) ?? '?';
 
-    // Format string to include more details concisely
     return "Loc: ($lat, $lon) | Acc(H/V/S): ${hAcc}m/${vAcc}m/${sAcc}m/s | Spd: ${speed}m/s";
   }
 
@@ -131,15 +139,25 @@ class _DebugOverlayWidgetState extends State<DebugOverlayWidget> {
     return "Gyro (x/y/z): ${e.x.toStringAsFixed(2)} / ${e.y.toStringAsFixed(2)} / ${e.z.toStringAsFixed(2)}";
   }
 
+  String _formatSoundLevel(double level) {
+    return "Sound Level: ${level.toStringAsFixed(2)} dB";
+  }
+
+  String _formatRecognizedWords(String words) {
+    return "Recognized: '$words'";
+  }
+
+  String _formatKeywordDetected(String keyword) {
+    return "Keyword: '$keyword' DETECTED!";
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Positioned at the bottom, above any bottom nav bar (adjust `bottom` as needed)
     return Positioned(
-      bottom: 80, // Adjust this value if it overlaps with your BottomNavBar
+      bottom: 80,
       left: 10,
       right: 10,
       child: IgnorePointer(
-        // Prevent the overlay from capturing touch events
         ignoring: true,
         child: Material(
           color: Colors.transparent,
@@ -173,6 +191,30 @@ class _DebugOverlayWidgetState extends State<DebugOverlayWidget> {
                   _formatGyro(_gyro),
                   style: const TextStyle(color: Colors.white, fontSize: 12),
                 ),
+                const SizedBox(height: 4),
+                Text(
+                  "Sound Service: ${_debugState.soundServiceStatus}",
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                ),
+                Text(
+                  _formatSoundLevel(_debugState.soundLevel),
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                ),
+                Text(
+                  _formatRecognizedWords(_debugState.lastRecognizedWords),
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                ),
+                if (_debugState.lastKeywordDetected.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4.0),
+                    child: Text(
+                      _formatKeywordDetected(_debugState.lastKeywordDetected),
+                      style: const TextStyle(
+                          color: AppTheme.primaryOrange,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12),
+                    ),
+                  ),
               ],
             ),
           ),

@@ -212,7 +212,7 @@ class SafetyTriggerManager {
       return;
     }
 
-    await _startAudioRecording();
+    // await _startAudioRecording();
     _sensorManager.startMonitoring(onTrigger: onTrigger);
   }
 

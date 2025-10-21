@@ -10,6 +10,18 @@ class DebugState with ChangeNotifier {
   bool _showDebugOverlay = false;
   bool get showDebugOverlay => _showDebugOverlay;
 
+  String _soundServiceStatus = "Uninitialized";
+  String get soundServiceStatus => _soundServiceStatus;
+
+  String _lastRecognizedWords = "";
+  String get lastRecognizedWords => _lastRecognizedWords;
+
+  String _lastKeywordDetected = "";
+  String get lastKeywordDetected => _lastKeywordDetected;
+
+  double _soundLevel = 0.0;
+  double get soundLevel => _soundLevel;
+
   static const String _prefKey = 'debugOverlayEnabled';
 
   /// Loads the saved preference from SharedPreferences.
@@ -35,5 +47,25 @@ class DebugState with ChangeNotifier {
     } catch (e) {
       debugPrint("Error saving debug state: $e");
     }
+  }
+
+  void updateSoundServiceStatus(String status) {
+    _soundServiceStatus = status;
+    notifyListeners();
+  }
+
+  void updateRecognizedWords(String words) {
+    _lastRecognizedWords = words;
+    notifyListeners();
+  }
+
+  void updateKeywordDetected(String keyword) {
+    _lastKeywordDetected = keyword;
+    notifyListeners();
+  }
+
+  void updateSoundLevel(double level) {
+    _soundLevel = level;
+    notifyListeners();
   }
 }

@@ -25,7 +25,7 @@ class SensorManager {
   void startMonitoring({required Function(String) onTrigger}) {
     print("[SENSOR_MANAGER] Starting sensor monitoring...");
     _onTrigger = onTrigger;
-    _startSpeechRealTimeTranscription();
+    // _startSpeechRealTimeTranscription();
     _startImuSensors();
     _startDebugTimer();
   }

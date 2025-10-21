@@ -8,7 +8,20 @@ import 'dart:io';
 import 'app_theme.dart';
 
 class LodgeIncidentPage extends StatefulWidget {
-  const LodgeIncidentPage({Key? key}) : super(key: key);
+  final String? incidentType;
+  final String? description;
+  final String? district;
+  final String? postcode;
+  final String? state;
+
+  const LodgeIncidentPage({
+    Key? key,
+    this.incidentType,
+    this.description,
+    this.district,
+    this.postcode,
+    this.state,
+  }) : super(key: key);
 
   @override
   _LodgeIncidentPageState createState() => _LodgeIncidentPageState();
@@ -16,11 +29,11 @@ class LodgeIncidentPage extends StatefulWidget {
 
 class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _districtController = TextEditingController();
-  final TextEditingController _postcodeController = TextEditingController();
-  final TextEditingController _stateController = TextEditingController();
-  final TextEditingController _descriptionController = TextEditingController();
-  
+  late final TextEditingController _districtController;
+  late final TextEditingController _postcodeController;
+  late final TextEditingController _stateController;
+  late final TextEditingController _descriptionController;
+
   String _incidentType = 'general';
   List<File> _mediaFiles = [];
   Map<String, String> _videoThumbnails = {};
@@ -28,6 +41,18 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
   final AudioRecorder _audioRecorder = AudioRecorder();
   bool _isRecording = false;
   String? _recordingPath;
+
+  @override
+  void initState() {
+    super.initState();
+    _districtController = TextEditingController(text: widget.district);
+    _postcodeController = TextEditingController(text: widget.postcode);
+    _stateController = TextEditingController(text: widget.state);
+    _descriptionController = TextEditingController(text: widget.description);
+    if (widget.incidentType != null) {
+      _incidentType = widget.incidentType!;
+    }
+  }
 
   @override
   void dispose() {
@@ -218,7 +243,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: _isRecording 
+                      color: _isRecording
                           ? Colors.red.withOpacity(0.1)
                           : Colors.grey.withOpacity(0.1),
                       shape: BoxShape.circle,
@@ -250,17 +275,16 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
               actions: [
                 if (!_isRecording)
                   TextButton(
-                    onPressed: () {
-                      Navigator.pop(dialogContext);
-                    },
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(
-                        color: AppTheme.primaryOrange,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    )
-                  ),
+                      onPressed: () {
+                        Navigator.pop(dialogContext);
+                      },
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: AppTheme.primaryOrange,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )),
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () async {
@@ -322,8 +346,9 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
     try {
       if (await _audioRecorder.hasPermission()) {
         final directory = await getApplicationDocumentsDirectory();
-        final filePath = '${directory.path}/audio_${DateTime.now().millisecondsSinceEpoch}.m4a';
-        
+        final filePath =
+            '${directory.path}/audio_${DateTime.now().millisecondsSinceEpoch}.m4a';
+
         await _audioRecorder.start(
           const RecordConfig(
             encoder: AudioEncoder.aacLc,
@@ -332,7 +357,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
           ),
           path: filePath,
         );
-        
+
         _recordingPath = filePath;
         return true;
       } else {
@@ -385,14 +410,18 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
 
   bool _isVideo(String path) {
     String ext = path.toLowerCase();
-    return ext.endsWith('.mp4') || ext.endsWith('.mov') || 
-           ext.endsWith('.avi') || ext.endsWith('.mkv');
+    return ext.endsWith('.mp4') ||
+        ext.endsWith('.mov') ||
+        ext.endsWith('.avi') ||
+        ext.endsWith('.mkv');
   }
 
   bool _isAudio(String path) {
     String ext = path.toLowerCase();
-    return ext.endsWith('.mp3') || ext.endsWith('.wav') || 
-           ext.endsWith('.m4a') || ext.endsWith('.aac');
+    return ext.endsWith('.mp3') ||
+        ext.endsWith('.wav') ||
+        ext.endsWith('.m4a') ||
+        ext.endsWith('.aac');
   }
 
   Future<void> _pickAudioFile() async {
@@ -401,13 +430,13 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
         type: FileType.audio,
         allowMultiple: false,
       );
-      
+
       if (result != null && result.files.single.path != null) {
         File audioFile = File(result.files.single.path!);
         setState(() {
           _mediaFiles.add(audioFile);
         });
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('Audio file added successfully!'),
@@ -443,7 +472,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
         maxWidth: 200,
         quality: 75,
       );
-      
+
       if (thumbnail != null) {
         setState(() {
           _videoThumbnails[videoFile.path] = thumbnail;
@@ -551,7 +580,6 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                       ],
                     ),
                     const SizedBox(height: 20),
-                    
                     _buildSectionCard(
                       title: 'Location Details',
                       icon: Icons.location_on,
@@ -595,7 +623,6 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                       ],
                     ),
                     const SizedBox(height: 20),
-                    
                     _buildSectionCard(
                       title: 'Incident Type',
                       icon: Icons.category,
@@ -622,7 +649,6 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                       ],
                     ),
                     const SizedBox(height: 20),
-
                     _buildSectionCard(
                       title: 'Description',
                       icon: Icons.description,
@@ -662,7 +688,6 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                       ],
                     ),
                     const SizedBox(height: 20),
-
                     _buildSectionCard(
                       title: 'Media Evidence',
                       icon: Icons.photo_library,
@@ -724,7 +749,8 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                           GridView.builder(
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
-                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: 3,
                               crossAxisSpacing: 10,
                               mainAxisSpacing: 10,
@@ -738,7 +764,6 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                       ],
                     ),
                     const SizedBox(height: 30),
-
                     SizedBox(
                       width: double.infinity,
                       height: 56,
@@ -879,7 +904,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isSelected 
+          color: isSelected
               ? AppTheme.primaryOrange.withOpacity(0.1)
               : Colors.grey[100],
           borderRadius: BorderRadius.circular(12),

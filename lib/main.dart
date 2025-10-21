@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'bg_services/background_service.dart';
+import 'bg_services/sensors_analysis.dart';
 import 'permissions/permission_handler.dart';
 import 'splashscreen.dart';
 import 'util/debug_state.dart';
@@ -38,7 +39,11 @@ Future<void> main() async {
   // 2. Initialize the Background Service configuration
   await initializeBackgroundService();
 
-  // 3. Initialize AGConnect Core & CloudDB in the main isolate
+  // 3. Initialize the Sensors Analysis Service
+  final sensorsAnalysisService = SensorsAnalysisService(navigatorKey: navigatorKey);
+  await sensorsAnalysisService.initialize();
+
+  // 4. Initialize AGConnect Core & CloudDB in the main isolate
   try {
     // Core initialization is handled natively by the agconnect plugin reading the json file.
     final cloudDB = AGConnectCloudDB.getInstance();

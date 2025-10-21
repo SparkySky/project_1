@@ -27,6 +27,7 @@ dependencies:
   video_thumbnail: ^0.5.3
   file_picker: ^8.1.4
   speech_to_text: ^7.3.0 # Or the latest version
+  google_generative_ai: ^0.4.0
 
   #  Huawei/HMS
   huawei_map:
