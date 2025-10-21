@@ -75,4 +75,5 @@ dependencies {
     implementation("com.huawei.hms:push:6.13.0.300")
     implementation("com.huawei.hms:hwid:6.12.0.300")
     implementation("com.huawei.hms:drive:5.2.0.300")
+    implementation("com.huawei.hms:site:6.5.1.302")
 }

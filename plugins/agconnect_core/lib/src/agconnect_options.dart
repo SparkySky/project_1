@@ -20,7 +20,7 @@ import 'agconnect_routepolicy.dart';
 
 class AGConnectOptions {
   static const MethodChannel _channel =
-      const MethodChannel('com.huawei.flutter/agconnect_core');
+      MethodChannel('com.huawei.flutter/agconnect_core');
 
   String? productId;
   String? appId;

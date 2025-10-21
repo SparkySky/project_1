@@ -37,8 +37,7 @@ abstract class AGCStorageTask<T extends AGCStorageTaskResult> {
     this._taskId,
     this._storageReference,
   ) : _onEvent = EventChannel(
-                'com.huawei.agconnect.cloudstorage/eventChannel/task/' +
-                    _taskId)
+                'com.huawei.agconnect.cloudstorage/eventChannel/task/$_taskId')
             .receiveBroadcastStream()
             .asBroadcastStream()
             .map((dynamic event) => Map<String, dynamic>.from(event)) {

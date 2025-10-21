@@ -5,7 +5,7 @@ import '../app_theme.dart';
 class PostCard extends StatefulWidget {
   final Post post;
 
-  const PostCard({Key? key, required this.post}) : super(key: key);
+  const PostCard({super.key, required this.post});
 
   @override
   State<PostCard> createState() => _PostCardState();

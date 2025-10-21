@@ -18,13 +18,13 @@ import 'package:flutter/foundation.dart';
 
 @immutable
 class AGCTimeUnit {
-  static const NANOSECONDS = const AGCTimeUnit._(0);
-  static const MICROSECONDS = const AGCTimeUnit._(1);
-  static const MILLISECONDS = const AGCTimeUnit._(2);
-  static const SECONDS = const AGCTimeUnit._(3);
-  static const MINUTES = const AGCTimeUnit._(4);
-  static const HOURS = const AGCTimeUnit._(5);
-  static const DAYS = const AGCTimeUnit._(6);
+  static const NANOSECONDS = AGCTimeUnit._(0);
+  static const MICROSECONDS = AGCTimeUnit._(1);
+  static const MILLISECONDS = AGCTimeUnit._(2);
+  static const SECONDS = AGCTimeUnit._(3);
+  static const MINUTES = AGCTimeUnit._(4);
+  static const HOURS = AGCTimeUnit._(5);
+  static const DAYS = AGCTimeUnit._(6);
 
   final int _value;
 

@@ -22,7 +22,7 @@ import 'agconnect_options.dart';
 
 class AGConnectInstance {
   static const MethodChannel _channel =
-  const MethodChannel('com.huawei.flutter/agconnect_core');
+  MethodChannel('com.huawei.flutter/agconnect_core');
 
   static final AGConnectInstance instance = AGConnectInstance();
 

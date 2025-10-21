@@ -1,19 +1,17 @@
 // lib/background_service.dart
 import 'dart:async';
 import 'dart:ui';
-import 'dart:io'; // For File path manipulation if needed by Drive
+// For File path manipulation if needed by Drive
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart'; // Needed for WidgetsFlutterBinding, but avoid UI code
 import 'package:flutter_background_service/flutter_background_service.dart';
-import 'package:flutter_background_service_android/flutter_background_service_android.dart'; // For AndroidServiceInstance
-import 'package:flutter_sound/flutter_sound.dart' as flutterSound;
+// For AndroidServiceInstance
 import 'package:huawei_ml_language/huawei_ml_language.dart';
 import 'package:permission_handler/permission_handler.dart'; // Might need for checks inside service
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'package:record/record.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 import 'package:agconnect_clouddb/agconnect_clouddb.dart';
 import 'package:huawei_location/huawei_location.dart';
@@ -364,7 +362,7 @@ class SafetyTriggerManager {
 
   Future<String?> _uploadAudioToDrive(String filePath) async {
     AuthAccount? account = await AccountAuthManager.getAuthResult();
-    String? accessToken = account?.accessToken;
+    String? accessToken = account.accessToken;
     if (accessToken == null) {
       return "AUTH_FAILED";
     }
@@ -372,10 +370,10 @@ class SafetyTriggerManager {
     try {
       final Drive drive = await Drive.init(credentials);
       final DriveFile driveMetadata = DriveFile(fileName: filePath.split('/').last, mimeType: "audio/aac");
-      final DriveFile? driveFile = await drive.files.create(
+      final DriveFile driveFile = await drive.files.create(
           FilesRequest.create(driveMetadata, fileContent: DriveFileContent(path: filePath), fields: '*')
       );
-      return driveFile?.id;
+      return driveFile.id;
     } catch (e) {
       return "UPLOAD_EXCEPTION";
     }

@@ -29,7 +29,7 @@ class FunctionError {
   final int code;
 
   /// Default constructor.
-  FunctionError(this.message, this.code);
+  const FunctionError(this.message, this.code);
 
   /// Obtains the result code of an exception.
   factory FunctionError.fromException(PlatformException e) {

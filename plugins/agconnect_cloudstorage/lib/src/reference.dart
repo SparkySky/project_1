@@ -56,9 +56,8 @@ class AGCStorageReference {
   AGCStorageReference? get parent => (this != root)
       ? AGCStorageReference._(
           storage,
-          (path.replaceAll(RegExp(r'/$'), '').split('/')..removeLast())
-                  .join('/') +
-              '/')
+          '${(path.replaceAll(RegExp(r'/$'), '').split('/')..removeLast())
+                  .join('/')}/')
       : null;
 
   /// Obtains the reference to a subdirectory.

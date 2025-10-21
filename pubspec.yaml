@@ -22,11 +22,12 @@ dependencies:
   uuid: ^4.4.0
   shared_preferences: ^2.2.3
   path_provider: ^2.0.0 # Often needed with flutter_sound
+  geocoding: ^3.0.0 # Added for reverse geocoding
 
   #  Huawei/HMS
   huawei_map:
     path: plugins/huawei_map
-  huawei_location: 6.11.0+301
+  huawei_location: 6.12.0+302
   huawei_ml_text:
     path: plugins/huawei_ml_text
   huawei_ml_body:
@@ -53,6 +54,8 @@ dependencies:
       path: plugins/agconnect_clouddb
   agconnect_crash:
       path: plugins/agconnect_crash
+  huawei_hmsavailability: ^6.12.0+300
+
 
 dev_dependencies:
   flutter_test:

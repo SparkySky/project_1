@@ -119,7 +119,7 @@ class FunctionCallable {
 
 /// Internal class to call native Cloud Function methods using Platform Channels.
 class _AGConnectCloudFunctions {
-  static const MethodChannel _methodChannel = const MethodChannel(
+  static const MethodChannel _methodChannel = MethodChannel(
       'com.huawei.agc.flutter.cloudfunctions/MethodChannel');
 
   /// Calls the native Cloud Function method and returns the result as [FunctionResult] type.

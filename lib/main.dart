@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:agconnect_clouddb/agconnect_clouddb.dart';
-import 'package:huawei_map/huawei_map.dart';
 import 'app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';

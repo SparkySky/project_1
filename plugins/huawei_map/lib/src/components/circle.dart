@@ -99,7 +99,7 @@ class Circle {
       clickable: clickable ?? this.clickable,
       onClick: onClick ?? this.onClick,
       strokePattern: strokePattern ?? this.strokePattern,
-      animation: animation ?? this.animation,
+      animation: animation ?? animation,
     );
   }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:geocoding/geocoding.dart'; // Import the geocoding package
 import 'map_widget.dart';
 import '../app_theme.dart';
 import 'chatbot_widget.dart';
@@ -8,7 +9,7 @@ import '../notification_page.dart';
 import '../profile_page.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({Key? key}) : super(key: key);
+  const HomePage({super.key});
 
   @override
   _HomePageState createState() => _HomePageState();
@@ -20,6 +21,65 @@ class _HomePageState extends State<HomePage> {
   final _backgroundService = FlutterBackgroundService();
 
   int _selectedIndex = 0;
+
+  // Dummy incident data - will be replaced with cloud DB
+  // Make it mutable to update locations
+  List<Map<String, dynamic>> _incidents = [
+    {
+      'id': 1,
+      'title': 'Suspicious Person Spotted',
+      'timestamp': '3 min ago',
+      'location': 'Loading address...', // Initial placeholder
+      'severity': 'high',
+      'latitude': 5.3654,
+      'longitude': 100.4632,
+    },
+    {
+      'id': 2,
+      'title': 'Vehicle Break-in Reported',
+      'timestamp': '15 min ago',
+      'location': 'Loading address...',
+      'severity': 'medium',
+      'latitude': 5.3601,
+      'longitude': 100.4589,
+    },
+    {
+      'id': 3,
+      'title': 'Theft Attempt',
+      'timestamp': '1 hour ago',
+      'location': 'Loading address...',
+      'severity': 'high',
+      'latitude': 5.3638,
+      'longitude': 100.4605,
+    },
+    {
+      'id': 4,
+      'title': 'Vandalism Spotted',
+      'timestamp': '2 hours ago',
+      'location': 'Loading address...',
+      'severity': 'low',
+      'latitude': 5.3569,
+      'longitude': 100.4667,
+    },
+    {
+      'id': 5,
+      'title': 'Assault Reported',
+      'timestamp': '3 hours ago',
+      'location': 'Loading address...',
+      'severity': 'high',
+      'latitude': 5.4294,
+      'longitude': 100.3832,
+    },
+    {
+      'id': 6,
+      'title': 'Assault Reported',
+      'timestamp': '2 hours ago',
+      'location': 'Loading address...',
+      'severity': 'high',
+      'latitude': 4.6133,
+      'longitude': 101.1044,
+    },
+  ];
 
   // Init Safety Trigger BG process
   @override
@@ -33,6 +93,7 @@ class _HomePageState extends State<HomePage> {
         });
       }
     });
+    _getAddressesForIncidents(); // Call to fetch addresses
   }
 
   // Start/Stop Safety Trigger BG process
@@ -49,52 +110,53 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  // Function to perform reverse geocoding for all incidents
+  Future<void> _getAddressesForIncidents() async {
+    print('[Geocoding] Starting geocoding process...');
+    List<Map<String, dynamic>> updatedIncidents = List.from(_incidents); // Create a mutable copy
 
-  // Dummy incident data - will be replaced with cloud DB
-  final List<Map<String, dynamic>> incidents = [
-    {
-      'id': 1,
-      'title': 'Suspicious Person Spotted',
-      'timestamp': '3 min ago',
-      'location': 'Jalan Pasar, Bukit Mertajam, 14000',
-      'severity': 'high',
-    },
-    {
-      'id': 2,
-      'title': 'Vehicle Break-in Reported',
-      'timestamp': '15 min ago',
-      'location': 'Persiaran Bukit Mertajam, 14000',
-      'severity': 'medium',
-    },
-    {
-      'id': 3,
-      'title': 'Theft Attempt',
-      'timestamp': '1 hour ago',
-      'location': 'Jalan Besar, Bukit Mertajam, 14000',
-      'severity': 'high',
-    },
-    {
-      'id': 4,
-      'title': 'Vandalism Spotted',
-      'timestamp': '2 hours ago',
-      'location': 'Taman Bukit Mertajam, 14000',
-      'severity': 'low',
-    },
-    {
-      'id': 5,
-      'title': 'Assault Reported',
-      'timestamp': '3 hours ago',
-      'location': 'Jalan Raja Uda, Bukit Mertajam, 14000',
-      'severity': 'high',
-    },
-    {
-      'id': 6,
-      'title': 'Assault Reported',
-      'timestamp': '2 hours ago',
-      'location': 'Jalan Taman Star 12, Jalan Taman Star, Kampung Simee, 31400 Ipoh, Perak',
-      'severity': 'high',
-    },
-  ];
+    for (int i = 0; i < updatedIncidents.length; i++) {
+      final incident = updatedIncidents[i];
+      print('[Geocoding] Attempting to geocode for incident ${incident['id']} at latitude: ${incident['latitude']}, longitude: ${incident['longitude']}');
+      try {
+        List<Placemark> placemarks = await placemarkFromCoordinates(
+          incident['latitude'],
+          incident['longitude'],
+        );
+
+        if (placemarks.isNotEmpty) {
+          final Placemark place = placemarks[0];
+          // Construct a more readable address
+          final String address = [
+            place.street,
+            place.thoroughfare,
+            place.subLocality,
+            place.locality,
+            place.postalCode,
+            place.administrativeArea,
+            place.country,
+          ].where((element) => element != null && element.isNotEmpty).join(', ');
+          updatedIncidents[i]['location'] = address;
+          print('[Geocoding] Incident ${incident['id']} location updated to: $address');
+        } else {
+          updatedIncidents[i]['location'] = 'Address not found';
+          print('[Geocoding] No placemarks found for incident ${incident['id']}.');
+        }
+      } catch (e) {
+        print('[Geocoding] Error during geocoding for incident ${incident['id']}: $e');
+        updatedIncidents[i]['location'] = 'Geocoding error';
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _incidents = updatedIncidents; // Update the state with new locations
+        print('[Geocoding] State updated with new incident locations. Total incidents: ${_incidents.length}');
+      });
+    }
+    print('[Geocoding] Geocoding process finished.');
+  }
+
 
   Widget _buildCurrentPage() {
     switch (_selectedIndex) {
@@ -207,7 +269,7 @@ class _HomePageState extends State<HomePage> {
         // Map Section - Fixed height
         SizedBox( // Apply fixed height here
           height: 250, // Or whatever height you want for the map
-          child: MapWidget(incidents: incidents), // ONLY ONE MapWidget here
+          child: MapWidget(incidents: _incidents), // Pass the mutable list
         ),
 
         // Nearby Incidents Section - Takes remaining space
@@ -226,12 +288,10 @@ class _HomePageState extends State<HomePage> {
               ),
               Expanded( // This Expanded fills the space within the inner Column
                 child: ListView.builder(
-                  // Assuming 'incidents' is defined elsewhere in your state
-                  itemCount: incidents.length,
+                  itemCount: _incidents.length, // Use the mutable list
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   itemBuilder: (context, index) {
-                    // Assuming '_buildIncidentCard' is defined elsewhere
-                    return _buildIncidentCard(incidents[index]);
+                    return _buildIncidentCard(_incidents[index]); // Use the mutable list
                   },
                 ),
               ),
