@@ -4,7 +4,7 @@ import 'map_widget.dart';
 import '../app_theme.dart';
 import 'chatbot_widget.dart';
 import '../community/community_page.dart';
-import '../notification_page.dart';
+import '../lodge_incident_page.dart';
 import '../profile_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -103,7 +103,7 @@ class _HomePageState extends State<HomePage> {
       case 1:
         return const CommunityPage();
       case 2:
-        return const NotificationPage();
+        return const LodgeIncidentPage();
       case 3:
         return ProfilePage();
       default:
@@ -145,9 +145,9 @@ class _HomePageState extends State<HomePage> {
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
             _buildNavItem(0, Icons.home, 'Home'),
-            _buildNavItem(1, Icons.group_outlined, 'Community'),
-            _buildNavItem(2, Icons.notifications_outlined, 'Notification'),
-            _buildNavItem(3, Icons.person_outline, 'Profile'),
+            _buildNavItem(1, Icons.group, 'Community'),
+            _buildNavItem(2, Icons.add_box, 'Lodge'),
+            _buildNavItem(3, Icons.person, 'Profile'),
           ],
         ),
       ),
