@@ -87,6 +87,13 @@ class _HomePageState extends State<HomePage> {
       'location': 'Jalan Raja Uda, Bukit Mertajam, 14000',
       'severity': 'high',
     },
+    {
+      'id': 6,
+      'title': 'Assault Reported',
+      'timestamp': '2 hours ago',
+      'location': 'Jalan Taman Star 12, Jalan Taman Star, Kampung Simee, 31400 Ipoh, Perak',
+      'severity': 'high',
+    },
   ];
 
   Widget _buildCurrentPage() {
@@ -98,7 +105,7 @@ class _HomePageState extends State<HomePage> {
       case 2:
         return const NotificationPage();
       case 3:
-        return const ProfilePage();
+        return ProfilePage();
       default:
         return _buildHomePage();
     }
@@ -198,10 +205,12 @@ class _HomePageState extends State<HomePage> {
       key: const PageStorageKey<String>('homePage'),
       children: [
         // Map Section - Fixed height
-        const MapWidget(
-          height: 250,
+        SizedBox( // Apply fixed height here
+          height: 250, // Or whatever height you want for the map
+          child: MapWidget(incidents: incidents), // ONLY ONE MapWidget here
         ),
-        // Nearby Incidents Section
+
+        // Nearby Incidents Section - Takes remaining space
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -215,11 +224,13 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
               ),
-              Expanded(
+              Expanded( // This Expanded fills the space within the inner Column
                 child: ListView.builder(
+                  // Assuming 'incidents' is defined elsewhere in your state
                   itemCount: incidents.length,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   itemBuilder: (context, index) {
+                    // Assuming '_buildIncidentCard' is defined elsewhere
                     return _buildIncidentCard(incidents[index]);
                   },
                 ),

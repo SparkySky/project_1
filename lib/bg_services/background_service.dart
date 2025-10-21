@@ -1,35 +1,29 @@
 // lib/background_service.dart
 import 'dart:async';
-import 'dart:convert'; // For JSON encoding sensor data
-import 'dart:math';
 import 'dart:ui';
 import 'dart:io'; // For File path manipulation if needed by Drive
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart'; // Needed for WidgetsFlutterBinding, but avoid UI code
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_background_service_android/flutter_background_service_android.dart'; // For AndroidServiceInstance
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_sound/flutter_sound.dart' as flutterSound;
+import 'package:huawei_ml_language/huawei_ml_language.dart';
 import 'package:permission_handler/permission_handler.dart'; // Might need for checks inside service
 import 'package:path_provider/path_provider.dart';
-import 'package:sensors_plus/sensors_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
+import 'package:record/record.dart';
+import 'package:permission_handler/permission_handler.dart';
 
-// --- HMS / AGConnect Imports (using package: imports as they resolve to local paths) ---
-// If these cause errors, ensure the paths in pubspec.yaml are correct
-import 'package:agconnect_core/agconnect_core.dart';
 import 'package:agconnect_clouddb/agconnect_clouddb.dart';
 import 'package:huawei_location/huawei_location.dart';
-import 'package:huawei_map/huawei_map.dart' as huaweiMap; // Use prefix
-// Important: Use ML Language for SoundDetector and ASR
-import 'package:huawei_ml_language/huawei_ml_language.dart';
 import 'package:huawei_drive/huawei_drive.dart';
 import 'package:huawei_account/huawei_account.dart'; // Needed for Drive credentials
 
 
 // Import your generated CloudDB model file
 import '../models/clouddb_model.dart' as db;
+import 'sensor_manager.dart';
 
 // --- Service Initialization (Called from main.dart) ---
 Future<void> initializeBackgroundService() async {
@@ -58,32 +52,41 @@ Future<void> initializeBackgroundService() async {
   );
 }
 
-// --- Main Background Entry Point (Android onStart, iOS onForeground) ---
+// --- Main Background Entry Point (Android onStart) ---
 @pragma('vm:entry-point')
 void onStart(ServiceInstance service) async {
   // Ensure plugins are registered in this isolate
   WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
 
-  // Add a small delay to allow native initialization to complete
-  await Future.delayed(const Duration(seconds: 2));
 
-  // --- Initialize CloudDB (MUST be done inside the isolate) ---
+  // Add a small delay to allow native initialization to complete
+  await Future.delayed(const Duration(seconds: 1));
+
+  try {
+    print("[BG_SERVICE] Trying to get RTT languages...");
+    MLSpeechRealTimeTranscription tempRtt = MLSpeechRealTimeTranscription();
+    List<String>? langs = await tempRtt.getLanguages();
+    print("[BG_SERVICE] RTT Languages: $langs");
+    // Don't call destroy on tempRtt here if it's just for testing registration
+  } catch (e) {
+    print("[BG_SERVICE] ERROR calling getLanguages in onStart: $e"); // Does this also throw MissingPluginException?
+  }
+
+  // --- Get Pre-Initialized CloudDB Instance ---
+  // Initialization is now handled in main.dart to avoid isolate issues.
   AGConnectCloudDB? cloudDB;
   try {
-    print("[BG_SERVICE] Initializing CloudDB...");
-    cloudDB = await AGConnectCloudDB.getInstance();
-    print("[BG_SERVICE] 1");
-    await cloudDB.initialize();
-    print("[BG_SERVICE] 2");
-    await cloudDB.createObjectType(); // Uses Java models from plugin path
-    print("[BG_SERVICE] CloudDB Initialized and ObjectType created.");
+    if (kDebugMode) print("[BG_SERVICE] Getting CloudDB instance...");
+    cloudDB = AGConnectCloudDB.getInstance();
+    // We assume initialize() and createObjectType() have been called in main.dart
+    if (kDebugMode) print("[BG_SERVICE] CloudDB instance retrieved.");
   } catch (e) {
-    print("[BG_SERVICE] CRITICAL CloudDB init error: $e");
-    // Consider stopping if CloudDB fails, as we can't save incidents
+    if (kDebugMode) print("[BG_SERVICE] CRITICAL CloudDB getInstance error: $e");
     service.stopSelf();
     return;
   }
+
 
   // --- Service State ---
   bool isMonitoring = true; // Flag to control monitoring loops/listeners
@@ -174,87 +177,75 @@ void onStart(ServiceInstance service) async {
 // --- Main Logic Class ---
 class SafetyTriggerManager {
   final AGConnectCloudDB _cloudDB;
+  final SensorManager _sensorManager;
+  var micStatus;
 
   // HMS Listeners
-  MLSoundDetector? _soundDetector; // Make nullable
-  // MLAsrRecognizer? _asrRecognizer; // ASR setup is complex, maybe add later
   FusedLocationProviderClient? _locationProvider;
 
-  // Sensor Listener Subscriptions
-  StreamSubscription<AccelerometerEvent>? _accelSubscription;
-  StreamSubscription<GyroscopeEvent>? _gyroSubscription;
-
   // Audio Recorder
-  flutterSound.FlutterSoundRecorder? _audioRecorder;
+  AudioRecorder? _audioRecorder;
   String? _audioPath;
-  bool _isRecording = false;
+  bool _isRecording = false; // We can use the package's isRecording()
 
   // State
-  Function(String)? _onTrigger; // Callback function for trigger events
-  int? _locationRequestCode; // ID for location update requests
-  String? lastIncidentId; // To potentially pass to Emergency Response
+  Function(String)? _onTrigger;
+  int? _locationRequestCode;
+  String? lastIncidentId;
 
-  SafetyTriggerManager(this._cloudDB) {
+  SafetyTriggerManager(this._cloudDB) : _sensorManager = SensorManager() {
     _locationProvider = FusedLocationProviderClient();
-    _audioRecorder = flutterSound.FlutterSoundRecorder();
+    // Instantiate the new recorder
+    _audioRecorder = AudioRecorder();
   }
 
   void startMonitoring({required Function(String) onTrigger}) async {
     print("[BG_SERVICE_MANAGER] Starting monitoring...");
     _onTrigger = onTrigger;
 
-    // --- Ensure Permissions ---
-    var micStatus = await Permission.microphone.status;
+    micStatus = await Permission.microphone.status;
+    if (micStatus != PermissionStatus.granted) {
+      print("[BG_SERVICE_MANAGER] ERROR: Required permissions (Microphone) not granted.");
+      return;
+    }
     var locStatus = await Permission.locationAlways.status;
-    if (!micStatus.isGranted || !locStatus.isGranted) {
-      print("[BG_SERVICE_MANAGER] ERROR: Required permissions (Mic/LocationAlways) not granted. Monitoring cannot start effectively.");
-      return; // Stop starting the monitoring
+    if (locStatus != PermissionStatus.granted) {
+      print("[BG_SERVICE_MANAGER] ERROR: Required permissions (LocationAlways) not granted.");
+      return;
     }
 
     await _startAudioRecording();
-
-    // 2. Start HMS Sound Detector
-    try {
-      _soundDetector = MLSoundDetector(); // Initialize here
-      _soundDetector?.setSoundDetectListener(_onSoundDetect);
-      await _soundDetector?.start();
-      print("[BG_SERVICE_MANAGER] SoundDetector started.");
-    } catch(e) {
-      print("[BG_SERVICE_MANAGER] Error starting SoundDetector: $e");
-      _soundDetector = null; // Ensure it's null if init fails
-    }
-
-    // 4. Start IMU Sensors
-    try {
-      _accelSubscription = accelerometerEventStream(
-          samplingPeriod: SensorInterval.normalInterval // Adjust interval if needed
-      ).listen(_onAccelEvent, onError: (e) { print("[BG_SERVICE_MANAGER] Accel Error: $e");});
-
-      _gyroSubscription = gyroscopeEventStream(
-          samplingPeriod: SensorInterval.normalInterval
-      ).listen(_onGyroEvent, onError: (e) { print("[BG_SERVICE_MANAGER] Gyro Error: $e");});
-      print("[BG_SERVICE_MANAGER] IMU sensors started.");
-    } catch (e) {
-      print("[BG_SERVICE_MANAGER] Error starting IMU sensors: $e");
-    }
-
+    _sensorManager.startMonitoring(onTrigger: onTrigger);
   }
 
   Future<void> _startAudioRecording() async {
-    if (_isRecording) {
-      await _audioRecorder?.stopRecorder(); // Stop previous if any
+    // Check if already recording
+    if (await _audioRecorder?.isRecording() ?? false) {
+      await _audioRecorder?.stop();
     }
     try {
-      final directory = await getTemporaryDirectory(); // Use temp dir
-      _audioPath = '${directory.path}/safety_trigger_${DateTime.now().millisecondsSinceEpoch}.aac'; // Unique name
+      final directory = await getTemporaryDirectory();
+      _audioPath = '${directory.path}/safety_trigger_${DateTime.now().millisecondsSinceEpoch}.aac';
 
-      await _audioRecorder?.openRecorder();
-      await _audioRecorder?.startRecorder(
-        toFile: _audioPath,
-        codec: flutterSound.Codec.aacADTS, // AAC is widely compatible
+      // 1. Create the configuration object
+      const config = RecordConfig(
+        encoder: AudioEncoder.aacLc, // Set encoder here
+        // You can optionally set other config parameters:
+        // sampleRate: 44100,
+        // bitRate: 128000,
+        // numChannels: 1,
       );
-      _isRecording = true;
-      print("[BG_SERVICE_MANAGER] Audio recording started to $_audioPath");
+
+      // 2. Pass config as the first argument, path as named argument
+      //    Ensure _audioPath is not null before calling start.
+      if (_audioPath != null) {
+        await _audioRecorder?.start(config, path: _audioPath!); // Pass config and path
+        _isRecording = true;
+        print("[BG_SERVICE_MANAGER] Audio recording started to $_audioPath");
+      } else {
+        print("[BG_SERVICE_MANAGER] Error: Audio path is null, cannot start recording.");
+        _isRecording = false;
+      }
     } catch (e) {
       print("[BG_SERVICE_MANAGER] Error starting audio recording: $e");
       _audioPath = null;
@@ -262,48 +253,13 @@ class SafetyTriggerManager {
     }
   }
 
-  // Sound Detector Callback
-  void _onSoundDetect({int? result, int? errCode}) {
-    if (errCode != null) {
-      print("[BG_SERVICE_MANAGER] SoundDetect Error Code: $errCode");
-      return;
-    }
-    if (result != null) {
-      const int soundEventScream = 12; // Placeholder - MUST VERIFY
-      print("[BG_SERVICE_MANAGER] Sound detected: ID $result");
-      if (result == soundEventScream) {
-        print("[BG_SERVICE_MANAGER] TRIGGER: Scream detected!");
-        _onTrigger?.call("Scream Detected");
-      }
-    }
-  }
-
-  // Accelerometer Callback
-  void _onAccelEvent(AccelerometerEvent event) {
-    double magnitude = sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
-    if (magnitude > 35.0) {
-      print("[BG_SERVICE_MANAGER] TRIGGER: High-G event detected! ($magnitude m/s^2)");
-      _onTrigger?.call("Impact Detected");
-    }
-  }
-
-  // Gyroscope Callback
-  void _onGyroEvent(GyroscopeEvent event) {
-    double magnitude = sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
-    if (magnitude > 10.0) { // Example threshold for rapid spin/fall
-      print("[BG_SERVICE_MANAGER] TRIGGER: Violent rotation detected! ($magnitude rad/s)");
-      _onTrigger?.call("Violent Motion Detected");
-    }
-  }
-
-
-  // --- Trigger Handling Flow ---
   Future<bool> handleIncidentTrigger(String triggerType, ServiceInstance service) async {
     print("[BG_SERVICE_MANAGER] Handling trigger: $triggerType");
-    String? finalizedAudioPath = _audioPath; // Store current path
-    if (_isRecording) {
+    String? finalizedAudioPath = _audioPath;
+    if (_isRecording) { // Use our internal flag
       try {
-        await _audioRecorder?.stopRecorder();
+        // Stop the recorder. The path is already in _audioPath
+        await _audioRecorder?.stop();
         _isRecording = false;
         print("[BG_SERVICE_MANAGER] Audio recording stopped. File: $finalizedAudioPath");
       } catch (e) {
@@ -311,38 +267,34 @@ class SafetyTriggerManager {
         finalizedAudioPath = null;
       }
     } else {
-      finalizedAudioPath = null;
+      // If not recording, the path might still be valid from a previous run
+      finalizedAudioPath = _audioPath;
     }
 
     Location? location;
     try {
       location = await _locationProvider?.getLastLocation();
-
       if (location == null) {
         print("[BG_SERVICE_MANAGER] getLastLocation failed, requesting updates...");
         final Completer<Location> locationCompleter = Completer<Location>();
 
-        void _onLocationUpdateResult(LocationResult locationResult) {
+        void onLocationUpdateResult(LocationResult locationResult) {
           Location? newLocation = locationResult.lastLocation ?? (locationResult.locations!.isNotEmpty ? locationResult.locations!.last : null);
           if (newLocation != null && !locationCompleter.isCompleted) {
-            print("[BG_SERVICE_MANAGER] Received location update: ${newLocation.latitude}, ${newLocation.longitude}");
             locationCompleter.complete(newLocation);
             if (_locationRequestCode != null) { _locationProvider?.removeLocationUpdates(_locationRequestCode!); _locationRequestCode = null; }
           }
         }
-        void _onLocationAvailability(LocationAvailability availability) { print("[BG_SERVICE_MANAGER] Loc Avail: ${availability.isLocationAvailable}"); }
+        void onLocationAvailability(LocationAvailability availability) {}
 
-        final LocationCallback locationCallback = LocationCallback(onLocationResult: _onLocationUpdateResult, onLocationAvailability: _onLocationAvailability);
-        LocationRequest locationRequest = LocationRequest();
-        locationRequest.priority = LocationRequest.PRIORITY_HIGH_ACCURACY;
+        final LocationCallback locationCallback = LocationCallback(onLocationResult: onLocationUpdateResult, onLocationAvailability: onLocationAvailability);
+        LocationRequest locationRequest = LocationRequest()..priority = LocationRequest.PRIORITY_HIGH_ACCURACY;
 
         _locationRequestCode = await _locationProvider?.requestLocationUpdatesCb(locationRequest, locationCallback);
-        print("[BG_SERVICE_MANAGER] Waiting for location update callback (Code: $_locationRequestCode)...");
 
         location = await locationCompleter.future.timeout(
           const Duration(seconds: 20),
           onTimeout: () {
-            print("[BG_SERVICE_MANAGER] Timeout waiting for location update.");
             if (_locationRequestCode != null) { _locationProvider?.removeLocationUpdates(_locationRequestCode!); _locationRequestCode = null; }
             return Future.value(null);
           },
@@ -350,8 +302,7 @@ class SafetyTriggerManager {
       }
     } catch (e) {
       print("[BG_SERVICE_MANAGER] Error getting location: $e");
-      location = null;
-      if (_locationRequestCode != null) { try { _locationProvider?.removeLocationUpdates(_locationRequestCode!); _locationRequestCode = null; } catch (_) {} }
+      if (_locationRequestCode != null) { try { await _locationProvider?.removeLocationUpdates(_locationRequestCode!); _locationRequestCode = null; } catch (_) {} }
     }
 
     if (location == null) {
@@ -360,27 +311,18 @@ class SafetyTriggerManager {
     }
     print("[BG_SERVICE_MANAGER] Location acquired: ${location.latitude}, ${location.longitude}");
 
-
     String? mediaUri;
     if (finalizedAudioPath != null) {
       if (service is AndroidServiceInstance) {
-        service.setForegroundNotificationInfo(
-          title: "MYSafeZone: Incident Detected",
-          content: "Uploading audio evidence...",
-        );
+        service.setForegroundNotificationInfo(title: "MYSafeZone: Incident Detected", content: "Uploading audio evidence...");
       }
       mediaUri = await _uploadAudioToDrive(finalizedAudioPath);
       if (mediaUri == null) {
         print("[BG_SERVICE_MANAGER] WARNING: Failed to upload audio to Drive.");
-      } else {
-        print("[BG_SERVICE_MANAGER] Audio uploaded. Drive ID: $mediaUri");
       }
-    } else {
-      print("[BG_SERVICE_MANAGER] No finalized audio path to upload.");
     }
 
     String uid = await _getOrCreateDeviceUID();
-
     String mediaId = Uuid().v4();
     db.media mediaObj = db.media(
       mediaID: mediaId,
@@ -406,31 +348,14 @@ class SafetyTriggerManager {
 
     try {
       if (service is AndroidServiceInstance) {
-        service.setForegroundNotificationInfo(
-          title: "MYSafeZone: Incident Detected",
-          content: "Saving incident details...",
-        );
+        service.setForegroundNotificationInfo(title: "MYSafeZone: Incident Detected", content: "Saving incident details...");
       }
-
       final zoneConfig = AGConnectCloudDBZoneConfig(zoneName: "MYSafeZone");
       final cloudDBZone = await _cloudDB.openCloudDBZone(zoneConfig: zoneConfig);
-
-      final mediaData = mediaObj.getObjectData();
-      await cloudDBZone.executeUpsert(
-        objectTypeName: "media",
-        entries: [mediaData],
-      );
-      print("[BG_SERVICE_MANAGER] Media object saved to CloudDB.");
-
-      final incidentData = incidentObj.getObjectData();
-      await cloudDBZone.executeUpsert(
-        objectTypeName: "incidents",
-        entries: [incidentData],
-      );
-      print("[BG_SERVICE_MANAGER] Incident object saved to CloudDB. IID: $lastIncidentId");
-
+      await cloudDBZone.executeUpsert(objectTypeName: "media", entries: [mediaObj.getObjectData()]);
+      await cloudDBZone.executeUpsert(objectTypeName: "incidents", entries: [incidentObj.getObjectData()]);
+      print("[BG_SERVICE_MANAGER] Incident saved to CloudDB. IID: $lastIncidentId");
       return true;
-
     } catch (e) {
       print("[BG_SERVICE_MANAGER] CloudDB write failed: $e");
       return false;
@@ -438,42 +363,20 @@ class SafetyTriggerManager {
   }
 
   Future<String?> _uploadAudioToDrive(String filePath) async {
-    print("[BG_SERVICE_MANAGER] Attempting to upload audio: $filePath");
     AuthAccount? account = await AccountAuthManager.getAuthResult();
     String? accessToken = account?.accessToken;
-
     if (accessToken == null) {
-      print("[BG_SERVICE_MANAGER] Drive Upload Error: No Access Token found. User likely not logged in.");
       return "AUTH_FAILED";
     }
-
-    final DriveCredentials credentials = DriveCredentials(
-      accessToken: accessToken,
-    );
-
+    final DriveCredentials credentials = DriveCredentials(accessToken: accessToken);
     try {
       final Drive drive = await Drive.init(credentials);
-      final DriveFile driveMetadata = DriveFile(
-        fileName: filePath.split('/').last,
-        mimeType: "audio/aac",
-      );
+      final DriveFile driveMetadata = DriveFile(fileName: filePath.split('/').last, mimeType: "audio/aac");
       final DriveFile? driveFile = await drive.files.create(
-          FilesRequest.create(
-              driveMetadata,
-              fileContent: DriveFileContent(path: filePath),
-              fields: '*'
-          )
+          FilesRequest.create(driveMetadata, fileContent: DriveFileContent(path: filePath), fields: '*')
       );
-
-      if (driveFile != null && driveFile.id != null) {
-        print("[BG_SERVICE_MANAGER] Audio upload successful. Drive ID: ${driveFile.id}");
-        return driveFile.id;
-      } else {
-        print("[BG_SERVICE_MANAGER] Drive upload returned null or no file ID.");
-        return "UPLOAD_RETURNED_NULL";
-      }
+      return driveFile?.id;
     } catch (e) {
-      print("[BG_SERVICE_MANAGER] Drive upload exception: $e");
       return "UPLOAD_EXCEPTION";
     }
   }
@@ -481,12 +384,9 @@ class SafetyTriggerManager {
   Future<String> _getOrCreateDeviceUID() async {
     final prefs = await SharedPreferences.getInstance();
     String? uid = prefs.getString('device_uid');
-
     if (uid == null) {
       uid = Uuid().v4();
       await prefs.setString('device_uid', uid);
-      print("[BG_SERVICE_MANAGER] Generated new device UID: $uid");
-
       db.users placeholderUser = db.users(
           uid: uid,
           username: "Device-$uid",
@@ -498,12 +398,7 @@ class SafetyTriggerManager {
       try {
         final zoneConfig = AGConnectCloudDBZoneConfig(zoneName: "MYSafeZone");
         final zone = await _cloudDB.openCloudDBZone(zoneConfig: zoneConfig);
-        final userDataMap = placeholderUser.getObjectData();
-        await zone.executeUpsert(
-            objectTypeName: "users",
-            entries: [userDataMap]
-        );
-        print("[BG_SERVICE_MANAGER] Created placeholder user in CloudDB.");
+        await zone.executeUpsert(objectTypeName: "users", entries: [placeholderUser.getObjectData()]);
       } catch (e) {
         print("[BG_SERVICE_MANAGER] Failed to create placeholder user: $e");
       }
@@ -513,32 +408,24 @@ class SafetyTriggerManager {
 
   Future<void> stopAllListeners() async {
     print("[BG_SERVICE_MANAGER] Stopping all listeners...");
-    _accelSubscription?.cancel();
-    _gyroSubscription?.cancel();
-    _accelSubscription = null;
-    _gyroSubscription = null;
-
-    try {
-      _soundDetector?.destroy();
-    } catch (e) { print("[BG_SERVICE_MANAGER] Error destroying SoundDetector: $e"); }
-    _soundDetector = null;
+    _sensorManager.stopAllListeners();
 
     if (_locationRequestCode != null) {
       try {
         await _locationProvider?.removeLocationUpdates(_locationRequestCode!);
-      } catch (e) {print("[BG_S ERVICE_MANAGER] Error removing location updates: $e");}
+      } catch (e) {print("[BG_SERVICE_MANAGER] Error removing location updates: $e");}
       _locationRequestCode = null;
     }
 
-    if (_isRecording) {
+    // Use AudioRecorder's methods
+    if (await _audioRecorder?.isRecording() ?? false) {
       try {
-        await _audioRecorder?.stopRecorder();
-        _isRecording = false;
-        print("[BG_SERVICE_MANAGER] Stopped dangling recording.");
-      } catch (e) { print("[BG_SERVICE_MANAGER] Error stopping dangling recording: $e");}
+        await _audioRecorder?.stop();
+        _isRecording = false; // Update our flag
+      } catch (e) {
+        print("[BG_SERVICE_MANAGER] Error stopping dangling recording: $e");
+      }
     }
-
     print("[BG_SERVICE_MANAGER] Listeners stopped.");
   }
-
-} // End of SafetyTriggerManager
+}

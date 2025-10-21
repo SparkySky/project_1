@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:agconnect_auth/agconnect_auth.dart';
 import 'package:huawei_account/huawei_account.dart';
 import 'auth_service.dart';
+import '../util/snackbar_helper.dart';
 import '../app_theme.dart';
 import '../homepage/homepage.dart';
 
@@ -74,32 +74,11 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   void _onFieldChanged() {
-    // Clear all error visuals when user types in any field
     if (_showValidationErrors) {
       setState(() {
         _showValidationErrors = false;
       });
     }
-  }
-
-  void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-        duration: const Duration(seconds: 3),
-      ),
-    );
-  }
-
-  void _showSuccessSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.green,
-        duration: const Duration(seconds: 3),
-      ),
-    );
   }
 
   Future<void> _handleSubmit() async {
@@ -126,15 +105,15 @@ class _AuthScreenState extends State<AuthScreen> {
             MaterialPageRoute(builder: (context) => const HomePage()),
           );
         } else {
-          _showErrorSnackBar("Login failed. Please check credentials.");
+          Snackbar.error("Login failed. Please check credentials.");
         }
       } else {
         await _authService.requestEmailCodeForSignUp(email);
-        _showSuccessSnackBar("Verification code sent to $email");
+        Snackbar.success("Verification code sent to $email");
         _showVerifyCodeDialog();
       }
     } catch (e) {
-      _showErrorSnackBar(e.toString());
+      Snackbar.error(e.toString());
     } finally {
       if (mounted) {
         setState(() {
@@ -189,7 +168,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       : () async {
                           final code = codeController.text.trim();
                           if (code.isEmpty) {
-                            _showErrorSnackBar("Please enter the code");
+                            Snackbar.error("Please enter the code");
                             return;
                           }
 
@@ -204,13 +183,13 @@ class _AuthScreenState extends State<AuthScreen> {
 
                             if (mounted) {
                               Navigator.of(context).pop();
-                              _showSuccessSnackBar(
+                              Snackbar.success(
                                 "Account created! Please log in.",
                               );
                               _toggleMode();
                             }
                           } catch (e) {
-                            _showErrorSnackBar(e.toString());
+                            Snackbar.error(e.toString());
                           } finally {
                             if (mounted) {
                               setDialogState(() => isDialogLoading = false);
@@ -243,17 +222,20 @@ class _AuthScreenState extends State<AuthScreen> {
   Future<void> _handleHuaweiSignIn() async {
     setState(() => _isLoading = true);
     try {
+      debugPrint('[HuaweiSignIn] Starting sign-in');
       final user = await _authService.signInWithHuaweiID();
+      debugPrint('[HuaweiSignIn] Sign-in completed: ${user?.uid}');
+
       if (user != null && mounted) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const HomePage()),
         );
       } else {
-        _showErrorSnackBar("Huawei ID Sign-In failed.");
+        Snackbar.error("Huawei ID Sign-In failed.");
       }
     } catch (e) {
-      _showErrorSnackBar(e.toString());
+      Snackbar.error(e.toString());
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -310,7 +292,7 @@ class _AuthScreenState extends State<AuthScreen> {
                               !RegExp(
                                 r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
                               ).hasMatch(email)) {
-                            _showErrorSnackBar("Please enter a valid email.");
+                            Snackbar.error("Please enter a valid email.");
                             return;
                           }
 
@@ -319,14 +301,14 @@ class _AuthScreenState extends State<AuthScreen> {
                             await _authService.requestPasswordResetCode(email);
                             if (mounted) {
                               Navigator.of(context).pop();
-                              _showSuccessSnackBar(
+                              Snackbar.success(
                                 "Password reset code sent to $email",
                               );
                               _showResetPasswordEnterCodeDialog(email);
                             }
                           } catch (e) {
                             if (mounted) {
-                              _showErrorSnackBar(e.toString());
+                              Snackbar.error(e.toString());
                             }
                           } finally {
                             if (mounted) {
@@ -342,7 +324,10 @@ class _AuthScreenState extends State<AuthScreen> {
                       ? const SizedBox(
                           height: 20,
                           width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
                       : const Text("Get Code"),
                 ),
@@ -472,7 +457,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             );
                             if (mounted) {
                               Navigator.of(context).pop();
-                              _showSuccessSnackBar(
+                              Snackbar.success(
                                 "Password has been reset successfully. Please log in.",
                               );
                               _emailController.text = email;
@@ -481,7 +466,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             }
                           } catch (e) {
                             if (mounted) {
-                              _showErrorSnackBar(e.toString());
+                              Snackbar.error(e.toString());
                             }
                           } finally {
                             if (mounted) {
@@ -497,7 +482,10 @@ class _AuthScreenState extends State<AuthScreen> {
                       ? const SizedBox(
                           height: 20,
                           width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
                       : const Text("Reset Password"),
                 ),
@@ -529,23 +517,27 @@ class _AuthScreenState extends State<AuthScreen> {
     // Otherwise show grey
     Color borderColor;
     Color labelColor;
+    Color iconColor;
 
     if (isFocused) {
       borderColor = AppTheme.primaryOrange;
       labelColor = AppTheme.primaryOrange;
+      iconColor = AppTheme.primaryOrange;
     } else if (hasError && _showValidationErrors) {
       borderColor = Colors.red;
       labelColor = Colors.red;
+      iconColor = Colors.red;
     } else {
       borderColor = Colors.grey[300]!;
       labelColor = Colors.grey;
+      iconColor = Colors.grey;
     }
 
     return InputDecoration(
       labelText: labelText,
       labelStyle: TextStyle(color: isFocused ? Colors.grey : labelColor),
       floatingLabelStyle: TextStyle(color: labelColor),
-      prefixIcon: Icon(prefixIcon),
+      prefixIcon: Icon(prefixIcon, color: iconColor),
       suffixIcon: suffixIcon,
       border: _buildBorder(Colors.grey[300]!),
       enabledBorder: _buildBorder(borderColor),
@@ -624,6 +616,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // Logo
                   Container(
                     width: 120,
                     height: 120,
@@ -699,6 +692,7 @@ class _AuthScreenState extends State<AuthScreen> {
                           _obscurePassword
                               ? Icons.visibility_outlined
                               : Icons.visibility_off_outlined,
+                          color: Colors.grey,
                         ),
                         onPressed: () => setState(
                           () => _obscurePassword = !_obscurePassword,
@@ -737,6 +731,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             _obscureConfirmPassword
                                 ? Icons.visibility_outlined
                                 : Icons.visibility_off_outlined,
+                            color: Colors.grey,
                           ),
                           onPressed: () => setState(
                             () => _obscureConfirmPassword =
@@ -814,7 +809,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     ],
                   ),
 
-                  // Forgot Password Button (Login only) - Moved below the toggle
+                  // Forgot Password Button (Login only) - Centered below toggle
                   if (_isLoginMode)
                     Center(
                       child: TextButton(
