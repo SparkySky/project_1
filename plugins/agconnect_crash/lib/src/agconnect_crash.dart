@@ -25,7 +25,7 @@ enum LogLevel { debug, info, warning, error }
 /// External API class of the Crash service in AppGallery Connect
 class AGCCrash {
   static const MethodChannel _channel =
-      const MethodChannel('com.huawei.flutter/agconnect_crash');
+      MethodChannel('com.huawei.flutter/agconnect_crash');
 
   /// AGCCrash Instance
   static final AGCCrash instance = AGCCrash();

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:agconnect_auth/agconnect_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
@@ -11,6 +10,8 @@ import '../constants/provider_types.dart';
 import '../util/debug_state.dart';
 
 class ProfilePage extends StatefulWidget {
+  const ProfilePage({super.key});
+
   @override
   State<ProfilePage> createState() => _ProfilePageState();
 }
@@ -804,7 +805,7 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
           Switch(
-            activeColor: AppTheme.primaryOrange,
+            activeThumbColor: AppTheme.primaryOrange,
             value: value,
             onChanged: onChanged,
           ),

@@ -93,12 +93,12 @@ class MLCustomInteractiveLivenessDetectionSetting {
 
   Map<String, dynamic> toMap() {
     return <String, dynamic>{
-      'action': action == null ? null : action!.toMap(),
+      'action': action?.toMap(),
       'detectionTimeOut': detectionTimeOut,
       'cameraFrame': cameraFrame.toJson(),
       'faceFrame': faceFrame.toJson(),
       'textMargin': textMargin,
-      'textOptions': textOptions == null ? null : textOptions!.toJson(),
+      'textOptions': textOptions?.toJson(),
       'title': title,
       'showStatusCodes': showStatusCodes,
       'statusCodes': statusCodes,

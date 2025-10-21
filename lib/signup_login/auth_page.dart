@@ -8,7 +8,7 @@ import '../homepage/homepage.dart';
 class AuthScreen extends StatefulWidget {
   final bool isLogin;
 
-  const AuthScreen({Key? key, this.isLogin = true}) : super(key: key);
+  const AuthScreen({super.key, this.isLogin = true});
 
   @override
   State<AuthScreen> createState() => _AuthScreenState();
@@ -154,13 +154,13 @@ class _AuthScreenState extends State<AuthScreen> {
               ),
               actions: [
                 TextButton(
+                  onPressed: isDialogLoading
+                      ? null
+                      : () => Navigator.of(context).pop(),
                   child: const Text(
                     "Cancel",
                     style: TextStyle(color: AppTheme.primaryOrange),
                   ),
-                  onPressed: isDialogLoading
-                      ? null
-                      : () => Navigator.of(context).pop(),
                 ),
                 ElevatedButton(
                   onPressed: isDialogLoading
@@ -275,13 +275,13 @@ class _AuthScreenState extends State<AuthScreen> {
               ),
               actions: [
                 TextButton(
+                  onPressed: isRequestingCode
+                      ? null
+                      : () => Navigator.of(context).pop(),
                   child: const Text(
                     "Cancel",
                     style: TextStyle(color: AppTheme.primaryOrange),
                   ),
-                  onPressed: isRequestingCode
-                      ? null
-                      : () => Navigator.of(context).pop(),
                 ),
                 ElevatedButton(
                   onPressed: isRequestingCode
@@ -416,10 +416,12 @@ class _AuthScreenState extends State<AuthScreen> {
                           ),
                         ),
                         validator: (v) {
-                          if (v == null || v.isEmpty)
+                          if (v == null || v.isEmpty) {
                             return 'Please confirm password';
-                          if (v != newPasswordController.text)
+                          }
+                          if (v != newPasswordController.text) {
                             return 'Passwords do not match';
+                          }
                           return null;
                         },
                       ),
@@ -429,13 +431,13 @@ class _AuthScreenState extends State<AuthScreen> {
               ),
               actions: [
                 TextButton(
+                  onPressed: isResetting
+                      ? null
+                      : () => Navigator.of(context).pop(),
                   child: const Text(
                     "Cancel",
                     style: TextStyle(color: AppTheme.primaryOrange),
                   ),
-                  onPressed: isResetting
-                      ? null
-                      : () => Navigator.of(context).pop(),
                 ),
                 ElevatedButton(
                   onPressed: isResetting

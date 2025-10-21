@@ -25,7 +25,7 @@ class PlatformAuth {
   static const EventChannel eventChannel =
       EventChannel('com.huawei.flutter.event/agconnect_auth');
 
-  static handlePlatformException(Object exception) {
+  static void handlePlatformException(Object exception) {
     if (exception is PlatformException) {
       int? code = int.tryParse(exception.code);
       Map? details = exception.details!=null ? exception.details as Map : null;

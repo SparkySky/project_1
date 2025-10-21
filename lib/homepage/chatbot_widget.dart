@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../app_theme.dart';
 
 class ChatbotWidget extends StatefulWidget {
-  const ChatbotWidget({Key? key}) : super(key: key);
+  const ChatbotWidget({super.key});
 
   @override
   State<ChatbotWidget> createState() => _ChatbotWidgetState();
@@ -52,7 +52,7 @@ class _ChatbotWidgetState extends State<ChatbotWidget> {
 
 // Chatbot Page with API Integration
 class ChatbotPage extends StatefulWidget {
-  const ChatbotPage({Key? key}) : super(key: key);
+  const ChatbotPage({super.key});
 
   @override
   _ChatbotPageState createState() => _ChatbotPageState();

@@ -14,12 +14,9 @@
  * limitations under the License.
  */
 
-library huawei_location;
+library;
 
-import 'dart:convert';
 import 'dart:core';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 
 part 'src/activity/activity_conversion_data.dart';
 part 'src/activity/activity_conversion_info.dart';
