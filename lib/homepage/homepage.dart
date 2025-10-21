@@ -266,7 +266,7 @@ class _HomePageState extends State<HomePage> {
             // Map Section - Fixed height
             SizedBox(
               height: 250,
-              child: MapWidget(incidents: incidents),
+              child: MapWidget(incidents: _incidents),
             ),
 
             // Nearby Incidents Section - Takes remaining space
@@ -285,10 +285,10 @@ class _HomePageState extends State<HomePage> {
                   ),
                   Expanded(
                     child: ListView.builder(
-                      itemCount: incidents.length,
+                      itemCount: _incidents.length,
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       itemBuilder: (context, index) {
-                        return _buildIncidentCard(incidents[index]);
+                        return _buildIncidentCard(_incidents[index]);
                       },
                     ),
                   ),
