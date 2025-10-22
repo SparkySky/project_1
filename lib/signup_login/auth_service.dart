@@ -5,7 +5,7 @@ import 'package:huawei_account/huawei_account.dart';
 import 'package:provider/provider.dart';
 import '../repository/user_repository.dart';
 import '../util/snackbar_helper.dart';
-import '../models/users.dart';
+import '../models/Users.dart';
 import '../providers/user_provider.dart';
 
 class AuthService {

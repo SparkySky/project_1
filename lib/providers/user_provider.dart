@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:agconnect_auth/agconnect_auth.dart';
-import '../models/users.dart';
+import '../models/Users.dart';
 import '../repository/user_repository.dart';
 import '../signup_login/auth_service.dart';
 
