@@ -1,12 +1,14 @@
 import 'dart:async';
 import 'package:agconnect_clouddb/agconnect_clouddb.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 import 'app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'bg_services/background_service.dart';
-import 'bg_services/sensors_analysis.dart';
+import 'collection_in_progress_page.dart';
+import 'lodge_incident_page.dart';
 import 'permissions/permission_handler.dart';
 import 'splashscreen.dart';
 import 'util/debug_state.dart';
@@ -15,56 +17,36 @@ import 'util/debug_overlay.dart';
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
-  // Ensures that plugin services are initialized before runApp
   WidgetsFlutterBinding.ensureInitialized();
+  await DebugState().loadState();
 
-  await DebugState().loadState(); // Debug: Load debug state from storage
-
-
-  // Create Notification Channel
   const AndroidNotificationChannel channel = AndroidNotificationChannel(
-    'mysafezone_foreground', // Must match ID used in background_service.dart
-    'MYSafeZone Monitoring', // Channel name visible in Android settings
+    'mysafezone_foreground',
+    'MYSafeZone Monitoring',
     description: 'Background service for safety monitoring.',
-    importance: Importance.low, // Use low to avoid sound/vibration
+    importance: Importance.low,
   );
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
   await flutterLocalNotificationsPlugin
       .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
       ?.createNotificationChannel(channel);
 
-  // 1. Request needed permissions
   await requestPermissions();
-
-  // 2. Initialize the Background Service configuration
   await initializeBackgroundService();
 
-  // 3. Initialize the Sensors Analysis Service
-  final sensorsAnalysisService = SensorsAnalysisService(navigatorKey: navigatorKey);
-  await sensorsAnalysisService.initialize();
-
-  // 4. Initialize AGConnect Core & CloudDB in the main isolate
   try {
-    // Core initialization is handled natively by the agconnect plugin reading the json file.
     final cloudDB = AGConnectCloudDB.getInstance();
     await cloudDB.initialize();
-    await cloudDB.createObjectType(); // Ensure models are created before service starts
-    if (kDebugMode) {
-      print("[MAIN] AGConnect and CloudDB Initialized in main isolate.");
-    }
+    await cloudDB.createObjectType();
+    if (kDebugMode) print("[MAIN] AGConnect and CloudDB Initialized.");
   } catch (e) {
-    if (kDebugMode) {
-      print("[MAIN] CRITICAL Error during AGConnect/CloudDB init: $e");
-    }
+    if (kDebugMode) print("[MAIN] CRITICAL Error during AGConnect/CloudDB init: $e");
   }
   runApp(const MyApp());
 }
 
-
-// StatefulWidget to listen for DebugState changes
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
-
   @override
   State<MyApp> createState() => _MyAppState();
 }
@@ -76,10 +58,28 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    // Set the initial state
     _showDebugOverlay = _debugState.showDebugOverlay;
-    // Listen for future changes
     _debugState.addListener(_onDebugStateChanged);
+
+    // Listen for events from the background service to handle navigation
+    final service = FlutterBackgroundService();
+    service.on('showCollectionScreen').listen((event) {
+      navigatorKey.currentState?.push(MaterialPageRoute(
+        builder: (context) => CollectionInProgressPage(initialData: event),
+      ));
+    });
+
+    service.on('closeCollectionScreen').listen((event) {
+      // Pop the collection screen if it's open
+      navigatorKey.currentState?.pop();
+    });
+
+    service.on('showLodgeScreen').listen((event) {
+      // Replace the collection screen with the lodge screen
+      navigatorKey.currentState?.pushReplacement(MaterialPageRoute(
+        builder: (context) => LodgeIncidentPage(incidentData: event),
+      ));
+    });
   }
 
   @override
@@ -102,20 +102,9 @@ class _MyAppState extends State<MyApp> {
       navigatorKey: navigatorKey,
       title: 'MYSafeZone',
       theme: AppTheme.lightTheme,
-      debugShowCheckedModeBanner: false, // Debug: Remove the top right banner
-      // MaterialApp.builder to stack the overlay
+      debugShowCheckedModeBanner: false,
       builder: (context, child) {
-        if (!_showDebugOverlay) {
-          return child!; // Return the normal app
-        }
-
-        // If overlay is on, wrap the app in a Stack and add the overlay
-        return Stack(
-          children: [
-            child!, // The normal app
-            const DebugOverlayWidget(), // Our new overlay widget
-          ],
-        );
+        return !_showDebugOverlay ? child! : Stack(children: [child!, const DebugOverlayWidget()]);
       },
       home: const SplashScreen(),
     );
