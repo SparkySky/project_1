@@ -6,6 +6,8 @@ import 'package:record/record.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import 'app_theme.dart';
+import 'package:video_player/video_player.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 class LodgeIncidentPage extends StatefulWidget {
   final String? incidentType;
@@ -478,14 +480,28 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
         quality: 75,
       );
 
-      if (thumbnail != null) {
+      if (thumbnail != null && mounted) {
         setState(() {
           _videoThumbnails[videoFile.path] = thumbnail;
         });
       }
     } catch (e) {
       print('Error generating thumbnail: $e');
+      // Don't show error to user, just skip thumbnail
     }
+  }
+
+  void _openMediaViewer(File file, int index) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MediaViewerPage(
+          file: file,
+          isVideo: _isVideo(file.path),
+          isAudio: _isAudio(file.path),
+        ),
+      ),
+    );
   }
 
   void _submitIncident() {
@@ -947,88 +963,542 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
     final isAudio = _isAudio(file.path);
     final videoThumbnail = _videoThumbnails[file.path];
 
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              color: Colors.grey[200],
-              child: isImage
-                  ? Image.file(
-                      file,
-                      fit: BoxFit.cover,
-                      width: double.infinity,
-                      height: double.infinity,
-                    )
-                  : isVideo && videoThumbnail != null
-                      ? Stack(
-                          children: [
-                            Image.file(
-                              File(videoThumbnail),
-                              fit: BoxFit.cover,
-                              width: double.infinity,
-                              height: double.infinity,
-                            ),
-                            Center(
-                              child: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.6),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.play_arrow,
-                                  color: Colors.white,
-                                  size: 24,
+    return GestureDetector(
+      onTap: () => _openMediaViewer(file, index),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                color: isAudio ? Colors.black : Colors.grey[200],
+                child: isImage
+                    ? Image.file(
+                        file,
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: double.infinity,
+                      )
+                    : isVideo && videoThumbnail != null
+                        ? Stack(
+                            children: [
+                              Image.file(
+                                File(videoThumbnail),
+                                fit: BoxFit.cover,
+                                width: double.infinity,
+                                height: double.infinity,
+                              ),
+                              Center(
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.6),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.play_arrow,
+                                    color: Colors.white,
+                                    size: 24,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
-                        )
-                      : Center(
-                          child: Icon(
-                            isAudio ? Icons.audiotrack : Icons.insert_drive_file,
-                            color: AppTheme.primaryOrange,
-                            size: 40,
-                          ),
-                        ),
+                            ],
+                          )
+                        : isAudio
+                            ? Center(
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.2),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.play_arrow,
+                                    color: Colors.white,
+                                    size: 32,
+                                  ),
+                                ),
+                              )
+                            : Center(
+                                child: Icon(
+                                  Icons.insert_drive_file,
+                                  color: AppTheme.primaryOrange,
+                                  size: 40,
+                                ),
+                              ),
+              ),
             ),
-          ),
-          Positioned(
-            top: 4,
-            right: 4,
-            child: GestureDetector(
-              onTap: () => _removeMedia(index),
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: Colors.red,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 4,
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.close,
-                  color: Colors.white,
-                  size: 16,
+            Positioned(
+              top: 4,
+              right: 4,
+              child: GestureDetector(
+                onTap: () => _removeMedia(index),
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 4,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.close,
+                    color: Colors.white,
+                    size: 16,
+                  ),
                 ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Media Viewer Page for full-screen viewing and playback
+class MediaViewerPage extends StatefulWidget {
+  final File file;
+  final bool isVideo;
+  final bool isAudio;
+
+  const MediaViewerPage({
+    Key? key,
+    required this.file,
+    required this.isVideo,
+    required this.isAudio,
+  }) : super(key: key);
+
+  @override
+  _MediaViewerPageState createState() => _MediaViewerPageState();
+}
+
+class _MediaViewerPageState extends State<MediaViewerPage> {
+  VideoPlayerController? _videoController;
+  AudioPlayer? _audioPlayer;
+  bool _isPlaying = false;
+  bool _isInitializing = true;
+  bool _hasError = false;
+  String _errorMessage = '';
+  Duration _duration = Duration.zero;
+  Duration _position = Duration.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeMedia();
+  }
+
+  Future<void> _initializeMedia() async {
+    try {
+      if (widget.isVideo) {
+        await _initializeVideo();
+      } else if (widget.isAudio) {
+        await _initializeAudio();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+          _errorMessage = 'Failed to load media: $e';
+          _isInitializing = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _initializeVideo() async {
+    try {
+      _videoController = VideoPlayerController.file(widget.file);
+      
+      await _videoController!.initialize();
+      
+      if (mounted) {
+        setState(() {
+          _isInitializing = false;
+        });
+        
+        _videoController!.addListener(() {
+          if (mounted) {
+            setState(() {
+              _isPlaying = _videoController!.value.isPlaying;
+              _position = _videoController!.value.position;
+              _duration = _videoController!.value.duration;
+            });
+          }
+        });
+      }
+    } catch (e) {
+      print('Error initializing video: $e');
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+          _errorMessage = 'Unable to play this video format';
+          _isInitializing = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _initializeAudio() async {
+    try {
+      _audioPlayer = AudioPlayer();
+      
+      _audioPlayer!.onDurationChanged.listen((duration) {
+        if (mounted) {
+          setState(() {
+            _duration = duration;
+          });
+        }
+      });
+
+      _audioPlayer!.onPositionChanged.listen((position) {
+        if (mounted) {
+          setState(() {
+            _position = position;
+          });
+        }
+      });
+
+      _audioPlayer!.onPlayerStateChanged.listen((state) {
+        if (mounted) {
+          setState(() {
+            _isPlaying = state == PlayerState.playing;
+          });
+        }
+      });
+
+      if (mounted) {
+        setState(() {
+          _isInitializing = false;
+        });
+      }
+    } catch (e) {
+      print('Error initializing audio: $e');
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+          _errorMessage = 'Unable to play this audio format';
+          _isInitializing = false;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _videoController?.dispose();
+    _audioPlayer?.dispose();
+    super.dispose();
+  }
+
+  void _togglePlayPause() {
+    try {
+      if (widget.isVideo && _videoController != null) {
+        if (_videoController!.value.isPlaying) {
+          _videoController!.pause();
+        } else {
+          _videoController!.play();
+        }
+      } else if (widget.isAudio && _audioPlayer != null) {
+        if (_isPlaying) {
+          _audioPlayer!.pause();
+        } else {
+          _audioPlayer!.play(DeviceFileSource(widget.file.path));
+        }
+      }
+    } catch (e) {
+      print('Error toggling play/pause: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Playback error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _seekTo(double value) {
+    try {
+      final position = Duration(milliseconds: value.toInt());
+      if (widget.isVideo && _videoController != null) {
+        _videoController!.seekTo(position);
+      } else if (widget.isAudio && _audioPlayer != null) {
+        _audioPlayer!.seek(position);
+      }
+    } catch (e) {
+      print('Error seeking: $e');
+    }
+  }
+
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    return '$minutes:$seconds';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text(
+          widget.file.path.split('/').last,
+          style: const TextStyle(color: Colors.white),
+        ),
+      ),
+      body: Center(
+        child: widget.isVideo
+            ? _buildVideoPlayer()
+            : widget.isAudio
+                ? _buildAudioPlayer()
+                : _buildImageViewer(),
+      ),
+    );
+  }
+
+  Widget _buildImageViewer() {
+    return InteractiveViewer(
+      minScale: 0.5,
+      maxScale: 4.0,
+      child: Image.file(
+        widget.file,
+        fit: BoxFit.contain,
+      ),
+    );
+  }
+
+  Widget _buildVideoPlayer() {
+    if (_hasError) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.error_outline,
+              color: Colors.red,
+              size: 64,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _errorMessage,
+              style: const TextStyle(color: Colors.white),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryOrange,
+              ),
+              child: const Text('Go Back'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_isInitializing || _videoController == null || !_videoController!.value.isInitialized) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              color: AppTheme.primaryOrange,
+            ),
+            SizedBox(height: 16),
+            Text(
+              'Loading video...',
+              style: TextStyle(color: Colors.white),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Center(
+            child: AspectRatio(
+              aspectRatio: _videoController!.value.aspectRatio,
+              child: VideoPlayer(_videoController!),
+            ),
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.all(20),
+          color: Colors.black87,
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Text(
+                    _formatDuration(_position),
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                  Expanded(
+                    child: Slider(
+                      value: _position.inMilliseconds.toDouble().clamp(0, _duration.inMilliseconds.toDouble()),
+                      max: _duration.inMilliseconds.toDouble() > 0 
+                          ? _duration.inMilliseconds.toDouble() 
+                          : 1.0,
+                      activeColor: AppTheme.primaryOrange,
+                      inactiveColor: Colors.grey,
+                      onChanged: _seekTo,
+                    ),
+                  ),
+                  Text(
+                    _formatDuration(_duration),
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    onPressed: () {
+                      final newPosition = _position - const Duration(seconds: 10);
+                      if (newPosition.isNegative) {
+                        _videoController!.seekTo(Duration.zero);
+                      } else {
+                        _videoController!.seekTo(newPosition);
+                      }
+                    },
+                    icon: const Icon(Icons.replay_10, color: Colors.white, size: 32),
+                  ),
+                  const SizedBox(width: 20),
+                  IconButton(
+                    onPressed: _togglePlayPause,
+                    icon: Icon(
+                      _isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
+                      color: AppTheme.primaryOrange,
+                      size: 64,
+                    ),
+                  ),
+                  const SizedBox(width: 20),
+                  IconButton(
+                    onPressed: () {
+                      final newPosition = _position + const Duration(seconds: 10);
+                      if (newPosition > _duration) {
+                        _videoController!.seekTo(_duration);
+                      } else {
+                        _videoController!.seekTo(newPosition);
+                      }
+                    },
+                    icon: const Icon(Icons.forward_10, color: Colors.white, size: 32),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAudioPlayer() {
+    return Container(
+      padding: const EdgeInsets.all(40),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 200,
+            height: 200,
+            decoration: BoxDecoration(
+              color: AppTheme.primaryOrange.withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              _isPlaying ? Icons.audiotrack : Icons.music_note,
+              size: 100,
+              color: AppTheme.primaryOrange,
+            ),
+          ),
+          const SizedBox(height: 40),
+          Text(
+            widget.file.path.split('/').last,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 40),
+          Row(
+            children: [
+              Text(
+                _formatDuration(_position),
+                style: const TextStyle(color: Colors.white),
+              ),
+              Expanded(
+                child: Slider(
+                  value: _position.inMilliseconds.toDouble(),
+                  max: _duration.inMilliseconds > 0 
+                      ? _duration.inMilliseconds.toDouble() 
+                      : 1.0,
+                  activeColor: AppTheme.primaryOrange,
+                  inactiveColor: Colors.grey,
+                  onChanged: _seekTo,
+                ),
+              ),
+              Text(
+                _formatDuration(_duration),
+                style: const TextStyle(color: Colors.white),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconButton(
+                onPressed: () {
+                  final newPosition = _position - const Duration(seconds: 10);
+                  _audioPlayer!.seek(newPosition);
+                },
+                icon: const Icon(Icons.replay_10, color: Colors.white, size: 32),
+              ),
+              const SizedBox(width: 30),
+              IconButton(
+                onPressed: _togglePlayPause,
+                icon: Icon(
+                  _isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
+                  color: AppTheme.primaryOrange,
+                  size: 72,
+                ),
+              ),
+              const SizedBox(width: 30),
+              IconButton(
+                onPressed: () {
+                  final newPosition = _position + const Duration(seconds: 10);
+                  _audioPlayer!.seek(newPosition);
+                },
+                icon: const Icon(Icons.forward_10, color: Colors.white, size: 32),
+              ),
+            ],
           ),
         ],
       ),
