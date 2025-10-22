@@ -7,6 +7,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart';
 import 'package:huawei_site/huawei_site.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
 import 'package:path_provider/path_provider.dart';
@@ -190,91 +192,89 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
     });
 
     try {
-      final searchService = await SearchService.create(
-        apiKey: Uri.encodeComponent("DgEDAOcs4D0sDGUBoVxbgVd02uYRdo2kw9qeSFS5/KrMMaYEI7cOCtkJtpYr0nlE9+D1YwFMnU0G7L630uhclxboFY3v3jXCx0j8Hg=="),
+      final apiKey =
+          "DgEDAOcs4D0sDGUBoVxbgVd02uYRdo2kw9qeSFS5/KrMMaYEI7cOCtkJtpYr0nlE9+D1YwFMnU0G7L630uhclxboFY3v3jXCx0j8Hg==";
+
+      // Huawei Site Kit Reverse Geocoding REST API
+      final url = Uri.parse(
+        'https://siteapi.cloud.huawei.com/mapApi/v1/siteService/reverseGeocode',
       );
 
-      // Use NearbySearchRequest for reverse geocoding
-      final request = NearbySearchRequest(
-        location: Coordinate(lat: latitude, lng: longitude),
-        radius: 500, // Search within 500 meters
-        language: 'en',
-        pageSize: 20,
+      print('Reverse geocoding: $latitude, $longitude'); // Debug log
+
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $apiKey', // Add authorization header
+        },
+        body: jsonEncode({
+          'location': {
+            'lat': latitude,
+            'lng': longitude,
+          },
+          'language': 'en',
+          'returnPoi': true,
+        }),
       );
 
-      // Perform nearby search
-      final response = await searchService.nearbySearch(request);
+      print('Response status: ${response.statusCode}'); // Debug log
+      print('Response body: ${response.body}'); // Debug log
 
-      print('Response sites count: ${response.sites?.length}');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
 
-      if (response.sites != null && response.sites!.isNotEmpty) {
-        // Try to find a site with address information
-        Site? siteWithAddress;
-        for (var site in response.sites!) {
-          if (site != null && site.address != null) {
-            print(
-              'Found site: ${site.name}, Address: ${site.address?.adminArea}',
-            );
-            siteWithAddress = site;
-            break;
-          }
+        // Check for API errors in response
+        if (data['returnCode'] != null && data['returnCode'] != '0') {
+          throw Exception('API Error: ${data['returnDesc'] ?? 'Unknown error'}');
         }
 
-        if (siteWithAddress != null) {
+        if (data['sites'] != null && data['sites'].isNotEmpty) {
+          final site = data['sites'][0];
+          final address = site['address'];
+
           setState(() {
-            // Parse full address to extract district (text before postcode)
-            String fullAddress = siteWithAddress!.formatAddress ?? '';
-
-            // Try to extract district from full address (text before postcode)
-            if (fullAddress.isNotEmpty &&
-                siteWithAddress.address?.postalCode != null) {
-              int postcodeIndex = fullAddress.indexOf(
-                siteWithAddress.address!.postalCode!,
-              );
-              if (postcodeIndex > 0) {
-                // Get text beforepostcode  and clean it
-                String beforePostcode = fullAddress
-                    .substring(0, postcodeIndex)
-                    .trim();
-                // Remove trailing comma if exists
-                if (beforePostcode.endsWith(',')) {
-                  beforePostcode = beforePostcode
-                      .substring(0, beforePostcode.length - 1)
-                      .trim();
+            // Extract full address before postcode for district
+            String fullAddress = site['formatAddress'] ?? '';
+            if (fullAddress.isNotEmpty) {
+              // Remove postcode and everything after it
+              if (address['postalCode'] != null && address['postalCode'].isNotEmpty) {
+                String postcode = address['postalCode'];
+                int postcodeIndex = fullAddress.indexOf(postcode);
+                if (postcodeIndex > 0) {
+                  _districtController.text = fullAddress.substring(0, postcodeIndex).trim();
+                } else {
+                  _districtController.text = fullAddress;
                 }
-                // Get the last part (usually the district)
-                List<String> parts = beforePostcode.split(',');
-                if (parts.isNotEmpty) {
-                  _districtController.text = parts.last.trim();
-                }
+              } else {
+                _districtController.text = fullAddress;
+              }
+            } else {
+              // Fallback to locality if formatAddress is not available
+              if (address['locality'] != null && address['locality'].isNotEmpty) {
+                _districtController.text = address['locality'];
+              } else if (address['subLocality'] != null &&
+                  address['subLocality'].isNotEmpty) {
+                _districtController.text = address['subLocality'];
+              } else if (address['county'] != null &&
+                  address['county'].isNotEmpty) {
+                _districtController.text = address['county'];
               }
             }
 
-            // Fallback to existing logic if parsing fails
-            if (_districtController.text.isEmpty) {
-              if (siteWithAddress.address?.locality != null &&
-                  siteWithAddress.address!.locality!.isNotEmpty) {
-                _districtController.text = siteWithAddress.address!.locality!;
-              } else if (siteWithAddress.address?.subLocality != null &&
-                  siteWithAddress.address!.subLocality!.isNotEmpty) {
-                _districtController.text =
-                    siteWithAddress.address!.subLocality!;
-              } else if (siteWithAddress.address?.thoroughfare != null) {
-                _districtController.text =
-                    siteWithAddress.address!.thoroughfare!;
-              }
+            // Extract postcode
+            if (address['postalCode'] != null &&
+                address['postalCode'].isNotEmpty) {
+              _postcodeController.text = address['postalCode'];
             }
 
-            if (siteWithAddress.address?.postalCode != null &&
-                siteWithAddress.address!.postalCode!.isNotEmpty) {
-              _postcodeController.text = siteWithAddress.address!.postalCode!;
-            }
-
-            if (siteWithAddress.address?.adminArea != null &&
-                siteWithAddress.address!.adminArea!.isNotEmpty) {
-              _stateController.text = siteWithAddress.address!.adminArea!;
-            } else if (siteWithAddress.address?.country != null) {
-              _stateController.text = siteWithAddress.address!.country!;
+            // Extract state
+            if (address['adminArea'] != null &&
+                address['adminArea'].isNotEmpty) {
+              _stateController.text = address['adminArea'];
+            } else if (address['subAdminArea'] != null &&
+                address['subAdminArea'].isNotEmpty) {
+              _stateController.text = address['subAdminArea'];
             }
 
             _isLoadingAddress = false;
@@ -299,60 +299,55 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
             );
           }
         } else {
-          setState(() {
-            _isLoadingAddress = false;
-          });
-
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text(
-                  'No address information found at this location',
-                ),
-                backgroundColor: Colors.orange,
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-            );
-          }
+          _handleNoAddress();
         }
+      } else if (response.statusCode == 401) {
+        throw Exception('Authentication failed. Please check your API key.');
+      } else if (response.statusCode == 403) {
+        throw Exception('API access forbidden. Check API key permissions.');
       } else {
-        setState(() {
-          _isLoadingAddress = false;
-        });
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('No locations found nearby'),
-              backgroundColor: Colors.orange,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-          );
-        }
+        throw Exception(
+          'Failed to reverse geocode: ${response.statusCode} - ${response.body}',
+        );
       }
     } catch (e) {
       print('Error reverse geocoding: $e');
       setState(() {
         _isLoadingAddress = false;
       });
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Could not get address: $e'),
+            content: Text('Could not get address: ${e.toString()}'),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
             ),
+            duration: const Duration(seconds: 5),
           ),
         );
       }
+    }
+  }
+
+  void _handleNoAddress() {
+    setState(() {
+      _isLoadingAddress = false;
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('No address found at this location'),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
     }
   }
 
@@ -1008,19 +1003,24 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                                         ),
                                         mapType: MapType.normal,
                                         compassEnabled: true,
-                                        zoomControlsEnabled: true,  
-                                        zoomGesturesEnabled: true,   
+                                        zoomControlsEnabled: true,
+                                        zoomGesturesEnabled: true,
                                         scrollGesturesEnabled: true,
                                         tiltGesturesEnabled: true,
                                         rotateGesturesEnabled: true,
                                         myLocationEnabled: true,
                                         myLocationButtonEnabled: false,
                                         markers: _markers,
-                                        gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
-                                          Factory<OneSequenceGestureRecognizer>(
-                                            () => EagerGestureRecognizer(),
-                                          ),
-                                        },
+                                        gestureRecognizers:
+                                            <
+                                              Factory<
+                                                OneSequenceGestureRecognizer
+                                              >
+                                            >{
+                                              Factory<
+                                                OneSequenceGestureRecognizer
+                                              >(() => EagerGestureRecognizer()),
+                                            },
                                         onMapCreated: (controller) {
                                           _mapController = controller;
                                         },
@@ -1029,15 +1029,22 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                                             _selectedPosition = position;
                                             _markers = {
                                               Marker(
-                                                markerId: MarkerId('selected_location'),
-                                                position: position,
-                                                icon: BitmapDescriptor.defaultMarkerWithHue(
-                                                  BitmapDescriptor.hueOrange,
+                                                markerId: MarkerId(
+                                                  'selected_location',
                                                 ),
+                                                position: position,
+                                                icon:
+                                                    BitmapDescriptor.defaultMarkerWithHue(
+                                                      BitmapDescriptor
+                                                          .hueOrange,
+                                                    ),
                                               ),
                                             };
                                           });
-                                          _reverseGeocodeLocation(position.lat, position.lng);
+                                          _reverseGeocodeLocation(
+                                            position.lat,
+                                            position.lng,
+                                          );
                                         },
                                       ),
                                       // My Location Button
