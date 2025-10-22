@@ -6,11 +6,11 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 // This prompt is more advanced. It asks the model to look for context
 // and cancel false positives, which is key to your request.
 const String GEMINI_PROMPT = """
-Analyze the following data collected over a 10-second window to determine if a real safety incident occurred.
+Analyze the following data collected over an 8-second window to determine if a real safety incident occurred.
 
 An initial trigger started this analysis. The initial triggers were: "{initialTriggers}"
 
-During the 10-second window, the following was said:
+During the 8-second window, the following was said:
 Full Speech Transcript: "{transcript}"
 
 Sensor Data Peaks during the window:

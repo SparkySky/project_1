@@ -8,6 +8,9 @@ import 'dart:io';
 import 'app_theme.dart';
 import 'package:video_player/video_player.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:project_1/util/location_centre.dart';
+import 'package:huawei_location/huawei_location.dart';
+
 
 class LodgeIncidentPage extends StatefulWidget {
   final String? incidentType;
@@ -45,6 +48,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
   final AudioRecorder _audioRecorder = AudioRecorder();
   bool _isRecording = false;
   String? _recordingPath;
+  final LocationCentre _locationCentre = LocationCentre();
 
   @override
   void initState() {
@@ -59,7 +63,21 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
     if (widget.audioRecordingPath != null) {
       _mediaFiles.add(File(widget.audioRecordingPath!));
     }
+    _locationCentre.currentLocationNotifier.addListener(_updateLocationFields);
+
   }
+
+   void _updateLocationFields() {
+    final location = _locationCentre.currentLocationNotifier.value;
+    if (location != null) {
+      // You might need a geocoding service to get district, postcode, and state from lat/long
+      // For now, let's just pretend we have them.
+      _districtController.text = "District from GPS";
+      _postcodeController.text = "Postcode from GPS";
+      _stateController.text = "State from GPS";
+    }
+  }
+
 
   @override
   void dispose() {
@@ -68,6 +86,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
     _stateController.dispose();
     _descriptionController.dispose();
     _audioRecorder.dispose();
+    _locationCentre.currentLocationNotifier.removeListener(_updateLocationFields);
     super.dispose();
   }
 
@@ -565,9 +584,26 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                 ),
               ),
               const SizedBox(height: 10),
-              Text(
-                'Share important information with the community',
-                style: TextStyle(color: Colors.grey[600]),
+               Row(
+                children: [
+                  Icon(Icons.location_on, color: Colors.grey[600], size: 16),
+                  const SizedBox(width: 8),
+                  ValueListenableBuilder<Location?>(
+                    valueListenable: _locationCentre.currentLocationNotifier,
+                    builder: (context, location, child) {
+                      if (location == null) {
+                        return Text(
+                          'Location: Waiting...',
+                          style: TextStyle(color: Colors.grey[600]),
+                        );
+                      }
+                      return Text(
+                        'Location: ${location.latitude?.toStringAsFixed(4)}, ${location.longitude?.toStringAsFixed(4)}',
+                        style: TextStyle(color: Colors.grey[600]),
+                      );
+                    },
+                  ),
+                ],
               ),
               const SizedBox(height: 36),
               Form(

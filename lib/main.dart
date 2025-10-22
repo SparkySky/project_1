@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:agconnect_clouddb/agconnect_clouddb.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -17,6 +18,9 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 Future<void> main() async {
   // Ensures that plugin services are initialized before runApp
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Load the .env file
+  await dotenv.load(fileName: ".env");
 
   await DebugState().loadState(); // Debug: Load debug state from storage
 

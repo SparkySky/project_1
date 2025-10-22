@@ -30,6 +30,8 @@ dependencies:
   audioplayers: ^5.2.1
   speech_to_text: ^7.3.0 # Or the latest version
   google_generative_ai: ^0.4.0
+  flutter_dotenv: ^5.1.0
+
 
   #  Huawei/HMS
   huawei_map:
@@ -77,6 +79,7 @@ flutter_launcher_icons:
 flutter:
   uses-material-design: true
   assets:
+    - .env
     - assets/images/mysafezone_logo.png
   fonts:
   - family: Goldman
