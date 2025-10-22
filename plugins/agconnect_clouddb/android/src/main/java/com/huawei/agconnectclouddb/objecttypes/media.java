@@ -4,7 +4,6 @@
  */
 package com.huawei.agconnectclouddb.objecttypes;
 
-
 import com.huawei.agconnect.cloud.database.annotations.DefaultValue;
 import com.huawei.agconnect.cloud.database.annotations.NotNull;
 import com.huawei.agconnect.cloud.database.annotations.PrimaryKeys;
@@ -16,7 +15,7 @@ import java.util.Date;
 /**
  * Definition of ObjectType media.
  *
- * @since 2025-10-19
+ * @since 2025-10-22
  */
 @PrimaryKeys({"mediaID", "order"})
 public final class media extends CloudDBZoneObject {
