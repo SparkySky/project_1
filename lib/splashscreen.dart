@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:agconnect_auth/agconnect_auth.dart';
-import 'package:project_1/homepage/homepage.dart';
-import 'package:project_1/signup_login/auth_page.dart';
+import 'package:provider/provider.dart';
+import '../homepage/homepage.dart';
+import '../signup_login/auth_page.dart';
+import '../providers/user_provider.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -35,18 +36,25 @@ class _SplashScreenState extends State<SplashScreen>
 
   // This method checks the user's login status and navigates accordingly.
   Future<void> _checkCurrentUser() async {
-    // Wait for the splash animation and for services to initialize.
+    // Wait for the splash animation
     await Future.delayed(const Duration(seconds: 3));
 
     // Check if the widget is still in the tree before proceeding.
     if (!mounted) return;
 
-    final AGCUser? user = await AGCAuth.instance.currentUser;
+    // Get user provider
+    final userProvider = context.read<UserProvider>();
+
+    // Wait for user provider to finish loading
+    while (userProvider.isLoading) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (!mounted) return;
+    }
 
     // Check mounted again before navigating to avoid errors.
     if (!mounted) return;
 
-    if (user != null) {
+    if (userProvider.isAuthenticated) {
       // User is already logged in, go to the homepage.
       Navigator.pushReplacement(
         context,
@@ -56,7 +64,9 @@ class _SplashScreenState extends State<SplashScreen>
       // User is not logged in, go to the authentication screen.
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const AuthScreen(isLogin: true)),
+        MaterialPageRoute(
+          builder: (context) => const AuthScreen(isLogin: true),
+        ),
       );
     }
   }
@@ -102,7 +112,7 @@ class _SplashScreenState extends State<SplashScreen>
                   fontFamily: 'Goldman',
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
-                  color:  Color.fromARGB(255, 77, 57, 22),
+                  color: Color.fromARGB(255, 77, 57, 22),
                   letterSpacing: 1.2,
                 ),
               ),
@@ -119,6 +129,22 @@ class _SplashScreenState extends State<SplashScreen>
                   color: Colors.grey[600],
                   letterSpacing: 0.5,
                 ),
+              ),
+
+              const SizedBox(height: 30),
+
+              // Optional: Loading indicator
+              Consumer<UserProvider>(
+                builder: (context, userProvider, _) {
+                  if (userProvider.isLoading) {
+                    return const CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Color.fromARGB(255, 77, 57, 22),
+                      ),
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
               ),
             ],
           ),

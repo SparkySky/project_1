@@ -1,13 +1,14 @@
-import 'package:flutter/material.dart';
-import 'package:agconnect_auth/agconnect_auth.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import '../signup_login/auth_service.dart';
-import '../signup_login/auth_page.dart';
-import '../app_theme.dart';
-import '../constants/provider_types.dart';
-import '../util/debug_state.dart';
+import 'package:agconnect_auth/agconnect_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
+import '../models/users.dart';
+import '../../signup_login/auth_page.dart';
+import '../../app_theme.dart';
+import '../../constants/provider_types.dart';
+import '../../util/debug_state.dart';
+import '../providers/user_provider.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -17,14 +18,12 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  final AuthService _authService = AuthService();
-  AGCUser? _currentUser;
-  bool _isLoading = true;
-
   final DebugState _debugState = DebugState();
-  bool _allowDiscoverable = true;
-  bool _allowEmergencyAlert = false;
   bool _allowDebugOverlay = false;
+
+  UserProvider? _userProvider;
+  AGCUser? _agcUser;
+  Users? _cloudDbUser;
 
   // User information fields
   final TextEditingController _emailController = TextEditingController();
@@ -36,14 +35,9 @@ class _ProfilePageState extends State<ProfilePage> {
   File? _profileImage; // Session-only, not saved
   final ImagePicker _picker = ImagePicker();
 
-  static const String _discoverableKey = 'allowDiscoverable';
-  static const String _emergencyKey = 'allowEmergencyAlert';
-
   @override
   void initState() {
     super.initState();
-    _loadUserInfo();
-    _loadPreferences();
   }
 
   @override
@@ -54,39 +48,6 @@ class _ProfilePageState extends State<ProfilePage> {
     _postcodeController.dispose();
     _stateController.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadUserInfo() async {
-    try {
-      final user = await _authService.currentUser;
-      if (mounted) {
-        setState(() {
-          _currentUser = user;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      debugPrint('Error loading user info: $e');
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _loadPreferences() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _allowDiscoverable = prefs.getBool(_discoverableKey) ?? true;
-      _allowEmergencyAlert = prefs.getBool(_emergencyKey) ?? false;
-      _allowDebugOverlay = _debugState.showDebugOverlay;
-    });
-  }
-
-  Future<void> _savePreference(String key, bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(key, value);
   }
 
   Future<void> _showImageSourceDialog() async {
@@ -112,10 +73,7 @@ class _ProfilePageState extends State<ProfilePage> {
               const SizedBox(height: 20),
               const Text(
                 'Choose Profile Picture',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 20),
               ListTile(
@@ -140,7 +98,10 @@ class _ProfilePageState extends State<ProfilePage> {
                     color: AppTheme.primaryOrange.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(Icons.photo_library, color: AppTheme.primaryOrange),
+                  child: Icon(
+                    Icons.photo_library,
+                    color: AppTheme.primaryOrange,
+                  ),
                 ),
                 title: const Text('Choose from Gallery'),
                 onTap: () {
@@ -169,7 +130,7 @@ class _ProfilePageState extends State<ProfilePage> {
         setState(() {
           _profileImage = File(pickedFile.path);
         });
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -200,19 +161,26 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  Future<void> _saveUserInfo() async {
+  Future<void> _saveUserInfo(
+    String phone,
+    String district,
+    String postcode,
+    String state,
+  ) async {
     if (mounted) {
       setState(() {
-        // Just trigger rebuild to show the data in profile header
+        _cloudDbUser?.phoneNo = phone;
+        _cloudDbUser?.district = district;
+        _cloudDbUser?.postcode = postcode;
+        _cloudDbUser?.state = state;
+        _userProvider!.updateCloudDbUser(_cloudDbUser!);
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('User information saved successfully'),
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       );
     }
@@ -223,35 +191,24 @@ class _ProfilePageState extends State<ProfilePage> {
     return AuthProviderName.name(providerId);
   }
 
-  String _getDisplayEmail() {
-    // Priority: saved email > current user email
-    if (_emailController.text.isNotEmpty) {
-      return _emailController.text;
-    }
-    if (_currentUser!.email != null && _currentUser!.email!.isNotEmpty) {
-      return _currentUser!.email!;
-    }
-    return '';
-  }
-
-  String _getDisplayPhone() {
-    // Priority: saved phone > current user phone
-    if (_phoneController.text.isNotEmpty) {
-      return _phoneController.text;
-    }
-    if (_currentUser!.phone != null && _currentUser!.phone!.isNotEmpty) {
-      return _currentUser!.phone!;
-    }
-    return '';
-  }
-
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return Scaffold(body: const Center(child: CircularProgressIndicator()));
+    _userProvider = Provider.of<UserProvider>(context);
+    _agcUser = _userProvider!.agcUser;
+    _cloudDbUser = _userProvider!.cloudDbUser;
+    final isLoading = _userProvider!.isLoading;
+
+    _emailController.text = _agcUser?.email ?? '';
+    _phoneController.text = _cloudDbUser?.phoneNo ?? '';
+    _districtController.text = _cloudDbUser?.district ?? '';
+    _postcodeController.text = _cloudDbUser?.postcode ?? '';
+    _stateController.text = _cloudDbUser?.state ?? '';
+
+    if (isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    if (_currentUser == null) {
+    if (_agcUser == null) {
       return Scaffold(
         body: Center(
           child: Column(
@@ -278,15 +235,12 @@ class _ProfilePageState extends State<ProfilePage> {
       );
     }
 
-    final displayEmail = _getDisplayEmail();
-    final displayPhone = _getDisplayPhone();
-
     return Scaffold(
       backgroundColor: AppTheme.primaryOrange.withOpacity(0.1),
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // Modern Header Section
+            // Profile header
             Container(
               width: double.infinity,
               padding: const EdgeInsets.only(top: 50, bottom: 24),
@@ -307,28 +261,29 @@ class _ProfilePageState extends State<ProfilePage> {
                                   fit: BoxFit.cover,
                                 ),
                               )
-                            : (_currentUser!.photoUrl != null &&
-                                    _currentUser!.photoUrl!.isNotEmpty
-                                ? ClipOval(
-                                    child: Image.network(
-                                      _currentUser!.photoUrl!,
-                                      width: 100,
-                                      height: 100,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (context, error, stackTrace) {
-                                        return Icon(
-                                          Icons.person,
-                                          size: 50,
-                                          color: AppTheme.primaryOrange,
-                                        );
-                                      },
-                                    ),
-                                  )
-                                : Icon(
-                                    Icons.person,
-                                    size: 50,
-                                    color: AppTheme.primaryOrange,
-                                  )),
+                            : (_agcUser!.photoUrl != null &&
+                                      _agcUser!.photoUrl!.isNotEmpty
+                                  ? ClipOval(
+                                      child: Image.network(
+                                        _agcUser!.photoUrl!,
+                                        width: 100,
+                                        height: 100,
+                                        fit: BoxFit.cover,
+                                        errorBuilder:
+                                            (context, error, stackTrace) {
+                                              return Icon(
+                                                Icons.person,
+                                                size: 50,
+                                                color: AppTheme.primaryOrange,
+                                              );
+                                            },
+                                      ),
+                                    )
+                                  : Icon(
+                                      Icons.person,
+                                      size: 50,
+                                      color: AppTheme.primaryOrange,
+                                    )),
                       ),
                       Positioned(
                         bottom: 0,
@@ -340,10 +295,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             decoration: BoxDecoration(
                               color: AppTheme.primaryOrange,
                               shape: BoxShape.circle,
-                              border: Border.all(
-                                color: Colors.white,
-                                width: 3,
-                              ),
+                              border: Border.all(color: Colors.white, width: 3),
                               boxShadow: [
                                 BoxShadow(
                                   color: Colors.black.withOpacity(0.2),
@@ -366,7 +318,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(height: 16),
                   // Name
                   Text(
-                    _currentUser!.displayName ?? 'User',
+                    _cloudDbUser?.username ?? _agcUser?.displayName ?? 'User',
                     style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -375,11 +327,12 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                   const SizedBox(height: 8),
                   // Email and Phone - show only if at least one has data
-                  if (displayEmail.isNotEmpty || displayPhone.isNotEmpty)
+                  if ((_agcUser?.email?.isNotEmpty ?? false) ||
+                      (_cloudDbUser?.phoneNo?.isNotEmpty ?? false))
                     Column(
                       children: [
                         // Email
-                        if (displayEmail.isNotEmpty)
+                        if (_agcUser?.email?.isNotEmpty ?? false)
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 16,
@@ -400,7 +353,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
-                                  displayEmail,
+                                  _agcUser!.email!,
                                   style: TextStyle(
                                     fontSize: 14,
                                     color: AppTheme.primaryOrange,
@@ -411,7 +364,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             ),
                           ),
                         // Phone
-                        if (displayPhone.isNotEmpty)
+                        if (_cloudDbUser?.phoneNo?.isNotEmpty ?? false)
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 16,
@@ -431,7 +384,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
-                                  displayPhone,
+                                  _cloudDbUser!.phoneNo!,
                                   style: TextStyle(
                                     fontSize: 14,
                                     color: AppTheme.primaryOrange,
@@ -473,30 +426,31 @@ class _ProfilePageState extends State<ProfilePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Account Information Section
-                  _buildSectionHeader('Account Information', Icons.info_outline),
+                  _buildSectionHeader(
+                    'Account Information',
+                    Icons.info_outline,
+                  ),
                   const SizedBox(height: 16),
-
                   _buildInfoCard(
                     icon: Icons.fingerprint,
                     title: 'User ID',
-                    value: _currentUser!.uid!,
+                    value: _agcUser!.uid!,
                   ),
                   _buildInfoCard(
                     icon: Icons.login,
                     title: 'Sign-in Method',
-                    value: _getProviderName(_currentUser!.providerId!.index),
+                    value: _getProviderName(_agcUser!.providerId!.index),
                   ),
-                  if (_currentUser!.email != null &&
-                      _currentUser!.email!.isNotEmpty)
+                  if (_agcUser!.email != null && _agcUser!.email!.isNotEmpty)
                     _buildInfoCard(
-                      icon: _currentUser!.emailVerified!
+                      icon: _agcUser!.emailVerified!
                           ? Icons.verified_user
                           : Icons.warning_amber_rounded,
                       title: 'Email Verification',
-                      value: _currentUser!.emailVerified!
+                      value: _agcUser!.emailVerified!
                           ? 'Verified'
                           : 'Not Verified',
-                      valueColor: _currentUser!.emailVerified!
+                      valueColor: _agcUser!.emailVerified!
                           ? Colors.green
                           : Colors.orange,
                     ),
@@ -519,10 +473,10 @@ class _ProfilePageState extends State<ProfilePage> {
                     icon: Icons.visibility_outlined,
                     title: 'Allow Discoverable',
                     subtitle: 'Others can find you in the app',
-                    value: _allowDiscoverable,
+                    value: _cloudDbUser!.allowDiscoverable ?? true,
                     onChanged: (value) {
-                      setState(() => _allowDiscoverable = value);
-                      _savePreference(_discoverableKey, value);
+                      _cloudDbUser?.allowDiscoverable = value;
+                      _userProvider!.updateCloudDbUser(_cloudDbUser!);
                     },
                   ),
 
@@ -530,10 +484,10 @@ class _ProfilePageState extends State<ProfilePage> {
                     icon: Icons.warning_amber_outlined,
                     title: 'Allow Emergency Alerts',
                     subtitle: 'Receive emergency notifications',
-                    value: _allowEmergencyAlert,
+                    value: _cloudDbUser!.allowEmergencyAlert ?? true,
                     onChanged: (value) {
-                      setState(() => _allowEmergencyAlert = value);
-                      _savePreference(_emergencyKey, value);
+                      _cloudDbUser?.allowEmergencyAlert = value;
+                      _userProvider!.updateCloudDbUser(_cloudDbUser!);
                     },
                   ),
 
@@ -569,7 +523,9 @@ class _ProfilePageState extends State<ProfilePage> {
                       ],
                     ),
                     child: ElevatedButton.icon(
-                      onPressed: _handleLogout,
+                      onPressed: () {
+                        _handleLogout(_userProvider!);
+                      },
                       icon: const Icon(Icons.logout),
                       label: const Text(
                         'Logout',
@@ -652,14 +608,18 @@ class _ProfilePageState extends State<ProfilePage> {
             width: double.infinity,
             height: 48,
             child: ElevatedButton.icon(
-              onPressed: _saveUserInfo,
+              onPressed: () {
+                _saveUserInfo(
+                  _phoneController.text,
+                  _districtController.text,
+                  _postcodeController.text,
+                  _stateController.text,
+                );
+              },
               icon: const Icon(Icons.save_outlined, size: 20),
               label: const Text(
                 'Save',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryOrange,
@@ -688,12 +648,8 @@ class _ProfilePageState extends State<ProfilePage> {
       cursorColor: AppTheme.primaryOrange,
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: TextStyle(
-          color: Colors.grey[600],
-        ),
-        floatingLabelStyle: TextStyle(
-          color: AppTheme.primaryOrange,
-        ),
+        labelStyle: TextStyle(color: Colors.grey[600]),
+        floatingLabelStyle: TextStyle(color: AppTheme.primaryOrange),
         prefixIcon: Icon(icon, color: AppTheme.primaryOrange),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -709,7 +665,10 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
         filled: true,
         fillColor: Colors.grey[50],
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
       ),
     );
   }
@@ -723,11 +682,7 @@ class _ProfilePageState extends State<ProfilePage> {
             color: AppTheme.primaryOrange.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(
-            icon,
-            color: AppTheme.primaryOrange,
-            size: 20,
-          ),
+          child: Icon(icon, color: AppTheme.primaryOrange, size: 20),
         ),
         const SizedBox(width: 12),
         Text(
@@ -796,10 +751,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 const SizedBox(height: 4),
                 Text(
                   subtitle,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                 ),
               ],
             ),
@@ -877,21 +829,17 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Future<void> _handleLogout() async {
+  Future<void> _handleLogout(UserProvider user_provider) async {
     final shouldLogout = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Logout'),
         content: const Text('Are you sure you want to logout?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.black
-            ),
+            style: TextButton.styleFrom(foregroundColor: Colors.black),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
@@ -918,7 +866,7 @@ class _ProfilePageState extends State<ProfilePage> {
         builder: (context) => const Center(child: CircularProgressIndicator()),
       );
 
-      await _authService.signOut();
+      await user_provider.signOut();
 
       if (!mounted) return;
       Navigator.of(context).pop();
@@ -936,9 +884,7 @@ class _ProfilePageState extends State<ProfilePage> {
           content: Text('Logout failed: $e'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       );
     }
