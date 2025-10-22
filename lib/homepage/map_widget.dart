@@ -19,18 +19,18 @@ class MapWidget extends StatefulWidget {
 class _MapWidgetState extends State<MapWidget> {
   HuaweiMapController? _mapController;
   final hwLocation.FusedLocationProviderClient _locationService =
-  hwLocation.FusedLocationProviderClient();
+      hwLocation.FusedLocationProviderClient();
   hwLocation.Location? _currentLocation;
 
   Set<Marker> _incidentMarkers = {};
   bool _isLoadingMarkers = true;
-  bool _isLoadingLocation = true; // New flag for location loading
-  CameraPosition? _initialPosition; // Will be set after fetching location
+  bool _isLoadingLocation = true;
+  CameraPosition? _initialPosition;
 
   // Default fallback position
   static const CameraPosition _kFallbackPosition = CameraPosition(
-    target: LatLng(5.3644, 100.4660), // Centered on Bukit Mertajam
-    zoom: 11.0, // Zoom out a bit to see both BM and Ipoh initially
+    target: LatLng(5.3644, 100.4660),
+    zoom: 11.0,
   );
 
   @override
@@ -72,7 +72,7 @@ class _MapWidgetState extends State<MapWidget> {
       final double? lat = incident['latitude'];
       final double? lon = incident['longitude'];
       final String title = incident['title'] ?? 'Incident';
-      final String address = incident['location'] ?? 'Address not found'; // Use the pre-geocoded address
+      final String address = incident['location'] ?? 'Address not found';
 
       if (lat != null && lon != null) {
         final LatLng position = LatLng(lat, lon);
@@ -100,7 +100,7 @@ class _MapWidgetState extends State<MapWidget> {
             icon: BitmapDescriptor.defaultMarkerWithHue(markerHue),
             infoWindow: InfoWindow(
               title: title,
-              snippet: address, // Use the fetched address here
+              snippet: address,
             ),
           ),
         );
@@ -121,6 +121,7 @@ class _MapWidgetState extends State<MapWidget> {
   Future<void> _requestLocationPermissionAndFetch() async {
     print("=== Starting location fetch ===");
 
+    // 1. Check/Request Permission
     var status = await Permission.locationWhenInUse.status;
     print("Initial permission status: $status");
 
@@ -143,11 +144,13 @@ class _MapWidgetState extends State<MapWidget> {
 
     print("Permission GRANTED. Proceeding to fetch location...");
 
+    // 2. Fetch Location
     try {
+      // First try to get last known location (fastest)
       print("Attempting to get last known location...");
       hwLocation.Location? location = await _locationService.getLastLocation();
 
-      if (location.latitude != null && location.longitude != null) {
+      if (location != null && location.latitude != null && location.longitude != null) {
         print("SUCCESS! Got last location: ${location.latitude}, ${location.longitude}");
         if (mounted) {
           setState(() {
@@ -159,15 +162,72 @@ class _MapWidgetState extends State<MapWidget> {
             _isLoadingLocation = false;
           });
         }
-      } else {
-        print("Last location is null. Using fallback position.");
-        if (mounted) {
-          setState(() {
-            _initialPosition = _kFallbackPosition;
-            _isLoadingLocation = false;
-          });
-        }
+        return; // Exit early since we got the location
       }
+
+      print("Last location is null or invalid. Requesting fresh location update...");
+
+      // If last location is null, request a fresh update with timeout
+      final Completer<void> locationCompleter = Completer<void>();
+      int? callbackId;
+
+      // Set a timeout to prevent infinite waiting
+      Timer timeoutTimer = Timer(const Duration(seconds: 10), () {
+        print("Location request TIMEOUT after 10 seconds.");
+        if (!locationCompleter.isCompleted) {
+          locationCompleter.complete();
+          if (callbackId != null) {
+            _locationService.removeLocationUpdates(callbackId);
+          }
+          if (mounted) {
+            setState(() {
+              _initialPosition = _kFallbackPosition;
+              _isLoadingLocation = false;
+            });
+          }
+        }
+      });
+
+      callbackId = await _locationService.requestLocationUpdatesCb(
+        hwLocation.LocationRequest()
+          ..priority = hwLocation.LocationRequest.PRIORITY_HIGH_ACCURACY
+          ..numUpdates = 1,
+        hwLocation.LocationCallback(
+          onLocationResult: (locationResult) {
+            print("Location callback triggered!");
+            if (!locationCompleter.isCompleted &&
+                locationResult.lastLocation != null &&
+                locationResult.lastLocation!.latitude != null &&
+                locationResult.lastLocation!.longitude != null) {
+              print("SUCCESS! Got fresh location: ${locationResult.lastLocation!.latitude}, ${locationResult.lastLocation!.longitude}");
+              timeoutTimer.cancel();
+              locationCompleter.complete();
+
+              if (mounted) {
+                setState(() {
+                  _currentLocation = locationResult.lastLocation;
+                  _initialPosition = CameraPosition(
+                    target: LatLng(
+                      locationResult.lastLocation!.latitude!,
+                      locationResult.lastLocation!.longitude!,
+                    ),
+                    zoom: 15.0,
+                  );
+                  _isLoadingLocation = false;
+                });
+              }
+            }
+            if (callbackId != null) {
+              _locationService.removeLocationUpdates(callbackId);
+            }
+          },
+          onLocationAvailability: (availability) {
+            print("Location availability: ${availability?.isLocationAvailable}");
+          },
+        ),
+      );
+
+      await locationCompleter.future;
     } catch (e, stackTrace) {
       print("ERROR fetching location: $e");
       print("StackTrace: $stackTrace");
@@ -212,7 +272,6 @@ class _MapWidgetState extends State<MapWidget> {
           mapType: MapType.normal,
           compassEnabled: true,
           zoomControlsEnabled: true,
-
           zoomGesturesEnabled: true,
           scrollGesturesEnabled: true,
           myLocationEnabled: true,

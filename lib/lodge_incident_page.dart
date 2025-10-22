@@ -1,13 +1,44 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
+import 'app_theme.dart';
+import 'package:huawei_map/huawei_map.dart';
+import 'package:huawei_location/huawei_location.dart' as huawei_loc;
+import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/foundation.dart';
+import 'package:huawei_site/huawei_site.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:file_picker/file_picker.dart';
-import 'dart:io';
-import 'app_theme.dart';
 import 'package:video_player/video_player.dart';
 import 'package:audioplayers/audioplayers.dart';
+
+class LocationServiceHelper {
+  final huawei_loc.FusedLocationProviderClient _locationService =
+      huawei_loc.FusedLocationProviderClient();
+
+  Future<bool> hasLocationPermission() async {
+    final status = await Permission.location.status;
+    return status.isGranted;
+  }
+
+  Future<bool> requestLocationPermission() async {
+    final status = await Permission.location.request();
+    return status.isGranted;
+  }
+
+  Future<huawei_loc.Location?> getLastLocation() async {
+    try {
+      final location = await _locationService.getLastLocation();
+      return location;
+    } catch (e) {
+      print('Error getting last location: $e');
+      return null;
+    }
+  }
+}
 
 class LodgeIncidentPage extends StatefulWidget {
   final String? incidentType;
@@ -17,7 +48,7 @@ class LodgeIncidentPage extends StatefulWidget {
   final String? state;
   final String? audioRecordingPath;
 
-  const LodgeIncidentPage({
+  LodgeIncidentPage({
     Key? key,
     this.incidentType,
     this.description,
@@ -46,6 +77,12 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
   bool _isRecording = false;
   String? _recordingPath;
 
+  HuaweiMapController? _mapController;
+  LatLng? _selectedPosition;
+  Set<Marker> _markers = {};
+  bool _isLoadingAddress = false;
+  bool _isLoadingLocation = true;
+
   @override
   void initState() {
     super.initState();
@@ -59,6 +96,9 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
     if (widget.audioRecordingPath != null) {
       _mediaFiles.add(File(widget.audioRecordingPath!));
     }
+
+    // Auto-detect user location when page loads
+    _initializeLocation();
   }
 
   @override
@@ -69,6 +109,290 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
     _descriptionController.dispose();
     _audioRecorder.dispose();
     super.dispose();
+  }
+
+  Future<void> _initializeLocation() async {
+    final locationService = LocationServiceHelper();
+
+    bool hasPermission = await locationService.hasLocationPermission();
+    if (!hasPermission) {
+      hasPermission = await locationService.requestLocationPermission();
+    }
+
+    if (hasPermission) {
+      try {
+        final location = await locationService.getLastLocation();
+        if (location != null && mounted) {
+          final userPosition = LatLng(location.latitude!, location.longitude!);
+
+          setState(() {
+            _selectedPosition = userPosition;
+            _isLoadingLocation = false;
+            _markers = {
+              Marker(
+                markerId: MarkerId('selected_location'),
+                position: userPosition,
+                icon: BitmapDescriptor.defaultMarkerWithHue(
+                  BitmapDescriptor.hueOrange,
+                ),
+              ),
+            };
+          });
+
+          await _reverseGeocodeLocation(userPosition.lat, userPosition.lng);
+
+          _mapController?.animateCamera(CameraUpdate.newLatLng(userPosition));
+        } else {
+          if (mounted) {
+            setState(() {
+              _isLoadingLocation = false;
+            });
+          }
+        }
+      } catch (e) {
+        print('Error initializing location: $e');
+        if (mounted) {
+          setState(() {
+            _isLoadingLocation = false;
+          });
+        }
+      }
+    } else {
+      if (mounted) {
+        setState(() {
+          _isLoadingLocation = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Location permission is required'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            action: SnackBarAction(
+              label: 'Retry',
+              textColor: Colors.white,
+              onPressed: _initializeLocation,
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _reverseGeocodeLocation(
+    double latitude,
+    double longitude,
+  ) async {
+    setState(() {
+      _isLoadingAddress = true;
+    });
+
+    try {
+      final searchService = await SearchService.create(
+        apiKey: Uri.encodeComponent("DgEDAOcs4D0sDGUBoVxbgVd02uYRdo2kw9qeSFS5/KrMMaYEI7cOCtkJtpYr0nlE9+D1YwFMnU0G7L630uhclxboFY3v3jXCx0j8Hg=="),
+      );
+
+      // Use NearbySearchRequest for reverse geocoding
+      final request = NearbySearchRequest(
+        location: Coordinate(lat: latitude, lng: longitude),
+        radius: 500, // Search within 500 meters
+        language: 'en',
+        pageSize: 20,
+      );
+
+      // Perform nearby search
+      final response = await searchService.nearbySearch(request);
+
+      print('Response sites count: ${response.sites?.length}');
+
+      if (response.sites != null && response.sites!.isNotEmpty) {
+        // Try to find a site with address information
+        Site? siteWithAddress;
+        for (var site in response.sites!) {
+          if (site != null && site.address != null) {
+            print(
+              'Found site: ${site.name}, Address: ${site.address?.adminArea}',
+            );
+            siteWithAddress = site;
+            break;
+          }
+        }
+
+        if (siteWithAddress != null) {
+          setState(() {
+            // Parse full address to extract district (text before postcode)
+            String fullAddress = siteWithAddress!.formatAddress ?? '';
+
+            // Try to extract district from full address (text before postcode)
+            if (fullAddress.isNotEmpty &&
+                siteWithAddress.address?.postalCode != null) {
+              int postcodeIndex = fullAddress.indexOf(
+                siteWithAddress.address!.postalCode!,
+              );
+              if (postcodeIndex > 0) {
+                // Get text beforepostcode  and clean it
+                String beforePostcode = fullAddress
+                    .substring(0, postcodeIndex)
+                    .trim();
+                // Remove trailing comma if exists
+                if (beforePostcode.endsWith(',')) {
+                  beforePostcode = beforePostcode
+                      .substring(0, beforePostcode.length - 1)
+                      .trim();
+                }
+                // Get the last part (usually the district)
+                List<String> parts = beforePostcode.split(',');
+                if (parts.isNotEmpty) {
+                  _districtController.text = parts.last.trim();
+                }
+              }
+            }
+
+            // Fallback to existing logic if parsing fails
+            if (_districtController.text.isEmpty) {
+              if (siteWithAddress.address?.locality != null &&
+                  siteWithAddress.address!.locality!.isNotEmpty) {
+                _districtController.text = siteWithAddress.address!.locality!;
+              } else if (siteWithAddress.address?.subLocality != null &&
+                  siteWithAddress.address!.subLocality!.isNotEmpty) {
+                _districtController.text =
+                    siteWithAddress.address!.subLocality!;
+              } else if (siteWithAddress.address?.thoroughfare != null) {
+                _districtController.text =
+                    siteWithAddress.address!.thoroughfare!;
+              }
+            }
+
+            if (siteWithAddress.address?.postalCode != null &&
+                siteWithAddress.address!.postalCode!.isNotEmpty) {
+              _postcodeController.text = siteWithAddress.address!.postalCode!;
+            }
+
+            if (siteWithAddress.address?.adminArea != null &&
+                siteWithAddress.address!.adminArea!.isNotEmpty) {
+              _stateController.text = siteWithAddress.address!.adminArea!;
+            } else if (siteWithAddress.address?.country != null) {
+              _stateController.text = siteWithAddress.address!.country!;
+            }
+
+            _isLoadingAddress = false;
+          });
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Row(
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.white),
+                    SizedBox(width: 12),
+                    Text('Address auto-filled!'),
+                  ],
+                ),
+                backgroundColor: Colors.green,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            );
+          }
+        } else {
+          setState(() {
+            _isLoadingAddress = false;
+          });
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text(
+                  'No address information found at this location',
+                ),
+                backgroundColor: Colors.orange,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            );
+          }
+        }
+      } else {
+        setState(() {
+          _isLoadingAddress = false;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('No locations found nearby'),
+              backgroundColor: Colors.orange,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error reverse geocoding: $e');
+      setState(() {
+        _isLoadingAddress = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not get address: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _getCurrentLocationAndUpdate() async {
+    final locationService = LocationServiceHelper();
+    final hasPermission = await locationService.hasLocationPermission();
+
+    if (!hasPermission) {
+      final granted = await locationService.requestLocationPermission();
+      if (!granted) return;
+    }
+
+    try {
+      final location = await locationService.getLastLocation();
+      if (location != null) {
+        final newPosition = LatLng(
+          location.latitude ?? 0,
+          location.longitude ?? 0,
+        );
+
+        setState(() {
+          _selectedPosition = newPosition;
+          _markers = {
+            Marker(
+              markerId: MarkerId('selected_location'),
+              position: newPosition,
+              icon: BitmapDescriptor.defaultMarkerWithHue(
+                BitmapDescriptor.hueOrange,
+              ),
+            ),
+          };
+        });
+
+        _mapController?.animateCamera(CameraUpdate.newLatLng(newPosition));
+
+        await _reverseGeocodeLocation(newPosition.lat, newPosition.lng);
+      }
+    } catch (e) {
+      print('Error getting current location: $e');
+    }
   }
 
   Future<void> _pickMedia() async {
@@ -97,9 +421,9 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Text(
                 'Add Media',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
               ),
             ),
             const SizedBox(height: 20),
@@ -217,10 +541,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
         ),
         child: Icon(icon, color: AppTheme.primaryOrange),
       ),
-      title: Text(
-        title,
-        style: const TextStyle(fontWeight: FontWeight.w600),
-      ),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
       subtitle: Text(
         subtitle,
         style: TextStyle(color: Colors.grey[600], fontSize: 12),
@@ -240,10 +561,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
-              title: const Text(
-                'Record Audio',
-                textAlign: TextAlign.center,
-              ),
+              title: const Text('Record Audio', textAlign: TextAlign.center),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -263,7 +581,9 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    _isRecording ? 'Recording in progress...' : 'Ready to record',
+                    _isRecording
+                        ? 'Recording in progress...'
+                        : 'Ready to record',
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -271,27 +591,27 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _isRecording ? 'Tap stop when finished' : 'Tap start to begin',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                    ),
+                    _isRecording
+                        ? 'Tap stop when finished'
+                        : 'Tap start to begin',
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                   ),
                 ],
               ),
               actions: [
                 if (!_isRecording)
                   TextButton(
-                      onPressed: () {
-                        Navigator.pop(dialogContext);
-                      },
-                      child: const Text(
-                        'Cancel',
-                        style: TextStyle(
-                          color: AppTheme.primaryOrange,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      )),
+                    onPressed: () {
+                      Navigator.pop(dialogContext);
+                    },
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(
+                        color: AppTheme.primaryOrange,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () async {
@@ -304,7 +624,9 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                           });
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: const Text('Audio recorded successfully!'),
+                              content: const Text(
+                                'Audio recorded successfully!',
+                              ),
                               backgroundColor: Colors.green,
                               behavior: SnackBarBehavior.floating,
                               shape: RoundedRectangleBorder(
@@ -326,7 +648,9 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                       }
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: _isRecording ? Colors.red : AppTheme.primaryOrange,
+                      backgroundColor: _isRecording
+                          ? Colors.red
+                          : AppTheme.primaryOrange,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -605,6 +929,157 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                       title: 'Location Details',
                       icon: Icons.location_on,
                       children: [
+                        // Embedded Map
+                        Container(
+                          height: 250,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey[300]!),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: _isLoadingLocation
+                                ? Center(
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        const CircularProgressIndicator(
+                                          color: AppTheme.primaryOrange,
+                                        ),
+                                        const SizedBox(height: 16),
+                                        Text(
+                                          'Getting your location...',
+                                          style: TextStyle(
+                                            color: Colors.grey[600],
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                : _selectedPosition == null
+                                ? Center(
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.location_off,
+                                          size: 48,
+                                          color: Colors.grey[400],
+                                        ),
+                                        const SizedBox(height: 16),
+                                        Text(
+                                          'Location not available',
+                                          style: TextStyle(
+                                            color: Colors.grey[600],
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        ElevatedButton.icon(
+                                          onPressed: _initializeLocation,
+                                          icon: const Icon(
+                                            Icons.refresh,
+                                            size: 18,
+                                          ),
+                                          label: const Text('Try Again'),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor:
+                                                AppTheme.primaryOrange,
+                                            foregroundColor: Colors.white,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                : Stack(
+                                    children: [
+                                      HuaweiMap(
+                                        initialCameraPosition: CameraPosition(
+                                          target: _selectedPosition!,
+                                          zoom: 15,
+                                        ),
+                                        mapType: MapType.normal,
+                                        compassEnabled: true,
+                                        zoomControlsEnabled: true,  
+                                        zoomGesturesEnabled: true,   
+                                        scrollGesturesEnabled: true,
+                                        tiltGesturesEnabled: true,
+                                        rotateGesturesEnabled: true,
+                                        myLocationEnabled: true,
+                                        myLocationButtonEnabled: false,
+                                        markers: _markers,
+                                        gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+                                          Factory<OneSequenceGestureRecognizer>(
+                                            () => EagerGestureRecognizer(),
+                                          ),
+                                        },
+                                        onMapCreated: (controller) {
+                                          _mapController = controller;
+                                        },
+                                        onClick: (LatLng position) {
+                                          setState(() {
+                                            _selectedPosition = position;
+                                            _markers = {
+                                              Marker(
+                                                markerId: MarkerId('selected_location'),
+                                                position: position,
+                                                icon: BitmapDescriptor.defaultMarkerWithHue(
+                                                  BitmapDescriptor.hueOrange,
+                                                ),
+                                              ),
+                                            };
+                                          });
+                                          _reverseGeocodeLocation(position.lat, position.lng);
+                                        },
+                                      ),
+                                      // My Location Button
+                                      Positioned(
+                                        right: 10,
+                                        bottom: 10,
+                                        child: FloatingActionButton(
+                                          mini: true,
+                                          backgroundColor: Colors.white,
+                                          onPressed:
+                                              _getCurrentLocationAndUpdate,
+                                          child: _isLoadingAddress
+                                              ? const SizedBox(
+                                                  width: 20,
+                                                  height: 20,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                        strokeWidth: 2,
+                                                        color: AppTheme
+                                                            .primaryOrange,
+                                                      ),
+                                                )
+                                              : const Icon(
+                                                  Icons.my_location,
+                                                  color: AppTheme.primaryOrange,
+                                                ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Tap on the map to select location or use current location button',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 12,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
                         _buildTextField(
                           controller: _districtController,
                           label: 'District',
@@ -757,7 +1232,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  'Tap + to add photos, videos, or audio',
+                                  'Tap + to add photos, videos or audio',
                                   style: TextStyle(
                                     color: Colors.grey[500],
                                     fontSize: 12,
@@ -772,10 +1247,10 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                             physics: const NeverScrollableScrollPhysics(),
                             gridDelegate:
                                 const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 3,
-                              crossAxisSpacing: 10,
-                              mainAxisSpacing: 10,
-                            ),
+                                  crossAxisCount: 3,
+                                  crossAxisSpacing: 10,
+                                  mainAxisSpacing: 10,
+                                ),
                             itemCount: _mediaFiles.length,
                             itemBuilder: (context, index) {
                               final file = _mediaFiles[index];
@@ -848,11 +1323,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                   color: AppTheme.primaryOrange.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(
-                  icon,
-                  color: AppTheme.primaryOrange,
-                  size: 20,
-                ),
+                child: Icon(icon, color: AppTheme.primaryOrange, size: 20),
               ),
               const SizedBox(width: 12),
               Text(
@@ -862,10 +1333,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              if (trailing != null) ...[
-                const Spacer(),
-                trailing,
-              ],
+              if (trailing != null) ...[const Spacer(), trailing],
             ],
           ),
           const SizedBox(height: 16),
@@ -956,7 +1424,8 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
   }
 
   Widget _buildMediaThumbnail(File file, int index) {
-    final isImage = file.path.toLowerCase().endsWith('.jpg') ||
+    final isImage =
+        file.path.toLowerCase().endsWith('.jpg') ||
         file.path.toLowerCase().endsWith('.jpeg') ||
         file.path.toLowerCase().endsWith('.png');
     final isVideo = _isVideo(file.path);
@@ -990,52 +1459,52 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                         height: double.infinity,
                       )
                     : isVideo && videoThumbnail != null
-                        ? Stack(
-                            children: [
-                              Image.file(
-                                File(videoThumbnail),
-                                fit: BoxFit.cover,
-                                width: double.infinity,
-                                height: double.infinity,
+                    ? Stack(
+                        children: [
+                          Image.file(
+                            File(videoThumbnail),
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            height: double.infinity,
+                          ),
+                          Center(
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.6),
+                                shape: BoxShape.circle,
                               ),
-                              Center(
-                                child: Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.6),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.play_arrow,
-                                    color: Colors.white,
-                                    size: 24,
-                                  ),
-                                ),
+                              child: const Icon(
+                                Icons.play_arrow,
+                                color: Colors.white,
+                                size: 24,
                               ),
-                            ],
-                          )
-                        : isAudio
-                            ? Center(
-                                child: Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.2),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.play_arrow,
-                                    color: Colors.white,
-                                    size: 32,
-                                  ),
-                                ),
-                              )
-                            : Center(
-                                child: Icon(
-                                  Icons.insert_drive_file,
-                                  color: AppTheme.primaryOrange,
-                                  size: 40,
-                                ),
-                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : isAudio
+                    ? Center(
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.play_arrow,
+                            color: Colors.white,
+                            size: 32,
+                          ),
+                        ),
+                      )
+                    : Center(
+                        child: Icon(
+                          Icons.insert_drive_file,
+                          color: AppTheme.primaryOrange,
+                          size: 40,
+                        ),
+                      ),
               ),
             ),
             Positioned(
@@ -1055,11 +1524,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                       ),
                     ],
                   ),
-                  child: const Icon(
-                    Icons.close,
-                    color: Colors.white,
-                    size: 16,
-                  ),
+                  child: const Icon(Icons.close, color: Colors.white, size: 16),
                 ),
               ),
             ),
@@ -1124,14 +1589,14 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
   Future<void> _initializeVideo() async {
     try {
       _videoController = VideoPlayerController.file(widget.file);
-      
+
       await _videoController!.initialize();
-      
+
       if (mounted) {
         setState(() {
           _isInitializing = false;
         });
-        
+
         _videoController!.addListener(() {
           if (mounted) {
             setState(() {
@@ -1157,7 +1622,7 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
   Future<void> _initializeAudio() async {
     try {
       _audioPlayer = AudioPlayer();
-      
+
       _audioPlayer!.onDurationChanged.listen((duration) {
         if (mounted) {
           setState(() {
@@ -1268,8 +1733,8 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
         child: widget.isVideo
             ? _buildVideoPlayer()
             : widget.isAudio
-                ? _buildAudioPlayer()
-                : _buildImageViewer(),
+            ? _buildAudioPlayer()
+            : _buildImageViewer(),
       ),
     );
   }
@@ -1278,10 +1743,7 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
     return InteractiveViewer(
       minScale: 0.5,
       maxScale: 4.0,
-      child: Image.file(
-        widget.file,
-        fit: BoxFit.contain,
-      ),
+      child: Image.file(widget.file, fit: BoxFit.contain),
     );
   }
 
@@ -1291,11 +1753,7 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
-              Icons.error_outline,
-              color: Colors.red,
-              size: 64,
-            ),
+            const Icon(Icons.error_outline, color: Colors.red, size: 64),
             const SizedBox(height: 16),
             Text(
               _errorMessage,
@@ -1315,19 +1773,16 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
       );
     }
 
-    if (_isInitializing || _videoController == null || !_videoController!.value.isInitialized) {
+    if (_isInitializing ||
+        _videoController == null ||
+        !_videoController!.value.isInitialized) {
       return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(
-              color: AppTheme.primaryOrange,
-            ),
+            CircularProgressIndicator(color: AppTheme.primaryOrange),
             SizedBox(height: 16),
-            Text(
-              'Loading video...',
-              style: TextStyle(color: Colors.white),
-            ),
+            Text('Loading video...', style: TextStyle(color: Colors.white)),
           ],
         ),
       );
@@ -1357,9 +1812,12 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
                   ),
                   Expanded(
                     child: Slider(
-                      value: _position.inMilliseconds.toDouble().clamp(0, _duration.inMilliseconds.toDouble()),
-                      max: _duration.inMilliseconds.toDouble() > 0 
-                          ? _duration.inMilliseconds.toDouble() 
+                      value: _position.inMilliseconds.toDouble().clamp(
+                        0,
+                        _duration.inMilliseconds.toDouble(),
+                      ),
+                      max: _duration.inMilliseconds.toDouble() > 0
+                          ? _duration.inMilliseconds.toDouble()
                           : 1.0,
                       activeColor: AppTheme.primaryOrange,
                       inactiveColor: Colors.grey,
@@ -1378,20 +1836,27 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
                 children: [
                   IconButton(
                     onPressed: () {
-                      final newPosition = _position - const Duration(seconds: 10);
+                      final newPosition =
+                          _position - const Duration(seconds: 10);
                       if (newPosition.isNegative) {
                         _videoController!.seekTo(Duration.zero);
                       } else {
                         _videoController!.seekTo(newPosition);
                       }
                     },
-                    icon: const Icon(Icons.replay_10, color: Colors.white, size: 32),
+                    icon: const Icon(
+                      Icons.replay_10,
+                      color: Colors.white,
+                      size: 32,
+                    ),
                   ),
                   const SizedBox(width: 20),
                   IconButton(
                     onPressed: _togglePlayPause,
                     icon: Icon(
-                      _isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
+                      _isPlaying
+                          ? Icons.pause_circle_filled
+                          : Icons.play_circle_filled,
                       color: AppTheme.primaryOrange,
                       size: 64,
                     ),
@@ -1399,14 +1864,19 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
                   const SizedBox(width: 20),
                   IconButton(
                     onPressed: () {
-                      final newPosition = _position + const Duration(seconds: 10);
+                      final newPosition =
+                          _position + const Duration(seconds: 10);
                       if (newPosition > _duration) {
                         _videoController!.seekTo(_duration);
                       } else {
                         _videoController!.seekTo(newPosition);
                       }
                     },
-                    icon: const Icon(Icons.forward_10, color: Colors.white, size: 32),
+                    icon: const Icon(
+                      Icons.forward_10,
+                      color: Colors.white,
+                      size: 32,
+                    ),
                   ),
                 ],
               ),
@@ -1456,8 +1926,8 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
               Expanded(
                 child: Slider(
                   value: _position.inMilliseconds.toDouble(),
-                  max: _duration.inMilliseconds > 0 
-                      ? _duration.inMilliseconds.toDouble() 
+                  max: _duration.inMilliseconds > 0
+                      ? _duration.inMilliseconds.toDouble()
                       : 1.0,
                   activeColor: AppTheme.primaryOrange,
                   inactiveColor: Colors.grey,
@@ -1479,13 +1949,19 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
                   final newPosition = _position - const Duration(seconds: 10);
                   _audioPlayer!.seek(newPosition);
                 },
-                icon: const Icon(Icons.replay_10, color: Colors.white, size: 32),
+                icon: const Icon(
+                  Icons.replay_10,
+                  color: Colors.white,
+                  size: 32,
+                ),
               ),
               const SizedBox(width: 30),
               IconButton(
                 onPressed: _togglePlayPause,
                 icon: Icon(
-                  _isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
+                  _isPlaying
+                      ? Icons.pause_circle_filled
+                      : Icons.play_circle_filled,
                   color: AppTheme.primaryOrange,
                   size: 72,
                 ),
@@ -1496,7 +1972,11 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
                   final newPosition = _position + const Duration(seconds: 10);
                   _audioPlayer!.seek(newPosition);
                 },
-                icon: const Icon(Icons.forward_10, color: Colors.white, size: 32),
+                icon: const Icon(
+                  Icons.forward_10,
+                  color: Colors.white,
+                  size: 32,
+                ),
               ),
             ],
           ),
