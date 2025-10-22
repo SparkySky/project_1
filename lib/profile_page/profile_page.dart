@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:agconnect_auth/agconnect_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
@@ -8,6 +9,7 @@ import '../signup_login/auth_page.dart';
 import '../app_theme.dart';
 import '../constants/provider_types.dart';
 import '../util/debug_state.dart';
+import '../providers/user_provider.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -17,14 +19,11 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  final AuthService _authService = AuthService();
-  AGCUser? _currentUser;
-  bool _isLoading = true;
-
   final DebugState _debugState = DebugState();
-  bool _allowDiscoverable = true;
-  bool _allowEmergencyAlert = false;
+  final AuthService _authService = AuthService();
   bool _allowDebugOverlay = false;
+  bool _isLoading = true;
+  AGCUser? _currentUser;
 
   // User information fields
   final TextEditingController _emailController = TextEditingController();
@@ -35,6 +34,9 @@ class _ProfilePageState extends State<ProfilePage> {
 
   File? _profileImage; // Session-only, not saved
   final ImagePicker _picker = ImagePicker();
+
+  bool _allowDiscoverable = true;
+  bool _allowEmergencyAlert = false;
 
   static const String _discoverableKey = 'allowDiscoverable';
   static const String _emergencyKey = 'allowEmergencyAlert';
@@ -247,11 +249,16 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return Scaffold(body: const Center(child: CircularProgressIndicator()));
+    final userProvider = Provider.of<UserProvider>(context);
+    final agcUser = userProvider.agcUser;
+    final cloudDbUser = userProvider.cloudDbUser;
+    final isLoading = userProvider.isLoading;
+
+    if (isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    if (_currentUser == null) {
+    if (agcUser == null) {
       return Scaffold(
         body: Center(
           child: Column(
@@ -307,11 +314,11 @@ class _ProfilePageState extends State<ProfilePage> {
                                   fit: BoxFit.cover,
                                 ),
                               )
-                            : (_currentUser!.photoUrl != null &&
-                                    _currentUser!.photoUrl!.isNotEmpty
+                            : (agcUser.photoUrl != null &&
+                                    agcUser.photoUrl!.isNotEmpty
                                 ? ClipOval(
                                     child: Image.network(
-                                      _currentUser!.photoUrl!,
+                                      agcUser.photoUrl!,
                                       width: 100,
                                       height: 100,
                                       fit: BoxFit.cover,
@@ -366,7 +373,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(height: 16),
                   // Name
                   Text(
-                    _currentUser!.displayName ?? 'User',
+                    cloudDbUser?.username ?? agcUser.displayName ?? 'User',
                     style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -479,27 +486,13 @@ class _ProfilePageState extends State<ProfilePage> {
                   _buildInfoCard(
                     icon: Icons.fingerprint,
                     title: 'User ID',
-                    value: _currentUser!.uid!,
+                    value: agcUser.uid!,
                   ),
                   _buildInfoCard(
                     icon: Icons.login,
                     title: 'Sign-in Method',
-                    value: _getProviderName(_currentUser!.providerId!.index),
+                    value: _getProviderName(agcUser.providerId!.index),
                   ),
-                  if (_currentUser!.email != null &&
-                      _currentUser!.email!.isNotEmpty)
-                    _buildInfoCard(
-                      icon: _currentUser!.emailVerified!
-                          ? Icons.verified_user
-                          : Icons.warning_amber_rounded,
-                      title: 'Email Verification',
-                      value: _currentUser!.emailVerified!
-                          ? 'Verified'
-                          : 'Not Verified',
-                      valueColor: _currentUser!.emailVerified!
-                          ? Colors.green
-                          : Colors.orange,
-                    ),
 
                   const SizedBox(height: 32),
 
@@ -536,7 +529,6 @@ class _ProfilePageState extends State<ProfilePage> {
                       _savePreference(_emergencyKey, value);
                     },
                   ),
-
                   _buildToggleCard(
                     icon: Icons.bug_report_outlined,
                     title: 'Allow Debug Overlay',
@@ -569,7 +561,18 @@ class _ProfilePageState extends State<ProfilePage> {
                       ],
                     ),
                     child: ElevatedButton.icon(
-                      onPressed: _handleLogout,
+                      onPressed: () async {
+                        await userProvider.signOut();
+                        if (context.mounted) {
+                          Navigator.of(context).pushAndRemoveUntil(
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  const AuthScreen(isLogin: true),
+                            ),
+                            (route) => false,
+                          );
+                        }
+                      },
                       icon: const Icon(Icons.logout),
                       label: const Text(
                         'Logout',

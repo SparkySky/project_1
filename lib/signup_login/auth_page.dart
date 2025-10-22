@@ -98,7 +98,8 @@ class _AuthScreenState extends State<AuthScreen> {
 
     try {
       if (_isLoginMode) {
-        final user = await _authService.signInWithEmail(email, password);
+        // LOGIN
+        final user = await _authService.signInWithEmail(context, email, password);
         if (user != null && mounted) {
           Navigator.pushReplacement(
             context,
@@ -223,7 +224,7 @@ class _AuthScreenState extends State<AuthScreen> {
     setState(() => _isLoading = true);
     try {
       debugPrint('[HuaweiSignIn] Starting sign-in');
-      final user = await _authService.signInWithHuaweiID();
+      final user = await _authService.signInWithHuaweiID(context);
       debugPrint('[HuaweiSignIn] Sign-in completed: ${user?.uid}');
 
       if (user != null && mounted) {

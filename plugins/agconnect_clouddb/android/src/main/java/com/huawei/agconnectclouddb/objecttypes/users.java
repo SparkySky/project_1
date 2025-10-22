@@ -4,7 +4,6 @@
  */
 package com.huawei.agconnectclouddb.objecttypes;
 
-
 import com.huawei.agconnect.cloud.database.annotations.Indexes;
 import com.huawei.agconnect.cloud.database.annotations.PrimaryKeys;
 import com.huawei.agconnect.cloud.database.CloudDBZoneObject;
@@ -13,13 +12,13 @@ import com.huawei.agconnect.cloud.database.Text;
 import java.util.Date;
 
 /**
- * Definition of ObjectType users.
+ * Definition of ObjectType Users.
  *
- * @since 2025-10-19
+ * @since 2025-10-22
  */
 @PrimaryKeys({"uid"})
 @Indexes({"uid:uid", "postcode:postcode"})
-public final class users extends CloudDBZoneObject {
+public final class Users extends CloudDBZoneObject {
     private String uid;
 
     private String district;
@@ -40,8 +39,8 @@ public final class users extends CloudDBZoneObject {
 
     private Boolean allowEmergencyAlert;
 
-    public users() {
-        super(users.class);
+    public Users() {
+        super(Users.class);
     }
 
     public void setUid(String uid) {

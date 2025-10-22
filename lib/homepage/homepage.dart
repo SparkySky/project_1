@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:provider/provider.dart';
 import 'package:geocoding/geocoding.dart'; // Import the geocoding package
 import 'map_widget.dart';
 import '../app_theme.dart';
 import 'chatbot_widget.dart';
 import '../community/community_page.dart';
+import '../notification_page.dart';
+import '../profile_page/profile_page.dart';
+import '../user_management.dart';
 import '../lodge_incident_page.dart';
-import '../profile_page.dart';
+import '../providers/user_provider.dart';
+
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -167,7 +172,9 @@ class _HomePageState extends State<HomePage> {
       case 2:
         return const LodgeIncidentPage();
       case 3:
-        return ProfilePage();
+        return const ProfilePage();
+      case 4:
+        return UserManagementScreen();
       default:
         return _buildHomePage();
     }
@@ -176,7 +183,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     print('HomePage building, selectedIndex: $_selectedIndex');
-    
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('MYSafeZone'),
@@ -187,7 +194,10 @@ class _HomePageState extends State<HomePage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(_isServiceRunning ? "ON" : "OFF", style: TextStyle(fontSize: 10)),
+                Text(
+                  _isServiceRunning ? "ON" : "OFF",
+                  style: const TextStyle(fontSize: 10),
+                ),
                 Switch(
                   value: _isServiceRunning,
                   onChanged: _toggleService,
@@ -195,10 +205,10 @@ class _HomePageState extends State<HomePage> {
                 ),
               ],
             ),
-          )
+          ),
         ],
       ),
-      body: _buildCurrentPage(),
+      body: Stack(children: [_buildCurrentPage(), const ChatbotWidget()]),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           border: Border(top: BorderSide(color: Colors.grey[300]!)),
