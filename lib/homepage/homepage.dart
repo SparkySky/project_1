@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
+import '../providers/user_provider.dart';
+import 'package:provider/provider.dart';
 import 'map_widget.dart';
 import '../app_theme.dart';
 import 'chatbot_widget.dart';
 import '../community/community_page.dart';
 import '../notification_page.dart';
-import '../profile_page.dart';
+import '../profile_page/profile_page.dart';
+import '../user_management.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -49,7 +52,6 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-
   // Dummy incident data - will be replaced with cloud DB
   final List<Map<String, dynamic>> incidents = [
     {
@@ -91,7 +93,8 @@ class _HomePageState extends State<HomePage> {
       'id': 6,
       'title': 'Assault Reported',
       'timestamp': '2 hours ago',
-      'location': 'Jalan Taman Star 12, Jalan Taman Star, Kampung Simee, 31400 Ipoh, Perak',
+      'location':
+          'Jalan Taman Star 12, Jalan Taman Star, Kampung Simee, 31400 Ipoh, Perak',
       'severity': 'high',
     },
   ];
@@ -106,6 +109,8 @@ class _HomePageState extends State<HomePage> {
         return const NotificationPage();
       case 3:
         return ProfilePage();
+      case 4:
+        return UserManagementScreen();
       default:
         return _buildHomePage();
     }
@@ -114,7 +119,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     print('HomePage building, selectedIndex: $_selectedIndex');
-    
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('MYSafeZone'),
@@ -125,7 +130,10 @@ class _HomePageState extends State<HomePage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(_isServiceRunning ? "ON" : "OFF", style: TextStyle(fontSize: 10)),
+                Text(
+                  _isServiceRunning ? "ON" : "OFF",
+                  style: TextStyle(fontSize: 10),
+                ),
                 Switch(
                   value: _isServiceRunning,
                   onChanged: _toggleService,
@@ -133,15 +141,10 @@ class _HomePageState extends State<HomePage> {
                 ),
               ],
             ),
-          )
+          ),
         ],
       ),
-      body: Stack(
-        children: [
-          _buildCurrentPage(),
-          const ChatbotWidget(),
-        ],
-      ),
+      body: Stack(children: [_buildCurrentPage(), const ChatbotWidget()]),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           border: Border(top: BorderSide(color: Colors.grey[300]!)),
@@ -153,6 +156,7 @@ class _HomePageState extends State<HomePage> {
             _buildNavItem(1, Icons.group_outlined, 'Community'),
             _buildNavItem(2, Icons.notifications_outlined, 'Notification'),
             _buildNavItem(3, Icons.person_outline, 'Profile'),
+            _buildNavItem(4, Icons.person_outline, 'Test'),
           ],
         ),
       ),
@@ -205,7 +209,8 @@ class _HomePageState extends State<HomePage> {
       key: const PageStorageKey<String>('homePage'),
       children: [
         // Map Section - Fixed height
-        SizedBox( // Apply fixed height here
+        SizedBox(
+          // Apply fixed height here
           height: 250, // Or whatever height you want for the map
           child: MapWidget(incidents: incidents), // ONLY ONE MapWidget here
         ),
@@ -219,16 +224,20 @@ class _HomePageState extends State<HomePage> {
                 padding: const EdgeInsets.all(16.0),
                 child: Text(
                   'Nearby Incidents',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                 ),
               ),
-              Expanded( // This Expanded fills the space within the inner Column
+              Expanded(
+                // This Expanded fills the space within the inner Column
                 child: ListView.builder(
                   // Assuming 'incidents' is defined elsewhere in your state
                   itemCount: incidents.length,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   itemBuilder: (context, index) {
                     // Assuming '_buildIncidentCard' is defined elsewhere
                     return _buildIncidentCard(incidents[index]);
