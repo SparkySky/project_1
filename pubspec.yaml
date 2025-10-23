@@ -24,6 +24,7 @@ dependencies:
   shared_preferences: ^2.2.3
   path_provider: ^2.0.0 # Often needed with flutter_sound
   geocoding: ^3.0.0 # Added for reverse geocoding
+  http: ^1.1.0
   image_picker: ^1.0.4
   video_thumbnail: ^0.5.3
   file_picker: ^8.1.4
@@ -33,10 +34,10 @@ dependencies:
   google_generative_ai: ^0.4.0
 
   #  Huawei/HMS
+  huawei_site: ^6.5.1+303
   huawei_map:
     path: plugins/huawei_map
-  huawei_location:
-    path: plugins/huawei_location
+  huawei_location: 6.11.0+301
   huawei_ml_text:
     path: plugins/huawei_ml_text
   huawei_ml_body:

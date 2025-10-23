@@ -7,9 +7,9 @@ import 'map_widget.dart';
 import '../app_theme.dart';
 import 'chatbot_widget.dart';
 import '../community/community_page.dart';
-import '../lodge_incident_page.dart';
+import '../lodge/lodge_incident_page.dart';
 import '../notification_page.dart';
-import '../profile_page/profile_page.dart';
+import '../profile/profile_page.dart';
 import '../user_management.dart';
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -116,11 +116,15 @@ class _HomePageState extends State<HomePage> {
   // Function to perform reverse geocoding for all incidents
   Future<void> _getAddressesForIncidents() async {
     print('[Geocoding] Starting geocoding process...');
-    List<Map<String, dynamic>> updatedIncidents = List.from(_incidents); // Create a mutable copy
+    List<Map<String, dynamic>> updatedIncidents = List.from(
+      _incidents,
+    ); // Create a mutable copy
 
     for (int i = 0; i < updatedIncidents.length; i++) {
       final incident = updatedIncidents[i];
-      print('[Geocoding] Attempting to geocode for incident ${incident['id']} at latitude: ${incident['latitude']}, longitude: ${incident['longitude']}');
+      print(
+        '[Geocoding] Attempting to geocode for incident ${incident['id']} at latitude: ${incident['latitude']}, longitude: ${incident['longitude']}',
+      );
       try {
         List<Placemark> placemarks = await placemarkFromCoordinates(
           incident['latitude'],
@@ -130,23 +134,32 @@ class _HomePageState extends State<HomePage> {
         if (placemarks.isNotEmpty) {
           final Placemark place = placemarks[0];
           // Construct a more readable address
-          final String address = [
-            place.street,
-            place.thoroughfare,
-            place.subLocality,
-            place.locality,
-            place.postalCode,
-            place.administrativeArea,
-            place.country,
-          ].where((element) => element != null && element.isNotEmpty).join(', ');
+          final String address =
+              [
+                    place.street,
+                    place.thoroughfare,
+                    place.subLocality,
+                    place.locality,
+                    place.postalCode,
+                    place.administrativeArea,
+                    place.country,
+                  ]
+                  .where((element) => element != null && element.isNotEmpty)
+                  .join(', ');
           updatedIncidents[i]['location'] = address;
-          print('[Geocoding] Incident ${incident['id']} location updated to: $address');
+          print(
+            '[Geocoding] Incident ${incident['id']} location updated to: $address',
+          );
         } else {
           updatedIncidents[i]['location'] = 'Address not found';
-          print('[Geocoding] No placemarks found for incident ${incident['id']}.');
+          print(
+            '[Geocoding] No placemarks found for incident ${incident['id']}.',
+          );
         }
       } catch (e) {
-        print('[Geocoding] Error during geocoding for incident ${incident['id']}: $e');
+        print(
+          '[Geocoding] Error during geocoding for incident ${incident['id']}: $e',
+        );
         updatedIncidents[i]['location'] = 'Geocoding error';
       }
     }
@@ -154,12 +167,13 @@ class _HomePageState extends State<HomePage> {
     if (mounted) {
       setState(() {
         _incidents = updatedIncidents; // Update the state with new locations
-        print('[Geocoding] State updated with new incident locations. Total incidents: ${_incidents.length}');
+        print(
+          '[Geocoding] State updated with new incident locations. Total incidents: ${_incidents.length}',
+        );
       });
     }
     print('[Geocoding] Geocoding process finished.');
   }
-
 
   Widget _buildCurrentPage() {
     switch (_selectedIndex) {
@@ -168,7 +182,7 @@ class _HomePageState extends State<HomePage> {
       case 1:
         return const CommunityPage();
       case 2:
-        return const LodgeIncidentPage();
+        return LodgeIncidentPage();
       case 3:
         return ProfilePage();
       case 4:
@@ -185,6 +199,7 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('MYSafeZone'),
+        scrolledUnderElevation: 0,
         // Add the toggle switch to the AppBar actions
         actions: [
           Padding(
@@ -203,7 +218,7 @@ class _HomePageState extends State<HomePage> {
                 ),
               ],
             ),
-          )
+          ),
         ],
       ),
       body: _buildCurrentPage(),
@@ -272,10 +287,7 @@ class _HomePageState extends State<HomePage> {
           key: const PageStorageKey<String>('homePage'),
           children: [
             // Map Section - Fixed height
-            SizedBox(
-              height: 250,
-              child: MapWidget(incidents: _incidents),
-            ),
+            SizedBox(height: 250, child: MapWidget(incidents: _incidents)),
 
             // Nearby Incidents Section - Takes remaining space
             Expanded(
@@ -294,7 +306,10 @@ class _HomePageState extends State<HomePage> {
                   Expanded(
                     child: ListView.builder(
                       itemCount: _incidents.length,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
                       itemBuilder: (context, index) {
                         return _buildIncidentCard(_incidents[index]);
                       },
@@ -389,11 +404,15 @@ class _HomePageState extends State<HomePage> {
                     const SizedBox(height: 8),
                     // Location
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
-                          Icons.location_on_outlined,
-                          size: 16,
-                          color: Colors.grey[600],
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Icon(
+                            Icons.location_on_outlined,
+                            size: 16,
+                            color: Colors.grey[600],
+                          ),
                         ),
                         const SizedBox(width: 4),
                         Expanded(
