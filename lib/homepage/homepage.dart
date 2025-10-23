@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
-import 'package:geocoding/geocoding.dart'; // Import the geocoding package
+import 'package:geocoding/geocoding.dart';
 import '../providers/user_provider.dart';
 import 'package:provider/provider.dart';
+import 'dart:async';
 import 'map_widget.dart';
 import '../app_theme.dart';
 import 'chatbot_widget.dart';
 import '../community/community_page.dart';
 import '../lodge/lodge_incident_page.dart';
+import '../lodge/incident_history_page.dart';
 import '../notification_page.dart';
 import '../profile/profile_page.dart';
 import '../user_management.dart';
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -19,20 +22,20 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  // states for service status - Safety Trigger
   bool _isServiceRunning = false;
   final _backgroundService = FlutterBackgroundService();
+  final GlobalKey _infoIconKey = GlobalKey();
+  OverlayEntry? _overlayEntry;
+  Timer? _tooltipTimer;
 
   int _selectedIndex = 0;
 
-  // Dummy incident data - will be replaced with cloud DB
-  // Make it mutable to update locations
   List<Map<String, dynamic>> _incidents = [
     {
       'id': 1,
       'title': 'Suspicious Person Spotted',
       'timestamp': '3 min ago',
-      'location': 'Loading address...', // Initial placeholder
+      'location': 'Loading address...',
       'severity': 'high',
       'latitude': 5.3654,
       'longitude': 100.4632,
@@ -84,11 +87,9 @@ class _HomePageState extends State<HomePage> {
     },
   ];
 
-  // Init Safety Trigger BG process
   @override
   void initState() {
     super.initState();
-    // Check initial service status when the widget loads
     _backgroundService.isRunning().then((value) {
       if (mounted) {
         setState(() {
@@ -96,16 +97,13 @@ class _HomePageState extends State<HomePage> {
         });
       }
     });
-    _getAddressesForIncidents(); // Call to fetch addresses
+    _getAddressesForIncidents();
   }
 
-  // Start/Stop Safety Trigger BG process
   void _toggleService(bool value) async {
     if (value) {
-      // Start the service configured in main.dart
       await _backgroundService.startService();
     } else {
-      // Invoke the 'stopService' command defined in background_service.dart
       _backgroundService.invoke("stopService");
     }
     setState(() {
@@ -113,12 +111,9 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  // Function to perform reverse geocoding for all incidents
   Future<void> _getAddressesForIncidents() async {
     print('[Geocoding] Starting geocoding process...');
-    List<Map<String, dynamic>> updatedIncidents = List.from(
-      _incidents,
-    ); // Create a mutable copy
+    List<Map<String, dynamic>> updatedIncidents = List.from(_incidents);
 
     for (int i = 0; i < updatedIncidents.length; i++) {
       final incident = updatedIncidents[i];
@@ -133,46 +128,86 @@ class _HomePageState extends State<HomePage> {
 
         if (placemarks.isNotEmpty) {
           final Placemark place = placemarks[0];
-          // Construct a more readable address
-          final String address =
-              [
-                    place.street,
-                    place.thoroughfare,
-                    place.subLocality,
-                    place.locality,
-                    place.postalCode,
-                    place.administrativeArea,
-                    place.country,
-                  ]
-                  .where((element) => element != null && element.isNotEmpty)
-                  .join(', ');
+          final String address = [
+            place.street,
+            place.thoroughfare,
+            place.subLocality,
+            place.locality,
+            place.postalCode,
+            place.administrativeArea,
+            place.country,
+          ].where((element) => element != null && element.isNotEmpty).join(', ');
           updatedIncidents[i]['location'] = address;
-          print(
-            '[Geocoding] Incident ${incident['id']} location updated to: $address',
-          );
+          print('[Geocoding] Incident ${incident['id']} location updated to: $address');
         } else {
           updatedIncidents[i]['location'] = 'Address not found';
-          print(
-            '[Geocoding] No placemarks found for incident ${incident['id']}.',
-          );
+          print('[Geocoding] No placemarks found for incident ${incident['id']}.');
         }
       } catch (e) {
-        print(
-          '[Geocoding] Error during geocoding for incident ${incident['id']}: $e',
-        );
+        print('[Geocoding] Error during geocoding for incident ${incident['id']}: $e');
         updatedIncidents[i]['location'] = 'Geocoding error';
       }
     }
 
     if (mounted) {
       setState(() {
-        _incidents = updatedIncidents; // Update the state with new locations
-        print(
-          '[Geocoding] State updated with new incident locations. Total incidents: ${_incidents.length}',
-        );
+        _incidents = updatedIncidents;
+        print('[Geocoding] State updated with new incident locations. Total incidents: ${_incidents.length}');
       });
     }
     print('[Geocoding] Geocoding process finished.');
+  }
+
+  void _showTooltipOverlay() {
+    _removeTooltip();
+
+    final RenderBox? renderBox = _infoIconKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+
+    final position = renderBox.localToGlobal(Offset.zero);
+    final size = renderBox.size;
+
+    _overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        top: position.dy + size.height + 4,
+        right: MediaQuery.of(context).size.width - position.dx - size.width,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            width: 280,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.black87,
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: const Text(
+              "Actively listens to sounds around you to detect potential threats or incidents nearby",
+              style: TextStyle(fontSize: 10, color: Colors.white),
+              maxLines: 2,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    Overlay.of(context).insert(_overlayEntry!);
+
+    _tooltipTimer?.cancel();
+    _tooltipTimer = Timer(const Duration(seconds: 5), () {
+      _removeTooltip();
+    });
+  }
+
+  void _removeTooltip() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
   }
 
   Widget _buildCurrentPage() {
@@ -200,26 +235,20 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: const Text('MYSafeZone'),
         scrolledUnderElevation: 0,
-        // Add the toggle switch to the AppBar actions
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  _isServiceRunning ? "ON" : "OFF",
-                  style: TextStyle(fontSize: 10),
+        actions: _selectedIndex == 2 ? [
+          IconButton(
+            icon: const Icon(Icons.history, size: 28, color: Colors.white),
+            padding: const EdgeInsets.only(right: 24),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const IncidentHistoryPage(),
                 ),
-                Switch(
-                  value: _isServiceRunning,
-                  onChanged: _toggleService,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-              ],
-            ),
+              );
+            },
           ),
-        ],
+        ] : null,
       ),
       body: _buildCurrentPage(),
       bottomNavigationBar: Container(
@@ -237,6 +266,13 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _tooltipTimer?.cancel();
+    _removeTooltip();
+    super.dispose();
   }
 
   Widget _buildNavItem(int index, IconData icon, String label) {
@@ -286,30 +322,62 @@ class _HomePageState extends State<HomePage> {
         Column(
           key: const PageStorageKey<String>('homePage'),
           children: [
-            // Map Section - Fixed height
             SizedBox(height: 250, child: MapWidget(incidents: _incidents)),
-
-            // Nearby Incidents Section - Takes remaining space
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
                     padding: const EdgeInsets.all(16.0),
-                    child: Text(
-                      'Nearby Incidents',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Nearby Incidents',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(top: 12.0),
+                              child: GestureDetector(
+                                key: _infoIconKey,
+                                onTap: _showTooltipOverlay,
+                                child: Icon(
+                                  Icons.info_outline,
+                                  color: Colors.grey[600],
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Switch(
+                                  value: _isServiceRunning,
+                                  onChanged: _toggleService,
+                                  activeColor: Colors.orange,
+                                  activeTrackColor: Colors.orange.withOpacity(0.5),
+                                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                const Text(
+                                  "Sound Detector",
+                                  style: TextStyle(fontSize: 10),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
                   Expanded(
                     child: ListView.builder(
                       itemCount: _incidents.length,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       itemBuilder: (context, index) {
                         return _buildIncidentCard(_incidents[index]);
                       },
@@ -320,13 +388,12 @@ class _HomePageState extends State<HomePage> {
             ),
           ],
         ),
-        const ChatbotWidget(), // Add chatbot only to homepage
+        const ChatbotWidget(),
       ],
     );
   }
 
   Widget _buildIncidentCard(Map<String, dynamic> incident) {
-    // Determine border color based on severity
     Color borderColor;
     switch (incident['severity']) {
       case 'high':
@@ -359,7 +426,6 @@ class _HomePageState extends State<HomePage> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Left colored border
             Container(
               width: 4,
               decoration: BoxDecoration(
@@ -370,14 +436,12 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             ),
-            // Content
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Title and timestamp row
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -402,7 +466,6 @@ class _HomePageState extends State<HomePage> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    // Location
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
