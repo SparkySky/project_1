@@ -1,14 +1,13 @@
 import 'dart:async';
 import 'package:agconnect_clouddb/agconnect_clouddb.dart';
 import 'package:huawei_map/huawei_map.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:agconnect_clouddb/agconnect_clouddb.dart';
-import 'package:huawei_map/huawei_map.dart';
 import 'package:provider/provider.dart';
 
-import 'app_theme.dart';
 import 'bg_services/background_service.dart';
 import 'bg_services/clouddb_service.dart';
 import 'bg_services/sensors_analysis.dart';
@@ -22,6 +21,9 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Load the .env file
+  await dotenv.load(fileName: ".env");
 
   await DebugState().loadState(); // Debug: Load debug state from storage
 
