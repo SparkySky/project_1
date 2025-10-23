@@ -40,27 +40,32 @@ Future<void> main() async {
   // 1. Request needed permissions
   await requestPermissions();
 
-  // 2. Initialize the Background Service configuration
-  await initializeBackgroundService();
-
-  // 3. Initialize the Sensors Analysis Service
-  final sensorsAnalysisService = SensorsAnalysisService(navigatorKey: navigatorKey);
-  await sensorsAnalysisService.initialize();
-
-  // 4. Initialize AGConnect Core & CloudDB in the main isolate
+  // 2. Initialize AGConnect Core & Other Services in the main isolate
+  //    This MUST be done before creating services that depend on it.
   try {
     // Core initialization is handled natively by the agconnect plugin reading the json file.
+    
+    // Initialize CloudDB
     final cloudDB = AGConnectCloudDB.getInstance();
     await cloudDB.initialize();
     await cloudDB.createObjectType(); // Ensure models are created before service starts
+
     if (kDebugMode) {
       print("[MAIN] AGConnect and CloudDB Initialized in main isolate.");
     }
   } catch (e) {
     if (kDebugMode) {
-      print("[MAIN] CRITICAL Error during AGConnect/CloudDB init: $e");
+      print("[MAIN] CRITICAL Error during AGConnect services init: $e");
     }
   }
+  
+  // 3. Initialize the Background Service configuration
+  await initializeBackgroundService();
+
+  // 4. Initialize the Sensors Analysis Service (after AGConnect is ready)
+  final sensorsAnalysisService = SensorsAnalysisService(navigatorKey: navigatorKey);
+  await sensorsAnalysisService.initialize();
+
   runApp(const MyApp());
 }
 

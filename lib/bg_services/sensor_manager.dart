@@ -109,9 +109,9 @@ class SensorManager {
     _debugTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       final accel = _lastAccelEvent;
       final gyro = _lastGyroEvent;
-      if (accel != null && gyro != null) {
+/*      if (accel != null && gyro != null) {
         print("[SENSOR_DEBUG] Accel(x: ${accel.x.toStringAsFixed(2)}, y: ${accel.y.toStringAsFixed(2)}, z: ${accel.z.toStringAsFixed(2)}) | Gyro(x: ${gyro.x.toStringAsFixed(2)}, y: ${gyro.y.toStringAsFixed(2)}, z: ${gyro.z.toStringAsFixed(2)})");
-      }
+      }*/
     });
   }
 

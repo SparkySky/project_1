@@ -6,8 +6,12 @@ import '../util/microphone_centre.dart';
 import 'ai_analysis_service.dart';
 import 'cloud_db_service.dart';
 import 'package:flutter/material.dart';
+import 'hms_cloud_function_service.dart';
 
 class EmergencyTriggerService {
+  // Create an instance of the audio analysis service
+  final HmsAudioAnalysisService _audioAnalysisService = HmsAudioAnalysisService();
+
   static final EmergencyTriggerService _instance = EmergencyTriggerService._internal();
   factory EmergencyTriggerService() => _instance;
   EmergencyTriggerService._internal();
@@ -83,13 +87,22 @@ class EmergencyTriggerService {
 
     // Start 8-second collection window
     final imuSubscription = _imuCentre.accelerometerStream.listen((event) {
-      final timestamp = TimeOfDay.now().format(navigatorKey.currentContext!);
-      // Fixed typo here: toStringAsField -> toStringAsFixed
-      imuReadings.add("[$timestamp] Accel: X:${event.x.toStringAsFixed(2)}, Y:${event.y.toStringAsFixed(2)}, Z:${event.z.toStringAsFixed(2)}");
+      // Ensure context is available before formatting time
+      final currentContext = navigatorKey.currentContext;
+      if (currentContext != null) {
+        final timestamp = TimeOfDay.now().format(currentContext);
+        imuReadings.add(
+            "[$timestamp] Accel: X:${event.x.toStringAsFixed(2)}, Y:${event.y.toStringAsFixed(2)}, Z:${event.z.toStringAsFixed(2)}");
+      } else {
+        // Fallback if context is not immediately available
+        imuReadings.add(
+            "[${DateTime.now().toIso8601String()}] Accel: X:${event.x.toStringAsFixed(2)}, Y:${event.y.toStringAsFixed(2)}, Z:${event.z.toStringAsFixed(2)}");
+      }
+
     });
 
     _microphoneCentre.startRecording();
-    
+
     Future.delayed(const Duration(seconds: 8), () async {
       imuSubscription.cancel();
       final audioPath = await _microphoneCentre.stopRecording();
@@ -100,41 +113,89 @@ class EmergencyTriggerService {
 
     if (audioPath == null) {
       print("Failed to record audio. Aborting incident processing.");
-      _isProcessingIncident = false;
+      _isProcessingIncident = false; // Reset flag
+      // Maybe show a quick error message to the user?
       return;
     }
+    print("EmergencyTrigger: Audio recorded to $audioPath");
 
-    final audioAnalysis = await _aiService.processAudio(audioPath);
 
+// --- ⬇️ USE THE HMS AUDIO ANALYSIS SERVICE HERE ⬇️ ---
+    print("EmergencyTrigger: Sending audio for HMS Cloud Function analysis...");
+    // Replace _aiService.processAudio with _audioAnalysisService.analyzeAudio
+    final audioAnalysisResult = await _audioAnalysisService.analyzeAudio(audioPath);
+
+    // --- Handle potential errors from the Cloud Function ---
+    if (audioAnalysisResult.containsKey('error')) {
+      print("EmergencyTrigger: HMS Audio analysis failed: ${audioAnalysisResult['error']}");
+      _isProcessingIncident = false; // Reset flag
+      // Decide how to handle the error (e.g., log it, show message, restart)
+      _restartTriggerSystem(); // Example: Restart detection
+      return; // Stop processing this trigger
+    }
+    // --- ✅ SUCCESSFUL ANALYSIS - Extract results ---
+    String transcription = audioAnalysisResult['transcription'] ?? "";
+    String emotion = audioAnalysisResult['emotion'] ?? "unknown";
+    print("EmergencyTrigger: HMS Analysis Result - Transcription: '$transcription', Emotion: '$emotion'");
+    // --- ⬆️ END OF HMS AUDIO ANALYSIS CALL ⬆️ ---
+
+
+    // --- Call Gemini Service with the results from HMS ---
+    print("EmergencyTrigger: Sending data to Gemini for analysis...");
     final aiResult = await _aiService.analyzeIncident(
       trigger: trigger,
       imuReadings: imuReadings.take(10).toList(), // Take up to 10 readings
-      audioTranscription: audioAnalysis["transcription"]!,
-      audioEmotion: audioAnalysis["emotion"]!,
+      audioTranscription: transcription, // Use transcription from HMS
+      audioEmotion: emotion,             // Use emotion from HMS
     );
 
-    _showResultVisual(aiResult["isTruePositive"]);
+    // --- Handle Gemini Result ---
+    bool isTruePositive = aiResult["isTruePositive"] ?? false; // Default to false if key doesn't exist
+    String geminiDescription = aiResult["description"] ?? "AI analysis description unavailable.";
 
-    if (aiResult["isTruePositive"]) {
+    _showResultVisual(isTruePositive);
+
+    if (isTruePositive) {
+      print("EmergencyTrigger: Gemini confirmed TRUE POSITIVE. Submitting incident.");
       final currentLocation = await _locationCentre.getCurrentLocation();
       if (currentLocation != null && currentLocation.latitude != null && currentLocation.longitude != null) {
-        _dbService.saveIncident(
-          uid: "current_user_id", // Replace with actual user ID
+
+        // TODO: Implement media upload to Cloud Storage and get mediaID
+        String mediaId = "placeholder_media_id"; // Replace with actual ID after uploading audioPath file
+
+        await _dbService.saveIncident(
+          // TODO: Replace with actual user ID from your auth service
+          uid: "current_user_id",
           latitude: currentLocation.latitude!,
           longitude: currentLocation.longitude!,
           datetime: DateTime.now(),
           incidentType: "threat",
           isAIGenerated: true,
-          desc: aiResult["description"],
-          mediaID: audioPath,
+          desc: geminiDescription, // Use description from Gemini
+          mediaID: mediaId, // Use the ID from Cloud Storage
           status: "active",
         );
+        print("EmergencyTrigger: Incident submitted to CloudDB.");
+      } else {
+        print("EmergencyTrigger: Failed to get current location for incident submission.");
       }
+    } else {
+      print("EmergencyTrigger: Gemini confirmed FALSE POSITIVE.");
+      _restartTriggerSystem(); // Restart if false positive
     }
 
-    _isProcessingIncident = false;
+    // Reset processing flag only after handling is complete (or aborted)
+    // Removed the reset from here, it's handled in error cases and after submission/restart.
+    // _isProcessingIncident = false;
   }
-  
+
+  void _restartTriggerSystem() {
+    print("EmergencyTrigger: Restarting detection loop.");
+    _isProcessingIncident = false; // Ensure flag is reset before restarting
+    // Add logic here if needed to explicitly re-enable listeners,
+    // though _startListeningForTriggers might handle this if called again.
+  }
+
   void _showResultVisual(bool isTruePositive) {
     final context = navigatorKey.currentContext;
     if (context == null) return;

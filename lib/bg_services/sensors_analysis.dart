@@ -19,7 +19,8 @@ class SensorsAnalysisService {
   final SoundTriggerService _soundTriggerService = SoundTriggerService();
   final GeminiAnalysisService _geminiAnalysisService =
       GeminiAnalysisService(apiKey: dotenv.env['GEMINI_API_KEY'] ?? '', modelName: 'gemini-2.0-flash');
-  final HmsCloudFunctionService _hmsCloudService = HmsCloudFunctionService();
+  // Corrected: Renamed to HmsAudioAnalysisService
+  final HmsAudioAnalysisService _hmsCloudService = HmsAudioAnalysisService(); 
   final AudioRecorder _audioRecorder = AudioRecorder();
   final GlobalKey<NavigatorState> navigatorKey;
   
@@ -78,18 +79,20 @@ class SensorsAnalysisService {
     }
     
     // Send audio to HMS Cloud Function for analysis
-    final hmsResult = await _hmsCloudService.processAudioForAnalysis(_audioRecordingPath!);
+    // Corrected: Method name is analyzeAudio
+    final hmsResult = await _hmsCloudService.analyzeAudio(_audioRecordingPath!); 
 
     // Now send everything to Gemini
     final analysisResult = await _geminiAnalysisService.analyzeIncident(
-      accelX: 0, // IMU data is now in a list, this needs adjustment in Gemini prompt
+      accelX: 0, 
       accelY: 0,
       accelZ: 0,
       gyroX: 0,
       gyroY: 0,
       gyroZ: 0,
       initialTriggers: _debugState.collectedTriggers.toSet().join(", "),
-      transcript: "IMU LOG:\n${collectedData['imuReadings'].join('\n')}\n\nTRANSCRIPT:\n${hmsResult['formatted_transcript']}",
+      // Corrected: Key is 'transcription', not 'formatted_transcript' based on HmsAudioAnalysisService
+      transcript: "IMU LOG:\n${collectedData['imuReadings'].join('\n')}\n\nTRANSCRIPT:\n${hmsResult['transcription']}",
     );
 
     final isTruePositive = analysisResult != null && analysisResult['isIncident'] == true;
