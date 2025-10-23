@@ -7,9 +7,9 @@ import 'map_widget.dart';
 import '../app_theme.dart';
 import 'chatbot_widget.dart';
 import '../community/community_page.dart';
-import '../lodge_incident_page.dart';
+import '../lodge/lodge_incident_page.dart';
 import '../notification_page.dart';
-import '../profile_page/profile_page.dart';
+import '../profile/profile_page.dart';
 import '../user_management.dart';
 class HomePage extends StatefulWidget {
   const HomePage({super.key});

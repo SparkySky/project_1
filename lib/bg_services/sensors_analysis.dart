@@ -9,7 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'sound_trigger.dart';
 import 'gemini_analysis_service.dart' hide GEMINI_API_KEY;
-import '../lodge_incident_page.dart';
+import '../lodge/lodge_incident_page.dart';
 import '../api_keys.dart';
 import '../util/debug_state.dart';
 
