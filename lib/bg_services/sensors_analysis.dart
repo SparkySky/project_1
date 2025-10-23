@@ -7,10 +7,9 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:project_1/services/hms_cloud_function_service.dart';
 import 'sound_trigger.dart';
 import 'gemini_analysis_service.dart';
-import '../lodge_incident_page.dart';
+import '../lodge/lodge_incident_page.dart';
 import '../util/debug_state.dart';
 import '../widgets/incident_collection_page.dart';
 
@@ -19,7 +18,6 @@ class SensorsAnalysisService {
   final SoundTriggerService _soundTriggerService = SoundTriggerService();
   final GeminiAnalysisService _geminiAnalysisService =
       GeminiAnalysisService(apiKey: dotenv.env['GEMINI_API_KEY'] ?? '', modelName: 'gemini-2.0-flash');
-  final HmsCloudFunctionService _hmsCloudService = HmsCloudFunctionService();
   final AudioRecorder _audioRecorder = AudioRecorder();
   final GlobalKey<NavigatorState> navigatorKey;
   
@@ -77,8 +75,6 @@ class SensorsAnalysisService {
       return;
     }
     
-    // Send audio to HMS Cloud Function for analysis
-    final hmsResult = await _hmsCloudService.processAudioForAnalysis(_audioRecordingPath!);
 
     // Now send everything to Gemini
     final analysisResult = await _geminiAnalysisService.analyzeIncident(
@@ -89,7 +85,7 @@ class SensorsAnalysisService {
       gyroY: 0,
       gyroZ: 0,
       initialTriggers: _debugState.collectedTriggers.toSet().join(", "),
-      transcript: "IMU LOG:\n${collectedData['imuReadings'].join('\n')}\n\nTRANSCRIPT:\n${hmsResult['formatted_transcript']}",
+      transcript: "IMU LOG:\n${collectedData['imuReadings'].join('\n')}\n\nTRANSCRIPT:PLACEHOLDER']}",
     );
 
     final isTruePositive = analysisResult != null && analysisResult['isIncident'] == true;

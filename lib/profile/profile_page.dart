@@ -473,10 +473,12 @@ class _ProfilePageState extends State<ProfilePage> {
                     icon: Icons.visibility_outlined,
                     title: 'Allow Discoverable',
                     subtitle: 'Others can find you in the app',
-                    value: _cloudDbUser!.allowDiscoverable ?? true,
+                    value: _cloudDbUser?.allowDiscoverable ?? true,
                     onChanged: (value) {
-                      _cloudDbUser?.allowDiscoverable = value;
-                      _userProvider!.updateCloudDbUser(_cloudDbUser!);
+                      if (_cloudDbUser != null) {
+                        _cloudDbUser!.allowDiscoverable = value;
+                        _userProvider!.updateCloudDbUser(_cloudDbUser!);
+                      }
                     },
                   ),
 
@@ -484,10 +486,12 @@ class _ProfilePageState extends State<ProfilePage> {
                     icon: Icons.warning_amber_outlined,
                     title: 'Allow Emergency Alerts',
                     subtitle: 'Receive emergency notifications',
-                    value: _cloudDbUser!.allowEmergencyAlert ?? true,
+                    value: _cloudDbUser?.allowEmergencyAlert ?? true,
                     onChanged: (value) {
-                      _cloudDbUser?.allowEmergencyAlert = value;
-                      _userProvider!.updateCloudDbUser(_cloudDbUser!);
+                      if (_cloudDbUser != null) {
+                        _cloudDbUser!.allowEmergencyAlert = value;
+                        _userProvider!.updateCloudDbUser(_cloudDbUser!);
+                      }
                     },
                   ),
 
