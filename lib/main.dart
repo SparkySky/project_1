@@ -1,25 +1,29 @@
 import 'dart:async';
 import 'package:agconnect_clouddb/agconnect_clouddb.dart';
-import 'app_theme.dart';
+import 'package:huawei_map/huawei_map.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:agconnect_clouddb/agconnect_clouddb.dart';
+import 'package:huawei_map/huawei_map.dart';
+import 'package:provider/provider.dart';
 
+import 'app_theme.dart';
 import 'bg_services/background_service.dart';
+import 'bg_services/clouddb_service.dart';
 import 'bg_services/sensors_analysis.dart';
 import 'permissions/permission_handler.dart';
-import 'splashscreen.dart';
+import 'providers/user_provider.dart';
 import 'util/debug_state.dart';
 import 'util/debug_overlay.dart';
+import 'splashscreen.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
-  // Ensures that plugin services are initialized before runApp
   WidgetsFlutterBinding.ensureInitialized();
 
   await DebugState().loadState(); // Debug: Load debug state from storage
-
 
   // Create Notification Channel
   const AndroidNotificationChannel channel = AndroidNotificationChannel(
@@ -28,9 +32,12 @@ Future<void> main() async {
     description: 'Background service for safety monitoring.',
     importance: Importance.low, // Use low to avoid sound/vibration
   );
-  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
   await flutterLocalNotificationsPlugin
-      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+      .resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin
+      >()
       ?.createNotificationChannel(channel);
 
   // 1. Request needed permissions
@@ -45,21 +52,20 @@ Future<void> main() async {
 
   // 4. Initialize AGConnect Core & CloudDB in the main isolate
   try {
-    // Core initialization is handled natively by the agconnect plugin reading the json file.
-    final cloudDB = AGConnectCloudDB.getInstance();
-    await cloudDB.initialize();
-    await cloudDB.createObjectType(); // Ensure models are created before service starts
-    if (kDebugMode) {
-      print("[MAIN] AGConnect and CloudDB Initialized in main isolate.");
-    }
+    await CloudDbService.initialize();
+    await CloudDbService.createObjectType();
+    print('[MAIN] Cloud DB initialized successfully');
   } catch (e) {
-    if (kDebugMode) {
-      print("[MAIN] CRITICAL Error during AGConnect/CloudDB init: $e");
-    }
+    print('[MAIN] Error initializing Cloud DB: $e');
   }
-  runApp(const MyApp());
-}
 
+  runApp(
+    MultiProvider(
+      providers: [ChangeNotifierProvider(create: (_) => UserProvider())],
+      child: const MyApp(),
+    ),
+  );
+}
 
 // StatefulWidget to listen for DebugState changes
 class MyApp extends StatefulWidget {

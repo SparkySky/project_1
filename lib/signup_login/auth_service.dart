@@ -2,23 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:agconnect_auth/agconnect_auth.dart';
 import 'package:huawei_account/huawei_account.dart';
+import 'package:provider/provider.dart';
+import '../repository/user_repository.dart';
 import '../util/snackbar_helper.dart';
+import '../models/users.dart';
+import '../providers/user_provider.dart';
 
 class AuthService {
   final AGCAuth _auth = AGCAuth.instance;
+  final UserRepository _userRepository = UserRepository();
 
   // Get the current user (if any)
   Future<AGCUser?> get currentUser => _auth.currentUser;
 
   // --- Sign-Up Step 1: Request Code ---
-  // Uses the method name from your code
   Future<void> requestEmailCodeForSignUp(String email) async {
     try {
       final settings = VerifyCodeSettings(
-        VerifyCodeAction.registerLogin, // Action for signing up
-        sendInterval: 30, // Interval from your code
+        VerifyCodeAction.registerLogin,
+        sendInterval: 30,
       );
-      // Method name from your code
       await _auth.requestVerifyCodeWithEmail(email, settings);
     } on AGCAuthException catch (e) {
       debugPrint("AuthService requestEmailCodeForSignUp Error: ${e.message}");
@@ -30,15 +33,24 @@ class AuthService {
   Future<AGCUser?> createEmailUser(
     String email,
     String password,
-    String code,
-  ) async {
+    String code, {
+    String? username,
+    String? phoneNo,
+  }) async {
     try {
-      // Corrected: createEmailUser expects an EmailUser object.
       final EmailUser userPayload = EmailUser(email, code, password);
       final SignInResult result = await _auth.createEmailUser(userPayload);
 
-      // Sign out immediately after successful sign up
+      // Create user in CloudDB
       if (result.user != null) {
+        await _createOrUpdateUserInCloudDB(
+          result.user!,
+          username: username,
+          email: email,
+          phoneNo: phoneNo,
+        );
+
+        // Sign out immediately after successful sign up
         await _auth.signOut();
       }
 
@@ -50,15 +62,21 @@ class AuthService {
   }
 
   // --- Sign In with Email and Password ---
-  // This matches your code and previous corrections.
-  Future<AGCUser?> signInWithEmail(String email, String password) async {
+  Future<AGCUser?> signInWithEmail(BuildContext? context, String email, String password) async {
     try {
       final AGCAuthCredential credential =
-          EmailAuthProvider.credentialWithPassword(
-            email,
-            password,
-          ); // Corrected constructor call
+          EmailAuthProvider.credentialWithPassword(email, password);
       final SignInResult result = await _auth.signIn(credential);
+
+      // Update user in CloudDB if needed
+      if (result.user != null) {
+        await _createOrUpdateUserInCloudDB(result.user!, email: email);
+
+        if (context != null && context.mounted) {
+          await context.read<UserProvider>().setUser(result.user!);
+        }
+      }
+
       return result.user;
     } on AGCAuthException catch (e) {
       debugPrint("AuthService SignIn Error: ${e.message}");
@@ -66,18 +84,17 @@ class AuthService {
     }
   }
 
-  Future<AGCUser?> signInWithHuaweiID() async {
+  Future<AGCUser?> signInWithHuaweiID(BuildContext? context) async {
     try {
       debugPrint('[HuaweiSignIn] Starting Huawei ID sign-in');
 
-      // Step 1: Configure AccountAuthParams with proper scopes
+      // Step 1: Configure AccountAuthParams
       final helper = AccountAuthParamsHelper();
       helper.setAuthorizationCode();
       helper.setAccessToken();
       helper.setIdToken();
       helper.setEmail();
       helper.setProfile();
-
       helper.setScopeList([Scope.openId, Scope.email, Scope.profile]);
 
       final params = helper.createParams();
@@ -108,7 +125,6 @@ class AuthService {
         }
       }
 
-      // Log account details for debugging
       debugPrint(
         '[HuaweiSignIn] Account display name: ${authAccount.displayName}',
       );
@@ -134,7 +150,7 @@ class AuthService {
         );
       }
 
-      // Step 6: Create AGC credential - try access token first, fallback to auth code
+      // Step 6: Create AGC credential
       debugPrint('[HuaweiSignIn] Creating AGC credential');
       AGCAuthCredential credential;
 
@@ -150,11 +166,21 @@ class AuthService {
       final SignInResult result = await _auth.signIn(credential);
 
       debugPrint(
-        '[HuaweiSignIn] AGC sign-in complete. User: ${result.user.toString()}',
-      );
-      debugPrint(
         '[HuaweiSignIn] AGC sign-in complete. User: ${result.user?.uid}',
       );
+
+      if (result.user != null) {
+        await _createOrUpdateUserInCloudDB(
+          result.user!,
+          username: authAccount.displayName,
+          email: authAccount.email,
+        );
+
+        if (context != null && context.mounted) {
+          await context.read<UserProvider>().setUser(result.user!);
+        }
+      }
+
       return result.user;
     } on AGCAuthException catch (e) {
       debugPrint('[HuaweiSignIn] AGCAuthException: ${e.code} - ${e.message}');
@@ -162,7 +188,6 @@ class AuthService {
     } on PlatformException catch (e) {
       debugPrint('[HuaweiSignIn] PlatformException: ${e.code} - ${e.message}');
 
-      // Handle HMS Core errors
       if (e.code == '8002' || e.code == 'HMS_CORE_ERROR') {
         throw Exception(
           "HMS Core is not available. Please install or update HMS Core from AppGallery.",
@@ -178,11 +203,73 @@ class AuthService {
     }
   }
 
-  // --- NEW: Password Reset Step 1: Request Code ---
+  // --- NEW: Create or Update User in CloudDB ---
+  Future<void> _createOrUpdateUserInCloudDB(
+    AGCUser agcUser, {
+    String? username,
+    String? email,
+    String? phoneNo,
+    String? district,
+    String? postcode,
+    String? state,
+  }) async {
+    try {
+      debugPrint('[CloudDB] Creating/updating user: ${agcUser.uid}');
+
+      // Check if user already exists
+      await _userRepository.openZone();
+      final existingUser = await _userRepository.getUserById(agcUser.uid!);
+
+      if (existingUser != null) {
+        // User exists, update only if new info provided
+        debugPrint('[CloudDB] User exists, updating...');
+
+        final updatedUser = Users(
+          uid: agcUser.uid,
+          username: username ?? existingUser.username,
+          district: district ?? existingUser.district,
+          postcode: postcode ?? existingUser.postcode,
+          state: state ?? existingUser.state,
+          phoneNo: phoneNo ?? existingUser.phoneNo,
+          latitude: existingUser.latitude,
+          longtitutde: existingUser.longtitutde,
+          allowDiscoverable: existingUser.allowDiscoverable,
+          allowEmergencyAlert: existingUser.allowEmergencyAlert,
+        );
+
+        await _userRepository.upsertUser(updatedUser);
+        debugPrint('[CloudDB] User updated successfully');
+      } else {
+        // New user, create record
+        debugPrint('[CloudDB] Creating new user...');
+
+        final newUser = Users(
+          uid: agcUser.uid,
+          username: username ?? email?.split('@').first ?? 'User',
+          district: district,
+          postcode: postcode,
+          state: state,
+          phoneNo: phoneNo,
+          latitude: null,
+          longtitutde: null,
+          allowDiscoverable: true,
+          allowEmergencyAlert: true,
+        );
+
+        await _userRepository.upsertUser(newUser);
+        debugPrint('[CloudDB] User created successfully');
+      }
+    } catch (e) {
+      debugPrint('[CloudDB] Error creating/updating user: $e');
+      // Don't throw - we don't want to fail auth if CloudDB fails
+    }
+  }
+
+  // --- Password Reset Step 1: Request Code ---
   Future<void> requestPasswordResetCode(String email) async {
     try {
       final settings = VerifyCodeSettings(
-        VerifyCodeAction.resetPassword, // Specific action for password reset
+        VerifyCodeAction.resetPassword,
         sendInterval: 30,
       );
       await _auth.requestVerifyCodeWithEmail(email, settings);
@@ -192,8 +279,7 @@ class AuthService {
     }
   }
 
-  // --- NEW: Password Reset Step 2: Reset with Code and New Password ---
-  // Uses the method signature from your code
+  // --- Password Reset Step 2: Reset with Code and New Password ---
   Future<void> resetPasswordWithCode(
     String email,
     String newPassword,
@@ -207,23 +293,23 @@ class AuthService {
     }
   }
 
-  // Sign Out (Unchanged)
+  // Sign Out
   Future<void> signOut() async {
     try {
       await _auth.signOut();
+      await _userRepository.closeZone();
     } on AGCAuthException catch (e) {
       debugPrint("AuthService SignOut Error: ${e.message}");
       throw _handleAuthException(e);
     }
   }
 
-  // Helper (Using toString() for safety as per your code)
+  // Helper
   String _handleAuthException(AGCAuthException e) {
     switch (e.code.toString()) {
-      // Use toString()
       case "6003-8001":
       case "AUTH:3009-9004":
-      case "AUTH:3013-9004": // Invalid verification code (added based on API structure)
+      case "AUTH:3013-9004":
         return "Invalid email, password, or code.";
       case "6003-8005":
       case "AUTH:3003-9004":
@@ -234,7 +320,6 @@ class AuthService {
       case "NETWORK_ERROR":
         return "Network error. Please check your connection.";
       default:
-        // Include the code in the default message for easier debugging
         return e.message ?? "An unknown error occurred (Code: ${e.code})";
     }
   }

@@ -4,7 +4,6 @@
  */
 package com.huawei.agconnectclouddb.objecttypes;
 
-
 import com.huawei.agconnect.cloud.database.annotations.Indexes;
 import com.huawei.agconnect.cloud.database.annotations.PrimaryKeys;
 import com.huawei.agconnect.cloud.database.CloudDBZoneObject;
@@ -15,7 +14,7 @@ import java.util.Date;
 /**
  * Definition of ObjectType incidents.
  *
- * @since 2025-10-19
+ * @since 2025-10-22
  */
 @PrimaryKeys({"iid", "uid"})
 @Indexes({"uid:uid", "iid:iid"})

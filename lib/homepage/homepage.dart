@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:geocoding/geocoding.dart'; // Import the geocoding package
+import '../providers/user_provider.dart';
+import 'package:provider/provider.dart';
 import 'map_widget.dart';
 import '../app_theme.dart';
 import 'chatbot_widget.dart';
 import '../community/community_page.dart';
 import '../lodge_incident_page.dart';
-import '../profile_page.dart';
-
+import '../notification_page.dart';
+import '../profile_page/profile_page.dart';
+import '../user_management.dart';
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -182,6 +185,8 @@ class _HomePageState extends State<HomePage> {
         return LodgeIncidentPage();
       case 3:
         return ProfilePage();
+      case 4:
+        return UserManagementScreen();
       default:
         return _buildHomePage();
     }
