@@ -6,7 +6,7 @@ import '../app_theme.dart';
 import 'incident_model.dart';
 
 class IncidentHistoryPage extends StatefulWidget {
-  const IncidentHistoryPage({Key? key}) : super(key: key);
+  const IncidentHistoryPage({super.key});
 
   @override
   _IncidentHistoryPageState createState() => _IncidentHistoryPageState();

@@ -14,11 +14,11 @@ class MediaOperationsWidget extends StatefulWidget {
   final File? initialAudioFile;
 
   const MediaOperationsWidget({
-    Key? key,
+    super.key,
     required this.mediaFiles,
     required this.onMediaFilesChanged,
     this.initialAudioFile,
-  }) : super(key: key);
+  });
 
   @override
   State<MediaOperationsWidget> createState() => _MediaOperationsWidgetState();
@@ -29,7 +29,7 @@ class _MediaOperationsWidgetState extends State<MediaOperationsWidget> {
   final AudioRecorder _audioRecorder = AudioRecorder();
   bool _isRecording = false;
   String? _recordingPath;
-  Map<String, String> _videoThumbnails = {};
+  final Map<String, String> _videoThumbnails = {};
 
   @override
   void initState() {

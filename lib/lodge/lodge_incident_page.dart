@@ -17,15 +17,15 @@ class LodgeIncidentPage extends StatefulWidget {
   final String? state;
   final String? audioRecordingPath;
 
-  LodgeIncidentPage({
-    Key? key,
+  const LodgeIncidentPage({
+    super.key,
     this.incidentType,
     this.description,
     this.district,
     this.postcode,
     this.state,
     this.audioRecordingPath,
-  }) : super(key: key);
+  });
 
   @override
   _LodgeIncidentPageState createState() => _LodgeIncidentPageState();
@@ -581,10 +581,10 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
       decoration: InputDecoration(
         labelText: label,
         labelStyle: TextStyle(color: Colors.grey[600]),
-        floatingLabelStyle: MaterialStateTextStyle.resolveWith((
-          Set<MaterialState> states,
+        floatingLabelStyle: WidgetStateTextStyle.resolveWith((
+          Set<WidgetState> states,
         ) {
-          if (states.contains(MaterialState.focused)) {
+          if (states.contains(WidgetState.focused)) {
             return const TextStyle(
               color: AppTheme.primaryOrange,
             );

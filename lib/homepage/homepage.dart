@@ -356,7 +356,7 @@ class _HomePageState extends State<HomePage> {
                                 Switch(
                                   value: _isServiceRunning,
                                   onChanged: _toggleService,
-                                  activeColor: Colors.orange,
+                                  activeThumbColor: Colors.orange,
                                   activeTrackColor: Colors.orange.withOpacity(0.5),
                                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                 ),

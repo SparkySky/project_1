@@ -833,7 +833,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Future<void> _handleLogout(UserProvider user_provider) async {
+  Future<void> _handleLogout(UserProvider userProvider) async {
     final shouldLogout = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -870,7 +870,7 @@ class _ProfilePageState extends State<ProfilePage> {
         builder: (context) => const Center(child: CircularProgressIndicator()),
       );
 
-      await user_provider.signOut();
+      await userProvider.signOut();
 
       if (!mounted) return;
       Navigator.of(context).pop();
