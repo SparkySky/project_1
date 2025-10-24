@@ -5,8 +5,9 @@ class Users {
   String? state;
   String? username;
   String? phoneNo;
-  String? latitude;
-  String? longtitutde;
+  double? latitude;
+  double? longitude;
+  DateTime? locUpdateTime;
   bool? allowDiscoverable;
   bool? allowEmergencyAlert;
 
@@ -18,28 +19,30 @@ class Users {
     this.username,
     this.phoneNo,
     this.latitude,
-    this.longtitutde,
+    this.longitude,
+    this.locUpdateTime,
     this.allowDiscoverable,
     this.allowEmergencyAlert,
   });
 
-  // Factory constructor for creating Users from CloudDB query results
   factory Users.fromMap(Map<String, dynamic> map) {
     return Users(
-      uid: map['uid'] as String?,
-      district: map['district'] as String?,
-      postcode: map['postcode'] as String?,
-      state: map['state'] as String?,
-      username: map['username'] as String?,
-      phoneNo: map['phoneNo'] as String?,
-      latitude: map['latitude'] as String?,
-      longtitutde: map['longtitutde'] as String?,
-      allowDiscoverable: map['allowDiscoverable'] as bool?,
-      allowEmergencyAlert: map['allowEmergencyAlert'] as bool?,
+      uid: map['uid'],
+      district: map['district'],
+      postcode: map['postcode'],
+      state: map['state'],
+      username: map['username'],
+      phoneNo: map['phoneNo'],
+      latitude: map['latitude'],
+      longitude: map['longitude'],
+      locUpdateTime: map['locUpdateTime'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(map['locUpdateTime'])
+          : null,
+      allowDiscoverable: map['allowDiscoverable'],
+      allowEmergencyAlert: map['allowEmergencyAlert'],
     );
   }
 
-  // Convert Users object to Map for CloudDB operations
   Map<String, dynamic> toMap() {
     return {
       'uid': uid,
@@ -49,7 +52,8 @@ class Users {
       'username': username,
       'phoneNo': phoneNo,
       'latitude': latitude,
-      'longtitutde': longtitutde,
+      'longitude': longitude,
+      'locUpdateTime': locUpdateTime?.millisecondsSinceEpoch,
       'allowDiscoverable': allowDiscoverable,
       'allowEmergencyAlert': allowEmergencyAlert,
     };

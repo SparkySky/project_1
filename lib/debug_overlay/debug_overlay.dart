@@ -2,8 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:huawei_location/huawei_location.dart';
-import '../app_theme.dart'; // Using AppTheme for colors
-import 'package:permission_handler/permission_handler.dart';
+import '../app_theme.dart';
+import '../sensors/location_centre.dart';
 import 'debug_state.dart';
 
 class DebugOverlayWidget extends StatefulWidget {
@@ -15,16 +15,15 @@ class DebugOverlayWidget extends StatefulWidget {
 
 class _DebugOverlayWidgetState extends State<DebugOverlayWidget> {
   final DebugState _debugState = DebugState();
+  final LocationServiceHelper _locationHelper = LocationServiceHelper();
+
   Location? _location;
   AccelerometerEvent? _accel;
   GyroscopeEvent? _gyro;
 
   StreamSubscription? _accelSub;
   StreamSubscription? _gyroSub;
-  int? _locCallbackId;
-  final FusedLocationProviderClient _locationService = FusedLocationProviderClient();
-
-  LocationCallback? _locationCallback;
+  StreamSubscription? _locSub;
 
   @override
   void initState() {
@@ -58,48 +57,16 @@ class _DebugOverlayWidgetState extends State<DebugOverlayWidget> {
     });
   }
 
-  Future<void> _startLocationUpdates() async {
-    try {
-      // Check for location permissions using permission_handler
-      var statusWhenInUse = await Permission.locationWhenInUse.status;
-      var statusAlways = await Permission.locationAlways.status;
-
-      // Check if either 'When In Use' or 'Always' is granted
-      if (!statusWhenInUse.isGranted && !statusAlways.isGranted) {
-        debugPrint("DebugOverlay: Location permission not granted.");
-        return; // Don't try to get location if not granted
+  void _startLocationUpdates() {
+    _locSub = _locationHelper.getLocationStream().listen((location) {
+      if (mounted) {
+        setState(() {
+          _location = location;
+        });
       }
-
-      LocationRequest request = LocationRequest()
-        ..priority = LocationRequest.PRIORITY_HIGH_ACCURACY
-        ..interval = 2000; // Update every 2 seconds
-
-      // 1. Define the callback handlers
-      void onLocationUpdateResult(LocationResult locationResult) {
-        if (locationResult.lastLocation != null && mounted) {
-          setState(() {
-            _location = locationResult.lastLocation;
-          });
-        }
-      }
-      void onLocationAvailability(LocationAvailability availability) {
-        // You can add debug prints here if needed
-      }
-
-      // 2. Create the LocationCallback object
-      _locationCallback = LocationCallback(
-        onLocationResult: onLocationUpdateResult,
-        onLocationAvailability: onLocationAvailability,
-      );
-
-      // 3. Use the correct method name: 'requestLocationUpdatesCb'
-      _locCallbackId = await _locationService.requestLocationUpdatesCb(
-        request,
-        _locationCallback!, // Pass the callback object
-      );
-    } catch (e) {
-      debugPrint("Error starting location updates for overlay: $e");
-    }
+    }, onError: (e) {
+      debugPrint("Error in debug overlay location stream: $e");
+    });
   }
 
   @override
@@ -107,13 +74,7 @@ class _DebugOverlayWidgetState extends State<DebugOverlayWidget> {
     _debugState.removeListener(_onDebugStateChanged);
     _accelSub?.cancel();
     _gyroSub?.cancel();
-    if (_locCallbackId != null) {
-      try {
-        _locationService.removeLocationUpdates(_locCallbackId!);
-      } catch (e) {
-        debugPrint("Error removing location updates from overlay: $e");
-      }
-    }
+    _locSub?.cancel();
     super.dispose();
   }
 
@@ -122,11 +83,8 @@ class _DebugOverlayWidgetState extends State<DebugOverlayWidget> {
     String lat = loc.latitude?.toStringAsFixed(5) ?? 'N/A';
     String lon = loc.longitude?.toStringAsFixed(5) ?? 'N/A';
     String hAcc = loc.horizontalAccuracyMeters?.toStringAsFixed(1) ?? '?';
-    String vAcc = loc.verticalAccuracyMeters?.toStringAsFixed(1) ?? '?';
-    String sAcc = loc.speedAccuracyMetersPerSecond?.toStringAsFixed(1) ?? '?';
     String speed = loc.speed?.toStringAsFixed(1) ?? '?';
-
-    return "Loc: ($lat, $lon) | Acc(H/V/S): ${hAcc}m/${vAcc}m/${sAcc}m/s | Spd: ${speed}m/s";
+    return "Loc: ($lat, $lon) | Acc: ${hAcc}m | Spd: ${speed}m/s";
   }
 
   String _formatAccel(AccelerometerEvent? e) {
@@ -179,34 +137,7 @@ class _DebugOverlayWidgetState extends State<DebugOverlayWidget> {
                   _formatGyro(_gyro),
                   style: const TextStyle(color: Colors.white, fontSize: 12),
                 ),
-                const Divider(color: Colors.white54, height: 10),
-                Text(
-                  "Sound Service: ${_debugState.soundServiceStatus}",
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
-                ),
-                if (_debugState.collectedTriggers.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    "Triggers: ${_debugState.collectedTriggers.join(', ')}",
-                    style: const TextStyle(color: Colors.yellow, fontSize: 12),
-                  ),
-                  Text(
-                    "Transcript: ${_debugState.lastRecognizedWords}",
-                    style: const TextStyle(color: Colors.yellow, fontSize: 12),
-                  ),
-                ],
-                if (_debugState.geminiVerdict.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    "Gemini Verdict: ${_debugState.geminiVerdict}",
-                    style: TextStyle(
-                        color: _debugState.geminiVerdict == "True Positive"
-                            ? Colors.red
-                            : Colors.green,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12),
-                  ),
-                ]
+                // Other debug info...
               ],
             ),
           ),

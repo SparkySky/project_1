@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:geocoding/geocoding.dart';
-import '../providers/user_provider.dart';
-import 'package:provider/provider.dart';
 import 'dart:async';
 import 'map_widget.dart';
 import '../app_theme.dart';
@@ -10,7 +8,6 @@ import 'chatbot_widget.dart';
 import '../community/community_page.dart';
 import '../lodge/lodge_incident_page.dart';
 import '../lodge/incident_history_page.dart';
-import '../notification_page.dart';
 import '../profile/profile_page.dart';
 import '../user_management.dart';
 

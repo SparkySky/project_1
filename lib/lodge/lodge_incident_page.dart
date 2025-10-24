@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
 import '../app_theme.dart';
-import '../util/location_helper.dart';
+import '../sensors/location_centre.dart';
 import 'package:huawei_map/huawei_map.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart';

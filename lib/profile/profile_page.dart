@@ -7,7 +7,7 @@ import '../models/users.dart';
 import '../../signup_login/auth_page.dart';
 import '../../app_theme.dart';
 import '../../constants/provider_types.dart';
-import '../../util/debug_state.dart';
+import '../debug_overlay/debug_state.dart';
 import '../providers/user_provider.dart';
 
 class ProfilePage extends StatefulWidget {

@@ -232,7 +232,7 @@ class AuthService {
           state: state ?? existingUser.state,
           phoneNo: phoneNo ?? existingUser.phoneNo,
           latitude: existingUser.latitude,
-          longtitutde: existingUser.longtitutde,
+          longitude: existingUser.longitude,
           allowDiscoverable: existingUser.allowDiscoverable,
           allowEmergencyAlert: existingUser.allowEmergencyAlert,
         );
@@ -251,7 +251,7 @@ class AuthService {
           state: state,
           phoneNo: phoneNo,
           latitude: null,
-          longtitutde: null,
+          longitude: null,
           allowDiscoverable: true,
           allowEmergencyAlert: true,
         );
