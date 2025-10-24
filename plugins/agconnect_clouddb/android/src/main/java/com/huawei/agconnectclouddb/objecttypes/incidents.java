@@ -12,20 +12,16 @@ import com.huawei.agconnect.cloud.database.Text;
 import java.util.Date;
 
 /**
- * Definition of ObjectType incidents.
+ * Definition of ObjectType Incidents.
  *
- * @since 2025-10-22
+ * @since 2025-10-24
  */
 @PrimaryKeys({"iid", "uid"})
 @Indexes({"uid:uid", "iid:iid"})
-public final class incidents extends CloudDBZoneObject {
+public final class Incidents extends CloudDBZoneObject {
     private String iid;
 
     private String uid;
-
-    private String latitude;
-
-    private String longitude;
 
     private Date datetime;
 
@@ -39,8 +35,12 @@ public final class incidents extends CloudDBZoneObject {
 
     private Boolean isAIGenerated;
 
-    public incidents() {
-        super(incidents.class);
+    private Double latitude;
+
+    private Double longitude;
+
+    public Incidents() {
+        super(Incidents.class);
     }
 
     public void setIid(String iid) {
@@ -57,22 +57,6 @@ public final class incidents extends CloudDBZoneObject {
 
     public String getUid() {
         return uid;
-    }
-
-    public void setLatitude(String latitude) {
-        this.latitude = latitude;
-    }
-
-    public String getLatitude() {
-        return latitude;
-    }
-
-    public void setLongitude(String longitude) {
-        this.longitude = longitude;
-    }
-
-    public String getLongitude() {
-        return longitude;
     }
 
     public void setDatetime(Date datetime) {
@@ -121,6 +105,22 @@ public final class incidents extends CloudDBZoneObject {
 
     public Boolean getIsAIGenerated() {
         return isAIGenerated;
+    }
+
+    public void setLatitude(Double latitude) {
+        this.latitude = latitude;
+    }
+
+    public Double getLatitude() {
+        return latitude;
+    }
+
+    public void setLongitude(Double longitude) {
+        this.longitude = longitude;
+    }
+
+    public Double getLongitude() {
+        return longitude;
     }
 
 }

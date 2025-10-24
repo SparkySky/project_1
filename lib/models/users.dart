@@ -5,8 +5,8 @@ class Users {
   String? state;
   String? username;
   String? phoneNo;
-  String? latitude;
-  String? longtitutde;
+  double? latitude;
+  double? longtitutde;
   bool? allowDiscoverable;
   bool? allowEmergencyAlert;
 
@@ -32,8 +32,8 @@ class Users {
       state: map['state'] as String?,
       username: map['username'] as String?,
       phoneNo: map['phoneNo'] as String?,
-      latitude: map['latitude'] as String?,
-      longtitutde: map['longtitutde'] as String?,
+      latitude: map['latitude'] as double?,
+      longtitutde: map['longtitutde'] as double?,
       allowDiscoverable: map['allowDiscoverable'] as bool?,
       allowEmergencyAlert: map['allowEmergencyAlert'] as bool?,
     );

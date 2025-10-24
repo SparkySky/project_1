@@ -13,12 +13,12 @@ import com.huawei.agconnect.cloud.database.Text;
 import java.util.Date;
 
 /**
- * Definition of ObjectType media.
+ * Definition of ObjectType Media.
  *
- * @since 2025-10-22
+ * @since 2025-10-24
  */
 @PrimaryKeys({"mediaID", "order"})
-public final class media extends CloudDBZoneObject {
+public final class Media extends CloudDBZoneObject {
     private String mediaID;
 
     private Integer order;
@@ -31,8 +31,8 @@ public final class media extends CloudDBZoneObject {
     @DefaultValue(booleanValue = true)
     private Boolean forLog;
 
-    public media() {
-        super(media.class);
+    public Media() {
+        super(Media.class);
         this.forLog = true;
     }
 

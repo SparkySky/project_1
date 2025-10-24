@@ -14,7 +14,7 @@ import java.util.Date;
 /**
  * Definition of ObjectType Users.
  *
- * @since 2025-10-22
+ * @since 2025-10-24
  */
 @PrimaryKeys({"uid"})
 @Indexes({"uid:uid", "postcode:postcode"})
@@ -31,13 +31,13 @@ public final class Users extends CloudDBZoneObject {
 
     private String phoneNo;
 
-    private String latitude;
-
-    private String longtitutde;
-
     private Boolean allowDiscoverable;
 
     private Boolean allowEmergencyAlert;
+
+    private Double latitude;
+
+    private Double longtitude;
 
     public Users() {
         super(Users.class);
@@ -91,22 +91,6 @@ public final class Users extends CloudDBZoneObject {
         return phoneNo;
     }
 
-    public void setLatitude(String latitude) {
-        this.latitude = latitude;
-    }
-
-    public String getLatitude() {
-        return latitude;
-    }
-
-    public void setLongtitutde(String longtitutde) {
-        this.longtitutde = longtitutde;
-    }
-
-    public String getLongtitutde() {
-        return longtitutde;
-    }
-
     public void setAllowDiscoverable(Boolean allowDiscoverable) {
         this.allowDiscoverable = allowDiscoverable;
     }
@@ -121,6 +105,22 @@ public final class Users extends CloudDBZoneObject {
 
     public Boolean getAllowEmergencyAlert() {
         return allowEmergencyAlert;
+    }
+
+    public void setLatitude(Double latitude) {
+        this.latitude = latitude;
+    }
+
+    public Double getLatitude() {
+        return latitude;
+    }
+
+    public void setLongtitude(Double longtitude) {
+        this.longtitude = longtitude;
+    }
+
+    public Double getLongtitude() {
+        return longtitude;
     }
 
 }
