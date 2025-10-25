@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
 import '../app_theme.dart';
-import '../util/location_helper.dart';
+import '../sensors/location_centre.dart';
 import 'package:huawei_map/huawei_map.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:convert';
@@ -24,15 +25,15 @@ class LodgeIncidentPage extends StatefulWidget {
   final String? state;
   final String? audioRecordingPath;
 
-  LodgeIncidentPage({
-    Key? key,
+  const LodgeIncidentPage({
+    super.key,
     this.incidentType,
     this.description,
     this.district,
     this.postcode,
     this.state,
     this.audioRecordingPath,
-  }) : super(key: key);
+  });
 
   @override
   _LodgeIncidentPageState createState() => _LodgeIncidentPageState();
@@ -177,10 +178,13 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
     });
 
     try {
-      final apiKey =
-          "DgEDAOcs4D0sDGUBoVxbgVd02uYRdo2kw9qeSFS5/KrMMaYEI7cOCtkJtpYr0nlE9+D1YwFMnU0G7L630uhclxboFY3v3jXCx0j8Hg==";
+      final apiKey = dotenv.env['HUAWEI_SITE_API_KEY'];
+      
+      if (apiKey == null || apiKey.isEmpty) {
+        throw Exception('API key not found in environment variables');
+      }
 
-      // Huawei Site Kit Reverse Geocoding REST API
+      // Rest of your code remains the same...
       final url = Uri.parse(
         'https://siteapi.cloud.huawei.com/mapApi/v1/siteService/reverseGeocode',
       );
@@ -764,8 +768,8 @@ Future<void> _submitIncident() async {
       decoration: InputDecoration(
         labelText: label,
         labelStyle: TextStyle(color: Colors.grey[600]),
-        floatingLabelStyle: MaterialStateTextStyle.resolveWith((
-          Set<MaterialState> states,
+        floatingLabelStyle: WidgetStateTextStyle.resolveWith((
+          Set<WidgetState> states,
         ) {
           if (states.contains(MaterialState.focused)) {
             return const TextStyle(color: AppTheme.primaryOrange);

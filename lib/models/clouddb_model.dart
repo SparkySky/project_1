@@ -64,6 +64,21 @@ class incidents {
     required this.status,
   });
 
+  factory incidents.fromMap(Map<String, dynamic> map) {
+    return incidents(
+      iid: map['iid'] as String,
+      uid: map['uid'] as String,
+      latitude: (map['latitude'] as num).toDouble(),
+      longitude: (map['longitude'] as num).toDouble(),
+      datetime: DateTime.fromMillisecondsSinceEpoch(map['datetime'] as int),
+      incidentType: map['incidentType'] as String,
+      isAIGenerated: map['isAIGenerated'] as bool,
+      desc: map['desc'] as String,
+      mediaID: map['mediaID'] as String?,
+      status: map['status'] as String,
+    );
+  }
+
   Map<String, dynamic> getObjectData() {
     return {
       'iid': iid,

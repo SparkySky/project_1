@@ -3,11 +3,13 @@ import 'package:agconnect_auth/agconnect_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/users.dart';
 import '../../signup_login/auth_page.dart';
 import '../../app_theme.dart';
 import '../../constants/provider_types.dart';
-import '../../util/debug_state.dart';
+import '../debug_overlay/debug_state.dart';
+import '../providers/safety_service_provider.dart';
 import '../providers/user_provider.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -20,6 +22,12 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   final DebugState _debugState = DebugState();
   bool _allowDebugOverlay = false;
+  bool _hasLoadedLanguagePreference = false;
+
+  // Local preferences (loaded from SharedPreferences)
+  String _selectedLanguage = 'en';
+  bool _allowDiscoverable = true;
+  bool _allowEmergencyAlert = true;
 
   UserProvider? _userProvider;
   AGCUser? _agcUser;
@@ -38,10 +46,69 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
+    _loadDebugOverlayState();
+    _loadLocalPreferences();
+    _debugState.addListener(_onDebugStateChanged);
+  }
+
+  /// Load all preferences from SharedPreferences (local storage only)
+  Future<void> _loadLocalPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // Check if widget is still mounted before calling setState
+    if (!mounted) return;
+
+    setState(() {
+      _selectedLanguage = prefs.getString('voice_detection_language') ?? 'en';
+      _allowDiscoverable = prefs.getBool('allow_discoverable') ?? true;
+      _allowEmergencyAlert = prefs.getBool('allow_emergency_alert') ?? true;
+    });
+
+    debugPrint('[ProfilePage] ✅ Loaded local preferences:');
+    debugPrint('[ProfilePage]    Language: $_selectedLanguage');
+    debugPrint('[ProfilePage]    Allow Discoverable: $_allowDiscoverable');
+    debugPrint('[ProfilePage]    Allow Emergency Alert: $_allowEmergencyAlert');
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Load language preference when dependencies change (i.e., when user data is loaded)
+    if (!_hasLoadedLanguagePreference) {
+      _loadLanguagePreference();
+    }
+  }
+
+  void _onDebugStateChanged() {
+    if (mounted) {
+      setState(() {
+        _allowDebugOverlay = _debugState.showDebugOverlay;
+      });
+    }
+  }
+
+  Future<void> _loadDebugOverlayState() async {
+    await _debugState.loadState();
+    if (mounted) {
+      setState(() {
+        _allowDebugOverlay = _debugState.showDebugOverlay;
+      });
+    }
+  }
+
+  /// Load preferences (no longer needed since UserProvider handles this)
+  /// Kept for backwards compatibility - just sets the flag
+  Future<void> _loadLanguagePreference() async {
+    // UserProvider now handles loading preferences from SharedPreferences
+    // This just sets the flag to prevent repeated calls
+    if (!_hasLoadedLanguagePreference) {
+      _hasLoadedLanguagePreference = true;
+    }
   }
 
   @override
   void dispose() {
+    _debugState.removeListener(_onDebugStateChanged);
     _emailController.dispose();
     _phoneController.dispose();
     _districtController.dispose();
@@ -126,7 +193,7 @@ class _ProfilePageState extends State<ProfilePage> {
         imageQuality: 85,
       );
 
-      if (pickedFile != null) {
+      if (pickedFile != null && mounted) {
         setState(() {
           _profileImage = File(pickedFile.path);
         });
@@ -469,28 +536,12 @@ class _ProfilePageState extends State<ProfilePage> {
                   _buildSectionHeader('Preferences', Icons.tune),
                   const SizedBox(height: 16),
 
-                  _buildToggleCard(
-                    icon: Icons.visibility_outlined,
-                    title: 'Allow Discoverable',
-                    subtitle: 'Others can find you in the app',
-                    value: _cloudDbUser!.allowDiscoverable ?? true,
-                    onChanged: (value) {
-                      _cloudDbUser?.allowDiscoverable = value;
-                      _userProvider!.updateCloudDbUser(_cloudDbUser!);
-                    },
-                  ),
+                  // Combined Voice Detection Language Card with toggles
+                  _buildLanguageSelectionCard(),
 
-                  _buildToggleCard(
-                    icon: Icons.warning_amber_outlined,
-                    title: 'Allow Emergency Alerts',
-                    subtitle: 'Receive emergency notifications',
-                    value: _cloudDbUser!.allowEmergencyAlert ?? true,
-                    onChanged: (value) {
-                      _cloudDbUser?.allowEmergencyAlert = value;
-                      _userProvider!.updateCloudDbUser(_cloudDbUser!);
-                    },
-                  ),
+                  const SizedBox(height: 12),
 
+                  // Debug Overlay Toggle (separate card)
                   _buildToggleCard(
                     icon: Icons.bug_report_outlined,
                     title: 'Allow Debug Overlay',
@@ -766,6 +817,60 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  /// Build inline toggle (without separate container, for use inside cards)
+  Widget _buildInlineToggle({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: value
+                ? AppTheme.primaryOrange.withOpacity(0.1)
+                : Colors.grey.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(
+            icon,
+            color: value ? AppTheme.primaryOrange : Colors.grey,
+            size: 20,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              ),
+            ],
+          ),
+        ),
+        Switch(
+          activeThumbColor: AppTheme.primaryOrange,
+          value: value,
+          onChanged: onChanged,
+        ),
+      ],
+    );
+  }
+
   Widget _buildInfoCard({
     required IconData icon,
     required String title,
@@ -829,7 +934,7 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Future<void> _handleLogout(UserProvider user_provider) async {
+  Future<void> _handleLogout(UserProvider userProvider) async {
     final shouldLogout = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -866,7 +971,7 @@ class _ProfilePageState extends State<ProfilePage> {
         builder: (context) => const Center(child: CircularProgressIndicator()),
       );
 
-      await user_provider.signOut();
+      await userProvider.signOut();
 
       if (!mounted) return;
       Navigator.of(context).pop();
@@ -888,5 +993,1268 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
       );
     }
+  }
+
+  /// Build language selection card with combined custom keywords button
+  Widget _buildLanguageSelectionCard() {
+    // Use local state (loaded from SharedPreferences)
+    final currentLanguage = _selectedLanguage;
+
+    debugPrint(
+      '[ProfilePage] 🎨 Building language card with: $currentLanguage',
+    );
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            spreadRadius: 0,
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryOrange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.mic_outlined,
+                  color: AppTheme.primaryOrange,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Voice Detection Language',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Language Grid (3 options)
+          GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 2,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 1.0,
+            children: [
+              _buildLanguageOption(
+                language: 'en',
+                label: 'English',
+                subtitle: 'English only',
+                isSelected: currentLanguage == 'en',
+                onTap: () => _selectLanguage('en', 'English'),
+              ),
+              _buildLanguageOption(
+                language: 'zh',
+                label: 'Mandarin',
+                subtitle: 'Mandarin/English',
+                isSelected: currentLanguage == 'zh',
+                onTap: () => _selectLanguage('zh', 'Mandarin'),
+              ),
+              _buildLanguageOption(
+                language: 'ms',
+                label: 'Malay',
+                subtitle: 'Bahasa Melayu/English',
+                isSelected: currentLanguage == 'ms',
+                onTap: () => _selectLanguage('ms', 'Malay'),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 20),
+
+          // Combined Custom Keywords Button
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton.icon(
+              onPressed: _showCombinedCustomKeywordsDialog,
+              icon: const Icon(Icons.edit_note, size: 20),
+              label: const Text(
+                'Edit All Custom Keywords',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryOrange.withOpacity(0.1),
+                foregroundColor: AppTheme.primaryOrange,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(
+                    color: AppTheme.primaryOrange.withOpacity(0.3),
+                    width: 1,
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 20),
+          const Divider(height: 1),
+          const SizedBox(height: 20),
+
+          // Allow Discoverable Toggle
+          _buildInlineToggle(
+            icon: Icons.visibility_outlined,
+            title: 'Allow Discoverable',
+            subtitle: 'Others can find you in the app',
+            value: _allowDiscoverable,
+            onChanged: (value) async {
+              // Save to SharedPreferences only (local storage)
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool('allow_discoverable', value);
+
+              if (!mounted) return;
+              setState(() {
+                _allowDiscoverable = value;
+              });
+
+              debugPrint('[ProfilePage] 💾 Saved allow_discoverable: $value');
+            },
+          ),
+
+          const SizedBox(height: 16),
+
+          // Allow Emergency Alerts Toggle
+          _buildInlineToggle(
+            icon: Icons.warning_amber_outlined,
+            title: 'Allow Emergency Alerts',
+            subtitle: 'Receive emergency notifications',
+            value: _allowEmergencyAlert,
+            onChanged: (value) async {
+              // Save to SharedPreferences only (local storage)
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool('allow_emergency_alert', value);
+
+              if (!mounted) return;
+              setState(() {
+                _allowEmergencyAlert = value;
+              });
+
+              debugPrint(
+                '[ProfilePage] 💾 Saved allow_emergency_alert: $value',
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build individual language option
+  Widget _buildLanguageOption({
+    required String language,
+    required String label,
+    required String subtitle,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppTheme.primaryOrange.withOpacity(0.1)
+              : Colors.grey[100],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? AppTheme.primaryOrange : Colors.grey[300]!,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              isSelected ? Icons.check_circle : Icons.circle_outlined,
+              color: isSelected ? AppTheme.primaryOrange : Colors.grey,
+              size: 32,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                color: isSelected ? AppTheme.primaryOrange : Colors.black87,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Handle language selection
+  Future<void> _selectLanguage(String languageCode, String languageName) async {
+    debugPrint('[ProfilePage] 🔘 Language selected: $languageCode');
+
+    // Show confirmation dialog for non-English languages
+    if (languageCode != 'en') {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.language, color: AppTheme.primaryOrange, size: 28),
+              const SizedBox(width: 12),
+              Text('$languageName Mode'),
+            ],
+          ),
+          content: languageCode == 'zh'
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'This mode uses Mandarin Chinese speech recognition. It can detect both Mandarin and English keywords.',
+                      style: TextStyle(fontSize: 14, height: 1.5),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(
+                            Icons.warning_amber,
+                            color: Colors.orange,
+                            size: 20,
+                          ),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'English keyword sensitivity will be reduced in this mode.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                )
+              : FutureBuilder<String>(
+                  future: _getSystemLanguage(),
+                  builder: (context, snapshot) {
+                    final isInMalay = snapshot.data == 'ms';
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'To use Malay voice detection:',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          '1. Go to Settings → System → Languages\n'
+                          '2. Set "Bahasa Melayu" as your phone language\n'
+                          '3. Restart this app\n'
+                          '4. Return here and select Malay mode',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey[700],
+                            height: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: isInMalay
+                                ? Colors.green.withOpacity(0.1)
+                                : Colors.orange.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                isInMalay ? Icons.check_circle : Icons.info,
+                                color: isInMalay ? Colors.green : Colors.orange,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  isInMalay
+                                      ? 'Your phone is currently in Malay language. ✓'
+                                      : 'Your phone is NOT in Malay language.',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.black87,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(
+                                Icons.warning_amber,
+                                color: Colors.orange,
+                                size: 20,
+                              ),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'English keyword sensitivity will be reduced in this mode.',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryOrange,
+                foregroundColor: Colors.white,
+              ),
+              child: Text(
+                languageCode == 'zh' ? 'Use Mandarin' : 'My Phone is in Malay',
+              ),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed != true) return;
+    }
+
+    // Save to SharedPreferences for local persistence (after confirmation)
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('voice_detection_language', languageCode);
+    debugPrint(
+      '[ProfilePage] 💾 Saved language to SharedPreferences: $languageCode',
+    );
+
+    // Update local state
+    if (!mounted) return;
+    setState(() {
+      _selectedLanguage = languageCode;
+    });
+
+    debugPrint('[ProfilePage] ✅ Language updated to: $languageCode');
+
+    // Update running safety trigger
+    final safetyProvider = Provider.of<SafetyServiceProvider>(
+      context,
+      listen: false,
+    );
+    if (safetyProvider.isEnabled) {
+      await safetyProvider.updateLanguage(languageCode);
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Language set to $languageName'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  /// Get system language to check if phone is in Malay
+  Future<String> _getSystemLanguage() async {
+    try {
+      final safetyProvider = Provider.of<SafetyServiceProvider>(
+        context,
+        listen: false,
+      );
+      // Use the microphone service to check available locales
+      final locales = await safetyProvider.getAvailableLocales();
+
+      // Check if Malay is the primary locale
+      if (locales.isNotEmpty) {
+        final firstLocale = locales.first.localeId.toLowerCase();
+        if (firstLocale.startsWith('ms')) {
+          return 'ms';
+        }
+      }
+
+      return 'en'; // Default to English
+    } catch (e) {
+      debugPrint('[ProfilePage] Error detecting system language: $e');
+      return 'en';
+    }
+  }
+
+  /// Default keywords for each language
+  static const Map<String, List<String>> _defaultKeywords = {
+    'en': [
+      'ah'
+          'ahh'
+          'help',
+      'someone please',
+      'please',
+      'emergency',
+      'danger',
+      'sos',
+      'stop',
+      'fire',
+      'police',
+      'ambulance',
+      'hurt',
+      'pain',
+      'scared',
+      'i am scared'
+          'attack',
+    ],
+    'ms': [
+      'tolong',
+      'bantu',
+      'selamatkan',
+      'bahaya',
+      'api',
+      'polis',
+      'ambulan',
+      'sakit',
+      'takut',
+      'jangan',
+    ],
+    'zh': [
+      '救',
+      '帮',
+      '痛',
+      '怕',
+      '火',
+      '停',
+      '别',
+      '疼',
+      '急',
+      '救命',
+      '求救',
+      '救救',
+      '帮我',
+      '帮忙',
+      '不要',
+      '放手',
+      '住手',
+      '报警',
+    ],
+  };
+
+  /// Load custom keywords from SharedPreferences
+  Future<List<String>> _loadCustomKeywords(String language) async {
+    final prefs = await SharedPreferences.getInstance();
+    var keywords = prefs.getStringList('custom_keywords_$language') ?? [];
+
+    if (keywords.isEmpty && _defaultKeywords.containsKey(language)) {
+      keywords = List<String>.from(_defaultKeywords[language]!);
+      await prefs.setStringList('custom_keywords_$language', keywords);
+    }
+
+    return keywords;
+  }
+
+  /// Save custom keywords to SharedPreferences
+  Future<void> _saveCustomKeywords(
+    String language,
+    List<String> keywords,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('custom_keywords_$language', keywords);
+  }
+
+  /// Show combined custom keywords dialog
+  Future<void> _showCombinedCustomKeywordsDialog({
+    String? newlyAddedKeyword,
+  }) async {
+    final enKeywords = await _loadCustomKeywords('en');
+    final msKeywords = await _loadCustomKeywords('ms');
+    final zhKeywords = await _loadCustomKeywords('zh');
+
+    final allKeywords = <String>[...enKeywords, ...msKeywords, ...zhKeywords];
+
+    // If there's a newly added keyword, put it at the top temporarily
+    // Otherwise, sort normally: English/Malay A-Z first, then Chinese
+    if (newlyAddedKeyword != null && allKeywords.contains(newlyAddedKeyword)) {
+      allKeywords.remove(newlyAddedKeyword);
+      allKeywords.insert(0, newlyAddedKeyword);
+    } else {
+      allKeywords.sort((a, b) {
+        final aIsChinese = RegExp(r'[\u4e00-\u9fa5]').hasMatch(a);
+        final bIsChinese = RegExp(r'[\u4e00-\u9fa5]').hasMatch(b);
+
+        if (aIsChinese && !bIsChinese) return 1;
+        if (!aIsChinese && bIsChinese) return -1;
+        return a.compareTo(b);
+      });
+    }
+
+    final controller = TextEditingController();
+    String selectedFilter =
+        'All'; // All, EN, CN, BM, Phonetic (always "All" if new keyword)
+    final ScrollController scrollController = ScrollController();
+
+    // If there's a newly added keyword, ensure we start with "All" filter and scroll to top
+    if (newlyAddedKeyword != null) {
+      selectedFilter = 'All';
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (scrollController.hasClients) {
+          scrollController.jumpTo(0);
+        }
+      });
+    }
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.edit_note, color: AppTheme.primaryOrange, size: 28),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'All Custom Keywords',
+                  style: TextStyle(fontSize: 18),
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width:
+                MediaQuery.of(context).size.width * 0.95, // Even wider dialog
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Filter Chips
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _buildFilterChip('All', selectedFilter, (filter) {
+                          setDialogState(() => selectedFilter = filter);
+                        }),
+                        const SizedBox(width: 8),
+                        _buildFilterChip('EN', selectedFilter, (filter) {
+                          setDialogState(() => selectedFilter = filter);
+                        }),
+                        const SizedBox(width: 8),
+                        _buildFilterChip('CN', selectedFilter, (filter) {
+                          setDialogState(() => selectedFilter = filter);
+                        }),
+                        const SizedBox(width: 8),
+                        _buildFilterChip('BM', selectedFilter, (filter) {
+                          setDialogState(() => selectedFilter = filter);
+                        }),
+                        const SizedBox(width: 8),
+                        _buildFilterChip('Phonetic', selectedFilter, (filter) {
+                          setDialogState(() => selectedFilter = filter);
+                        }),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Keyword count display
+                  Text(
+                    'Total: ${_getFilteredKeywords(allKeywords, selectedFilter).length} keywords',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey[700],
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Keywords list with constrained height
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(context).size.height * 0.4,
+                      minHeight: 200,
+                    ),
+                    child: () {
+                      final filteredKeywords = _getFilteredKeywords(
+                        allKeywords,
+                        selectedFilter,
+                      );
+                      return filteredKeywords.isEmpty
+                          ? Center(
+                              child: Text(
+                                selectedFilter == 'All'
+                                    ? 'No custom keywords yet'
+                                    : 'No $selectedFilter keywords',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[600],
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            )
+                          : ListView.builder(
+                              controller: scrollController,
+                              itemCount: filteredKeywords.length,
+                              itemBuilder: (context, index) {
+                                final keyword = filteredKeywords[index];
+                                final keywordType = _getKeywordType(keyword);
+                                final isNewlyAdded =
+                                    keyword == newlyAddedKeyword;
+
+                                return Card(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  child: ListTile(
+                                    dense: true,
+                                    leading: Icon(
+                                      _getKeywordIcon(keywordType),
+                                      size: 20,
+                                      color: _getKeywordColor(keywordType),
+                                    ),
+                                    title: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            keyword,
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                        ),
+                                        if (isNewlyAdded)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.green,
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: const Text(
+                                              'NEW',
+                                              style: TextStyle(
+                                                fontSize: 9,
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                    subtitle: Text(
+                                      keywordType,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                    trailing: IconButton(
+                                      icon: const Icon(Icons.delete, size: 20),
+                                      color: Colors.red,
+                                      onPressed: () {
+                                        setDialogState(
+                                          () => allKeywords.remove(keyword),
+                                        );
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('Keyword removed'),
+                                            backgroundColor: Colors.orange,
+                                            duration: Duration(seconds: 1),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                );
+                              },
+                            );
+                    }(),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Add Keyword Button (below the list)
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        await _showAddKeywordDialog(
+                          allKeywords,
+                          setDialogState,
+                        );
+                      },
+                      icon: const Icon(Icons.add_circle_outline, size: 22),
+                      label: const Text(
+                        'Add Keyword',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryOrange,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton.icon(
+              onPressed: () => _resetToDefaults(allKeywords, setDialogState),
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('Reset to Default'),
+              style: TextButton.styleFrom(foregroundColor: Colors.blue),
+            ),
+            TextButton(
+              onPressed: () async {
+                // Split keywords back into their respective languages before saving
+                final enList = <String>[];
+                final msList = <String>[];
+                final zhList = <String>[];
+
+                for (final keyword in allKeywords) {
+                  final type = _getKeywordType(keyword);
+                  if (type == 'Chinese') {
+                    zhList.add(keyword);
+                  } else if (type == 'Malay') {
+                    msList.add(keyword);
+                  } else {
+                    // English and Phonetic go to English
+                    enList.add(keyword);
+                  }
+                }
+
+                // Save to respective categories
+                await _saveCustomKeywords('en', enList);
+                await _saveCustomKeywords('ms', msList);
+                await _saveCustomKeywords('zh', zhList);
+
+                if (mounted) Navigator.of(context).pop();
+              },
+              style: TextButton.styleFrom(foregroundColor: Colors.grey[700]),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _addKeywords(
+    String value,
+    List<String> allKeywords,
+    TextEditingController controller,
+    StateSetter setDialogState,
+  ) {
+    if (value.trim().isEmpty) return;
+
+    final newKeywords = value
+        .split(',')
+        .map((k) => k.trim().toLowerCase())
+        .where((k) => k.isNotEmpty && !allKeywords.contains(k))
+        .toList();
+
+    if (newKeywords.isNotEmpty) {
+      setDialogState(() {
+        allKeywords.addAll(newKeywords);
+        allKeywords.sort((a, b) {
+          final aIsChinese = RegExp(r'[\u4e00-\u9fa5]').hasMatch(a);
+          final bIsChinese = RegExp(r'[\u4e00-\u9fa5]').hasMatch(b);
+          if (aIsChinese && !bIsChinese) return 1;
+          if (!aIsChinese && bIsChinese) return -1;
+          return a.compareTo(b);
+        });
+      });
+      controller.clear();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Added ${newKeywords.length} keyword(s)'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  void _resetToDefaults(List<String> allKeywords, StateSetter setDialogState) {
+    setDialogState(() {
+      allKeywords.clear();
+      allKeywords.addAll(_defaultKeywords['en']!);
+      allKeywords.addAll(_defaultKeywords['ms']!);
+      allKeywords.addAll(_defaultKeywords['zh']!);
+      allKeywords.addAll(_phoneticKeywords); // Add phonetics
+      allKeywords.sort((a, b) {
+        final aIsChinese = RegExp(r'[\u4e00-\u9fa5]').hasMatch(a);
+        final bIsChinese = RegExp(r'[\u4e00-\u9fa5]').hasMatch(b);
+        if (aIsChinese && !bIsChinese) return 1;
+        if (!aIsChinese && bIsChinese) return -1;
+        return a.compareTo(b);
+      });
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Reset to ${allKeywords.length} default keywords'),
+        backgroundColor: Colors.blue,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  /// Phonetic keywords (approximate pronunciations)
+  static const List<String> _phoneticKeywords = [
+    // English phonetics
+    'sauce', // SOS
+    'essay', // SOS
+    'so so', // SOS
+    'soss', // SOS
+    's.o.s', // SOS
+    // Chinese phonetics (Mandarin)
+    'jiu ming', // 救命 (save life)
+    'chiu ming', // 救命 (alternate)
+    'bang wo', // 帮我 (help me)
+    'pang wo', // 帮我 (alternate)
+    'qiu jiu', // 求救 (seek rescue)
+    'chiu jiu', // 求救 (alternate)
+    'jiu jiu', // 救救 (save save)
+    // Malay phonetics
+    'to long', // tolong (help)
+    'ban too', // bantu (help)
+    'ba ha ya', // bahaya (danger)
+    'po lis', // polis (police)
+  ];
+
+  /// Build filter chip
+  Widget _buildFilterChip(
+    String label,
+    String selectedFilter,
+    Function(String) onSelected,
+  ) {
+    final isSelected = selectedFilter == label;
+    return FilterChip(
+      label: Text(
+        label,
+        style: TextStyle(
+          color: isSelected ? Colors.white : Colors.black87,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          fontSize: 13,
+        ),
+      ),
+      selected: isSelected,
+      onSelected: (selected) => onSelected(label),
+      selectedColor: AppTheme.primaryOrange,
+      checkmarkColor: Colors.white,
+      backgroundColor: Colors.grey[200],
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    );
+  }
+
+  /// Get filtered keywords based on selected filter
+  List<String> _getFilteredKeywords(List<String> allKeywords, String filter) {
+    if (filter == 'All') return allKeywords;
+
+    return allKeywords.where((keyword) {
+      final type = _getKeywordType(keyword);
+      switch (filter) {
+        case 'EN':
+          return type == 'English';
+        case 'CN':
+          return type == 'Chinese';
+        case 'BM':
+          return type == 'Malay';
+        case 'Phonetic':
+          return type == 'Phonetic';
+        default:
+          return true;
+      }
+    }).toList();
+  }
+
+  /// Determine keyword type
+  String _getKeywordType(String keyword) {
+    // Check if Chinese
+    if (RegExp(r'[\u4e00-\u9fa5]').hasMatch(keyword)) {
+      return 'Chinese';
+    }
+
+    // Check if phonetic
+    if (_phoneticKeywords.contains(keyword.toLowerCase())) {
+      return 'Phonetic';
+    }
+
+    // Check if Malay
+    final malayKeywords = _defaultKeywords['ms'] ?? [];
+    if (malayKeywords.contains(keyword.toLowerCase())) {
+      return 'Malay';
+    }
+
+    // Default to English
+    return 'English';
+  }
+
+  /// Get icon for keyword type
+  IconData _getKeywordIcon(String type) {
+    switch (type) {
+      case 'Chinese':
+        return Icons.translate;
+      case 'Malay':
+        return Icons.language;
+      case 'Phonetic':
+        return Icons.hearing;
+      default:
+        return Icons.label;
+    }
+  }
+
+  /// Get color for keyword type
+  Color _getKeywordColor(String type) {
+    switch (type) {
+      case 'Chinese':
+        return Colors.red;
+      case 'Malay':
+        return Colors.green;
+      case 'Phonetic':
+        return Colors.purple;
+      default:
+        return AppTheme.primaryOrange;
+    }
+  }
+
+  /// Show dialog to add a keyword with category selection
+  Future<void> _showAddKeywordDialog(
+    List<String> allKeywords,
+    StateSetter parentSetState,
+  ) async {
+    final keywordController = TextEditingController();
+    String selectedCategory = 'EN'; // Default to English
+    String errorMessage = ''; // Error message to display
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.add_circle, color: AppTheme.primaryOrange, size: 28),
+              const SizedBox(width: 12),
+              const Text('Add New Keyword'),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Tips
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryOrange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(
+                        Icons.lightbulb_outline,
+                        size: 20,
+                        color: AppTheme.primaryOrange,
+                      ),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Add keywords in any language. Phonetic = approximate sounds (e.g., "sauce" for "SOS")',
+                          style: TextStyle(fontSize: 12, color: Colors.black87),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Keyword input
+                TextField(
+                  controller: keywordController,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    labelText: 'Keyword',
+                    hintText: 'e.g., help, tolong, 救命, sauce',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    prefixIcon: const Icon(Icons.label),
+                  ),
+                  onChanged: (value) {
+                    // Clear error when user types
+                    if (errorMessage.isNotEmpty) {
+                      setDialogState(() => errorMessage = '');
+                    }
+                  },
+                ),
+
+                // Error message
+                if (errorMessage.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.red.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.error_outline,
+                          color: Colors.red,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            errorMessage,
+                            style: const TextStyle(
+                              color: Colors.red,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 20),
+
+                // Category selection
+                const Text(
+                  'Category',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Category chips (wrap to prevent overflow)
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _buildCategoryChip(
+                      'EN',
+                      'English',
+                      Icons.label,
+                      AppTheme.primaryOrange,
+                      selectedCategory,
+                      (category) {
+                        setDialogState(() => selectedCategory = category);
+                      },
+                    ),
+                    _buildCategoryChip(
+                      'CN',
+                      'Chinese',
+                      Icons.translate,
+                      Colors.red,
+                      selectedCategory,
+                      (category) {
+                        setDialogState(() => selectedCategory = category);
+                      },
+                    ),
+                    _buildCategoryChip(
+                      'BM',
+                      'Malay',
+                      Icons.language,
+                      Colors.green,
+                      selectedCategory,
+                      (category) {
+                        setDialogState(() => selectedCategory = category);
+                      },
+                    ),
+                    _buildCategoryChip(
+                      'Phonetic',
+                      'Phonetic',
+                      Icons.hearing,
+                      Colors.purple,
+                      selectedCategory,
+                      (category) {
+                        setDialogState(() => selectedCategory = category);
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final keyword = keywordController.text.trim().toLowerCase();
+
+                // Validation
+                if (keyword.isEmpty) {
+                  setDialogState(() {
+                    errorMessage = 'Please enter a keyword';
+                  });
+                  return;
+                }
+
+                if (allKeywords.contains(keyword)) {
+                  setDialogState(() {
+                    errorMessage = 'This keyword already exists';
+                  });
+                  return;
+                }
+
+                // Save to appropriate category
+                final categoryKey = selectedCategory == 'EN'
+                    ? 'en'
+                    : selectedCategory == 'CN'
+                    ? 'zh'
+                    : selectedCategory == 'BM'
+                    ? 'ms'
+                    : 'en'; // Phonetic goes to English
+
+                // Load, add, and save
+                final keywords = await _loadCustomKeywords(categoryKey);
+                keywords.add(keyword);
+                await _saveCustomKeywords(categoryKey, keywords);
+
+                // Close both dialogs
+                if (mounted)
+                  Navigator.of(context).pop(); // Close add keyword dialog
+                if (mounted)
+                  Navigator.of(context).pop(); // Close all keywords dialog
+
+                // Reopen the all keywords dialog with the new keyword highlighted
+                if (mounted) {
+                  _showCombinedCustomKeywordsDialog(newlyAddedKeyword: keyword);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryOrange,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Add'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Build category selection chip
+  Widget _buildCategoryChip(
+    String value,
+    String label,
+    IconData icon,
+    Color color,
+    String selectedCategory,
+    Function(String) onSelected,
+  ) {
+    final isSelected = selectedCategory == value;
+    return FilterChip(
+      label: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: isSelected ? Colors.white : color),
+          const SizedBox(width: 6),
+          Text(label),
+        ],
+      ),
+      selected: isSelected,
+      onSelected: (selected) => onSelected(value),
+      selectedColor: color,
+      checkmarkColor: Colors.white,
+      backgroundColor: color.withOpacity(0.1),
+      labelStyle: TextStyle(
+        color: isSelected ? Colors.white : Colors.black87,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        fontSize: 13,
+      ),
+    );
   }
 }

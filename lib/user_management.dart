@@ -3,6 +3,8 @@ import '../models/users.dart';
 import 'repository/user_repository.dart';
 
 class UserManagementScreen extends StatefulWidget {
+  const UserManagementScreen({super.key});
+
   @override
   State<UserManagementScreen> createState() => _UserManagementScreenState();
 }

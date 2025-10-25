@@ -1,60 +1,54 @@
 import 'dart:async';
-import 'package:agconnect_clouddb/agconnect_clouddb.dart';
-import 'package:agconnect_core/agconnect_core.dart';
-import 'package:huawei_map/huawei_map.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:agconnect_clouddb/agconnect_clouddb.dart';
-import 'package:huawei_map/huawei_map.dart';
+import 'package:project_1/providers/safety_service_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'app_theme.dart';
-import 'bg_services/background_service.dart';
-import 'bg_services/clouddb_service.dart';
-import 'bg_services/sensors_analysis.dart';
-import 'bg_services/cloud_storage_service.dart';
-import 'permissions/permission_handler.dart';
-import 'providers/user_provider.dart';
-import 'util/debug_state.dart';
-import 'util/debug_overlay.dart';
 import 'splashscreen.dart';
+import 'providers/user_provider.dart';
+// import 'bg_services/safety_service.dart'; // No longer needed globally
+import 'debug_overlay/safety_debug_overlay.dart';
+import 'debug_overlay/debug_state.dart';
+
+import 'bg_services/clouddb_service.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await DebugState().loadState(); // Debug: Load debug state from storage
+  await dotenv.load(fileName: ".env");
+  await DebugState().loadState();
 
-  // Create Notification Channel
-  const AndroidNotificationChannel channel = AndroidNotificationChannel(
-    'mysafezone_foreground', // Must match ID used in background_service.dart
-    'MYSafeZone Monitoring', // Channel name visible in Android settings
-    description: 'Background service for safety monitoring.',
-    importance: Importance.low, // Use low to avoid sound/vibration
-  );
+  // Create notification channels
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
+
+  const AndroidNotificationChannel foregroundChannel =
+      AndroidNotificationChannel(
+        'mysafezone_foreground',
+        'MYSafeZone Monitoring',
+        description: 'Background service for safety monitoring.',
+        importance: Importance.low,
+      );
+
+  const AndroidNotificationChannel safetyTriggerChannel =
+      AndroidNotificationChannel(
+        'mysafezone_safety_trigger',
+        'Safety Trigger',
+        description: '8-second data collection in progress',
+        importance: Importance.high,
+      );
+
   await flutterLocalNotificationsPlugin
       .resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin
       >()
-      ?.createNotificationChannel(channel);
+      ?.createNotificationChannel(foregroundChannel);
 
-  // 1. Request needed permissions
-  await requestPermissions();
-
-  // 2. Initialize the Background Service configuration
-  await initializeBackgroundService();
-
-  // 3. Initialize the Sensors Analysis Service
-  final sensorsAnalysisService = SensorsAnalysisService(
-    navigatorKey: navigatorKey,
-  );
-  await sensorsAnalysisService.initialize();
-
-  // 4. Initialize Cloud DB
+  // Initialize Cloud DB
   try {
     print('[MAIN] Step 2: Initializing Cloud DB...');
     await CloudDbService.initialize();
@@ -69,13 +63,25 @@ Future<void> main() async {
 
   runApp(
     MultiProvider(
-      providers: [ChangeNotifierProvider(create: (_) => UserProvider())],
+      providers: [
+        ChangeNotifierProvider(
+          create: (_) {
+            debugPrint("[main.dart] UserProvider created.");
+            return UserProvider();
+          },
+        ),
+        ChangeNotifierProvider(
+          create: (_) {
+            debugPrint("[main.dart] SafetyServiceProvider created.");
+            return SafetyServiceProvider();
+          },
+        ),
+      ],
       child: const MyApp(),
     ),
   );
 }
 
-// StatefulWidget to listen for DebugState changes
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
@@ -90,9 +96,7 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    // Set the initial state
     _showDebugOverlay = _debugState.showDebugOverlay;
-    // Listen for future changes
     _debugState.addListener(_onDebugStateChanged);
   }
 
@@ -116,20 +120,11 @@ class _MyAppState extends State<MyApp> {
       navigatorKey: navigatorKey,
       title: 'MYSafeZone',
       theme: AppTheme.lightTheme,
-      debugShowCheckedModeBanner: false, // Debug: Remove the top right banner
-      // MaterialApp.builder to stack the overlay
+      debugShowCheckedModeBanner: false,
       builder: (context, child) {
-        if (!_showDebugOverlay) {
-          return child!; // Return the normal app
-        }
-
-        // If overlay is on, wrap the app in a Stack and add the overlay
-        return Stack(
-          children: [
-            child!, // The normal app
-            const DebugOverlayWidget(), // Our new overlay widget
-          ],
-        );
+        // Show debug overlay only if user has manually enabled it
+        if (!_showDebugOverlay) return child!;
+        return Stack(children: [child!, const SafetyDebugOverlay()]);
       },
       home: const SplashScreen(),
     );

@@ -10,11 +10,11 @@ class MediaViewerPage extends StatefulWidget {
   final bool isAudio;
 
   const MediaViewerPage({
-    Key? key,
+    super.key,
     required this.file,
     required this.isVideo,
     required this.isAudio,
-  }) : super(key: key);
+  });
 
   @override
   _MediaViewerPageState createState() => _MediaViewerPageState();

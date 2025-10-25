@@ -78,13 +78,8 @@ class CloudDbService {
       final List<T> results = [];
       for (var obj in snapshot.snapshotObjects) {
         try {
-          if (obj is Map<String, dynamic>) {
-            results.add(fromMap(obj));
-          } else if (obj is Map) {
-            final map = Map<String, dynamic>.from(obj);
-            results.add(fromMap(map));
-          }
-        } catch (e) {
+          results.add(fromMap(obj));
+                } catch (e) {
           print('Error converting object: $e');
         }
       }
