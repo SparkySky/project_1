@@ -10,6 +10,8 @@ class Users {
   DateTime? locUpdateTime;
   bool? allowDiscoverable;
   bool? allowEmergencyAlert;
+  String?
+  detectionLanguage; // 'en' for English, 'zh' for Chinese (Traditional), 'ms' for Malay
 
   Users({
     this.uid,
@@ -23,6 +25,7 @@ class Users {
     this.locUpdateTime,
     this.allowDiscoverable,
     this.allowEmergencyAlert,
+    this.detectionLanguage,
   });
 
   factory Users.fromMap(Map<String, dynamic> map) {
@@ -40,6 +43,7 @@ class Users {
           : null,
       allowDiscoverable: map['allowDiscoverable'],
       allowEmergencyAlert: map['allowEmergencyAlert'],
+      detectionLanguage: map['detectionLanguage'] ?? 'en', // Default to English
     );
   }
 
@@ -56,6 +60,7 @@ class Users {
       'locUpdateTime': locUpdateTime?.millisecondsSinceEpoch,
       'allowDiscoverable': allowDiscoverable,
       'allowEmergencyAlert': allowEmergencyAlert,
+      'detectionLanguage': detectionLanguage ?? 'en',
     };
   }
 }

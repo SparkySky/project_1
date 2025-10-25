@@ -7,16 +7,22 @@ class IMUCentre {
   factory IMUCentre() => _instance;
   IMUCentre._internal();
 
-  final StreamController<AccelerometerEvent> _accelerometerController = StreamController<AccelerometerEvent>.broadcast();
-  final StreamController<GyroscopeEvent> _gyroscopeController = StreamController<GyroscopeEvent>.broadcast();
-  final StreamController<MagnetometerEvent> _magnetometerController = StreamController<MagnetometerEvent>.broadcast();
-  final StreamController<double> _magnitudeController = StreamController<double>.broadcast();
+  final StreamController<AccelerometerEvent> _accelerometerController =
+      StreamController<AccelerometerEvent>.broadcast();
+  final StreamController<GyroscopeEvent> _gyroscopeController =
+      StreamController<GyroscopeEvent>.broadcast();
+  final StreamController<MagnetometerEvent> _magnetometerController =
+      StreamController<MagnetometerEvent>.broadcast();
+  final StreamController<double> _magnitudeController =
+      StreamController<double>.broadcast();
 
-  Stream<AccelerometerEvent> get accelerometerStream => _accelerometerController.stream;
+  Stream<AccelerometerEvent> get accelerometerStream =>
+      _accelerometerController.stream;
   Stream<GyroscopeEvent> get gyroscopeStream => _gyroscopeController.stream;
-  Stream<MagnetometerEvent> get magnetometerStream => _magnetometerController.stream;
+  Stream<MagnetometerEvent> get magnetometerStream =>
+      _magnetometerController.stream;
   Stream<double> get magnitudeStream => _magnitudeController.stream;
-  
+
   StreamSubscription? _accelerometerSubscription;
   StreamSubscription? _gyroscopeSubscription;
   StreamSubscription? _magnetometerSubscription;
@@ -30,15 +36,23 @@ class IMUCentre {
     _gyroscopeSubscription ??= gyroscopeEvents.listen((event) {
       _gyroscopeController.add(event);
     });
-    
+
     _magnetometerSubscription ??= magnetometerEvents.listen((event) {
-        _magnetometerController.add(event);
+      _magnetometerController.add(event);
     });
   }
 
   void _calculateMagnitude(AccelerometerEvent event) {
-    final magnitude = sqrt(pow(event.x, 2) + pow(event.y, 2) + pow(event.z, 2));
-    _magnitudeController.add(magnitude);
+    // Calculate total acceleration magnitude
+    final totalMagnitude = sqrt(
+      pow(event.x, 2) + pow(event.y, 2) + pow(event.z, 2),
+    );
+
+    // Subtract Earth's gravity (9.81 m/s²) to get actual movement
+    // This gives us the acceleration due to device movement only
+    final movementMagnitude = (totalMagnitude - 9.81).abs();
+
+    _magnitudeController.add(movementMagnitude);
   }
 
   void stopIMUUpdates() {
@@ -49,7 +63,7 @@ class IMUCentre {
     _gyroscopeSubscription = null;
     _magnetometerSubscription = null;
   }
-  
+
   void dispose() {
     stopIMUUpdates();
     _accelerometerController.close();

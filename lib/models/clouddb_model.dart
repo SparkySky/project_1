@@ -79,6 +79,23 @@ class incidents {
       'status': status,
     }..removeWhere((key, value) => value == null);
   }
+
+  factory incidents.fromMap(Map<String, dynamic> map) {
+    return incidents(
+      iid: map['iid'],
+      uid: map['uid'],
+      latitude: map['latitude']?.toDouble(),
+      longitude: map['longitude']?.toDouble(),
+      datetime: map['datetime'] != null
+          ? DateTime.parse(map['datetime'])
+          : null,
+      incidentType: map['incidentType'],
+      isAIGenerated: map['isAIGenerated'],
+      desc: map['desc'],
+      mediaID: map['mediaID'],
+      status: map['status'],
+    );
+  }
 }
 
 class media {
@@ -88,13 +105,7 @@ class media {
   String? mediaType;
   String? mediaURI;
 
-  media({
-    this.mediaID,
-    this.order,
-    this.forLog,
-    this.mediaType,
-    this.mediaURI,
-  });
+  media({this.mediaID, this.order, this.forLog, this.mediaType, this.mediaURI});
 
   Map<String, dynamic> getObjectData() {
     return {
@@ -113,12 +124,7 @@ class incident_logs {
   String? sensorJsonData; // Keep as String to store serialized JSON
   String? aiDesc;
 
-  incident_logs({
-    this.iid,
-    this.timestamp,
-    this.sensorJsonData,
-    this.aiDesc,
-  });
+  incident_logs({this.iid, this.timestamp, this.sensorJsonData, this.aiDesc});
 
   Map<String, dynamic> getObjectData() {
     return {

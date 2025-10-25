@@ -2,11 +2,15 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:huawei_location/huawei_location.dart' as huawei_loc;
 import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter/foundation.dart';
+import '../repository/user_repository.dart';
+import '../models/users.dart';
 
 class LocationServiceHelper {
   // --- Singleton Pattern ---
   LocationServiceHelper._privateConstructor();
-  static final LocationServiceHelper _instance = LocationServiceHelper._privateConstructor();
+  static final LocationServiceHelper _instance =
+      LocationServiceHelper._privateConstructor();
   factory LocationServiceHelper() {
     return _instance;
   }
@@ -17,6 +21,11 @@ class LocationServiceHelper {
 
   StreamController<huawei_loc.Location>? _locationStreamController;
   int? _streamCallbackId;
+
+  // Location update service
+  Timer? _locationUpdateTimer;
+  final UserRepository _userRepository = UserRepository();
+  String? _currentUserId;
 
   Future<bool> hasLocationPermission() async {
     final status = await Permission.locationWhenInUse.status;
@@ -41,7 +50,11 @@ class LocationServiceHelper {
     }
   }
 
-  Future<huawei_loc.Location?> getCurrentLocation() async {
+  /// Get current location with fast fallback to last known location
+  /// Tries cached location first (instant), then fresh location with shorter timeout
+  Future<huawei_loc.Location?> getCurrentLocation({
+    bool fastMode = true,
+  }) async {
     if (!await hasLocationPermission()) {
       final permissionGranted = await requestLocationPermission();
       if (!permissionGranted) {
@@ -50,38 +63,72 @@ class LocationServiceHelper {
       }
     }
 
+    // Fast mode: Try cached location first (instant!)
+    if (fastMode) {
+      final lastLoc = await getLastLocation();
+      if (lastLoc != null) {
+        // Check if cached location is recent (less than 2 minutes old)
+        final age = DateTime.now().millisecondsSinceEpoch - (lastLoc.time ?? 0);
+        if (age < 120000) {
+          // 2 minutes = 120,000 ms
+          debugPrint(
+            '[LocationService] ⚡ Using cached location (${age ~/ 1000}s old)',
+          );
+          return lastLoc;
+        }
+      }
+    }
+
     final completer = Completer<huawei_loc.Location?>();
     int? callbackId;
 
-    final timer = Timer(const Duration(seconds: 10), () {
+    // Reduced timeout: 5 seconds instead of 10
+    final timeoutDuration = fastMode
+        ? const Duration(seconds: 5)
+        : const Duration(seconds: 10);
+
+    final timer = Timer(timeoutDuration, () async {
       if (!completer.isCompleted) {
-        print("Location request timed out.");
+        debugPrint(
+          "[LocationService] Location request timed out, falling back to last location",
+        );
         if (callbackId != null) {
           try {
             _locationService.removeLocationUpdates(callbackId);
           } on PlatformException catch (e) {
-            print("Error removing location updates on timeout (ignorable): ${e.message}");
+            print(
+              "Error removing location updates on timeout (ignorable): ${e.message}",
+            );
           }
         }
-        completer.complete(null);
+        // Fallback to last known location
+        final fallbackLoc = await getLastLocation();
+        completer.complete(fallbackLoc);
       }
     });
 
     try {
       callbackId = await _locationService.requestLocationUpdatesCb(
         huawei_loc.LocationRequest()
-          ..priority = huawei_loc.LocationRequest.PRIORITY_HIGH_ACCURACY
-          ..numUpdates = 1,
+          // Use BALANCED mode for faster fix (1-3 seconds vs 5-10 seconds)
+          ..priority = fastMode
+              ? huawei_loc.LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY
+              : huawei_loc.LocationRequest.PRIORITY_HIGH_ACCURACY
+          ..numUpdates = 1
+          ..fastestInterval = 1000, // Get result as fast as possible
         huawei_loc.LocationCallback(
           onLocationResult: (locationResult) async {
             if (!completer.isCompleted) {
               timer.cancel();
+              debugPrint('[LocationService] ✅ Got fresh location');
               completer.complete(locationResult.lastLocation);
               if (callbackId != null) {
                 try {
                   await _locationService.removeLocationUpdates(callbackId);
                 } on PlatformException catch (e) {
-                  print("Error removing location updates after success (ignorable): ${e.message}");
+                  print(
+                    "Error removing location updates after success (ignorable): ${e.message}",
+                  );
                 }
               }
             }
@@ -92,28 +139,31 @@ class LocationServiceHelper {
         ),
       );
     } catch (e) {
-       print("Error requesting location updates: $e");
-       if (!completer.isCompleted) {
-         timer.cancel();
-         completer.complete(null);
-       }
+      print("Error requesting location updates: $e");
+      if (!completer.isCompleted) {
+        timer.cancel();
+        // Fallback to last known location on error
+        final fallbackLoc = await getLastLocation();
+        completer.complete(fallbackLoc);
+      }
     }
     return completer.future;
   }
 
   Stream<huawei_loc.Location> getLocationStream() {
-    _locationStreamController ??= StreamController<huawei_loc.Location>.broadcast(
-      onListen: _startLocationStream,
-      onCancel: _stopLocationStream,
-    );
+    _locationStreamController ??=
+        StreamController<huawei_loc.Location>.broadcast(
+          onListen: _startLocationStream,
+          onCancel: _stopLocationStream,
+        );
     return _locationStreamController!.stream;
   }
 
   void _startLocationStream() async {
-    if (_streamCallbackId != null) return; 
+    if (_streamCallbackId != null) return;
 
     if (!await hasLocationPermission()) {
-       await requestLocationPermission();
+      await requestLocationPermission();
     }
 
     huawei_loc.LocationRequest request = huawei_loc.LocationRequest()
@@ -121,7 +171,7 @@ class LocationServiceHelper {
       ..interval = 2000;
 
     try {
-       _streamCallbackId = await _locationService.requestLocationUpdatesCb(
+      _streamCallbackId = await _locationService.requestLocationUpdatesCb(
         request,
         huawei_loc.LocationCallback(
           onLocationResult: (locationResult) {
@@ -139,21 +189,98 @@ class LocationServiceHelper {
   }
 
   void _stopLocationStream() {
-     if (_streamCallbackId != null) {
+    if (_streamCallbackId != null) {
       try {
         _locationService.removeLocationUpdates(_streamCallbackId!);
         print("Successfully requested to remove location stream updates.");
       } on PlatformException catch (e) {
         // This can happen if the widget is disposed before the platform responds.
         // It's safe to ignore as the update removal will likely still succeed.
-        print("Error removing location stream updates (ignorable): ${e.message}");
+        print(
+          "Error removing location stream updates (ignorable): ${e.message}",
+        );
       }
       _streamCallbackId = null;
     }
   }
-  
+
+  /// Start automatic location updates to CloudDB every minute
+  Future<void> startLocationUpdates(String userId) async {
+    _currentUserId = userId;
+
+    if (_locationUpdateTimer != null) {
+      debugPrint('[LocationService] Location updates already running');
+      return;
+    }
+
+    debugPrint('[LocationService] Starting location updates for user: $userId');
+
+    // Update immediately
+    await _updateLocationToCloudDB();
+
+    // Then update every minute
+    _locationUpdateTimer = Timer.periodic(
+      const Duration(minutes: 1),
+      (_) => _updateLocationToCloudDB(),
+    );
+  }
+
+  /// Stop automatic location updates
+  void stopLocationUpdates() {
+    debugPrint('[LocationService] Stopping location updates');
+    _locationUpdateTimer?.cancel();
+    _locationUpdateTimer = null;
+    _currentUserId = null;
+  }
+
+  /// Update current location to CloudDB
+  Future<void> _updateLocationToCloudDB() async {
+    if (_currentUserId == null) return;
+
+    try {
+      final location = await getCurrentLocation();
+      if (location == null) {
+        debugPrint('[LocationService] Failed to get current location');
+        return;
+      }
+
+      // Get existing user data
+      await _userRepository.openZone();
+      final existingUser = await _userRepository.getUserById(_currentUserId!);
+
+      if (existingUser != null) {
+        // Update only location fields
+        final updatedUser = Users(
+          uid: existingUser.uid,
+          username: existingUser.username,
+          district: existingUser.district,
+          postcode: existingUser.postcode,
+          state: existingUser.state,
+          phoneNo: existingUser.phoneNo,
+          latitude: location.latitude,
+          longitude: location.longitude,
+          locUpdateTime: DateTime.now(),
+          allowDiscoverable: existingUser.allowDiscoverable,
+          allowEmergencyAlert: existingUser.allowEmergencyAlert,
+        );
+
+        await _userRepository.upsertUser(updatedUser);
+        debugPrint(
+          '[LocationService] Updated location: ${location.latitude}, ${location.longitude}',
+        );
+      } else {
+        debugPrint(
+          '[LocationService] User not found in CloudDB: $_currentUserId',
+        );
+      }
+    } catch (e) {
+      debugPrint('[LocationService] Error updating location to CloudDB: $e');
+    }
+  }
+
   void dispose() {
     _stopLocationStream();
     _locationStreamController?.close();
+    stopLocationUpdates();
   }
 }

@@ -10,6 +10,8 @@ import '../lodge/lodge_incident_page.dart';
 import '../lodge/incident_history_page.dart';
 import '../profile/profile_page.dart';
 import '../user_management.dart';
+import 'package:provider/provider.dart';
+import '../providers/safety_service_provider.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -87,22 +89,25 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    _backgroundService.isRunning().then((value) {
-      if (mounted) {
-        setState(() {
-          _isServiceRunning = value;
-        });
-      }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final safetyProvider = Provider.of<SafetyServiceProvider>(
+        context,
+        listen: false,
+      );
+      setState(() {
+        _isServiceRunning = safetyProvider.isEnabled;
+      });
     });
     _getAddressesForIncidents();
   }
 
   void _toggleService(bool value) async {
-    if (value) {
-      await _backgroundService.startService();
-    } else {
-      _backgroundService.invoke("stopService");
-    }
+    final safetyProvider = Provider.of<SafetyServiceProvider>(
+      context,
+      listen: false,
+    );
+    await safetyProvider.toggle(value, context);
+
     setState(() {
       _isServiceRunning = value;
     });
@@ -125,23 +130,32 @@ class _HomePageState extends State<HomePage> {
 
         if (placemarks.isNotEmpty) {
           final Placemark place = placemarks[0];
-          final String address = [
-            place.street,
-            place.thoroughfare,
-            place.subLocality,
-            place.locality,
-            place.postalCode,
-            place.administrativeArea,
-            place.country,
-          ].where((element) => element != null && element.isNotEmpty).join(', ');
+          final String address =
+              [
+                    place.street,
+                    place.thoroughfare,
+                    place.subLocality,
+                    place.locality,
+                    place.postalCode,
+                    place.administrativeArea,
+                    place.country,
+                  ]
+                  .where((element) => element != null && element.isNotEmpty)
+                  .join(', ');
           updatedIncidents[i]['location'] = address;
-          print('[Geocoding] Incident ${incident['id']} location updated to: $address');
+          print(
+            '[Geocoding] Incident ${incident['id']} location updated to: $address',
+          );
         } else {
           updatedIncidents[i]['location'] = 'Address not found';
-          print('[Geocoding] No placemarks found for incident ${incident['id']}.');
+          print(
+            '[Geocoding] No placemarks found for incident ${incident['id']}.',
+          );
         }
       } catch (e) {
-        print('[Geocoding] Error during geocoding for incident ${incident['id']}: $e');
+        print(
+          '[Geocoding] Error during geocoding for incident ${incident['id']}: $e',
+        );
         updatedIncidents[i]['location'] = 'Geocoding error';
       }
     }
@@ -149,7 +163,9 @@ class _HomePageState extends State<HomePage> {
     if (mounted) {
       setState(() {
         _incidents = updatedIncidents;
-        print('[Geocoding] State updated with new incident locations. Total incidents: ${_incidents.length}');
+        print(
+          '[Geocoding] State updated with new incident locations. Total incidents: ${_incidents.length}',
+        );
       });
     }
     print('[Geocoding] Geocoding process finished.');
@@ -158,7 +174,8 @@ class _HomePageState extends State<HomePage> {
   void _showTooltipOverlay() {
     _removeTooltip();
 
-    final RenderBox? renderBox = _infoIconKey.currentContext?.findRenderObject() as RenderBox?;
+    final RenderBox? renderBox =
+        _infoIconKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
 
     final position = renderBox.localToGlobal(Offset.zero);
@@ -232,20 +249,26 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: const Text('MYSafeZone'),
         scrolledUnderElevation: 0,
-        actions: _selectedIndex == 2 ? [
-          IconButton(
-            icon: const Icon(Icons.history, size: 28, color: Colors.white),
-            padding: const EdgeInsets.only(right: 24),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const IncidentHistoryPage(),
+        actions: _selectedIndex == 2
+            ? [
+                IconButton(
+                  icon: const Icon(
+                    Icons.history,
+                    size: 28,
+                    color: Colors.white,
+                  ),
+                  padding: const EdgeInsets.only(right: 24),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const IncidentHistoryPage(),
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
-        ] : null,
+              ]
+            : null,
       ),
       body: _buildCurrentPage(),
       bottomNavigationBar: Container(
@@ -331,7 +354,8 @@ class _HomePageState extends State<HomePage> {
                       children: [
                         Text(
                           'Nearby Incidents',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         Row(
                           mainAxisSize: MainAxisSize.min,
@@ -350,21 +374,53 @@ class _HomePageState extends State<HomePage> {
                               ),
                             ),
                             const SizedBox(width: 4),
-                            Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Switch(
-                                  value: _isServiceRunning,
-                                  onChanged: _toggleService,
-                                  activeThumbColor: Colors.orange,
-                                  activeTrackColor: Colors.orange.withOpacity(0.5),
-                                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                ),
-                                const Text(
-                                  "Sound Detector",
-                                  style: TextStyle(fontSize: 10),
-                                ),
-                              ],
+                            Consumer<SafetyServiceProvider>(
+                              builder: (context, safetyProvider, child) {
+                                return Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Switch(
+                                      value: safetyProvider.isEnabled,
+                                      onChanged: (value) =>
+                                          _toggleService(value),
+                                      activeThumbColor: Colors.orange,
+                                      activeTrackColor: Colors.orange
+                                          .withOpacity(0.5),
+                                      materialTapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    const Text(
+                                      "Sound Detector",
+                                      style: TextStyle(fontSize: 10),
+                                    ),
+                                    // Debug test button
+                                    if (safetyProvider.isEnabled)
+                                      TextButton(
+                                        onPressed: () {
+                                          debugPrint(
+                                            '[HomePage] 🧪 TEST BUTTON PRESSED',
+                                          );
+                                          safetyProvider.manualTrigger(
+                                            'TEST TRIGGER',
+                                          );
+                                        },
+                                        style: TextButton.styleFrom(
+                                          padding: EdgeInsets.zero,
+                                          minimumSize: Size.zero,
+                                          tapTargetSize:
+                                              MaterialTapTargetSize.shrinkWrap,
+                                        ),
+                                        child: const Text(
+                                          "Test Trigger",
+                                          style: TextStyle(
+                                            fontSize: 9,
+                                            color: Colors.blue,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                );
+                              },
                             ),
                           ],
                         ),
@@ -374,7 +430,10 @@ class _HomePageState extends State<HomePage> {
                   Expanded(
                     child: ListView.builder(
                       itemCount: _incidents.length,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
                       itemBuilder: (context, index) {
                         return _buildIncidentCard(_incidents[index]);
                       },
