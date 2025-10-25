@@ -3,6 +3,7 @@ import 'package:agconnect_clouddb/agconnect_clouddb.dart';
 
 class CloudDbService {
   static AGConnectCloudDB? _cloudDB;
+  static bool _isInitialized = false;
   AGConnectCloudDBZone? _zone;
   final String zoneName;
 

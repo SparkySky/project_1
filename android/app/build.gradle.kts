@@ -69,6 +69,7 @@ dependencies {
     // Add Huawei HMS Core dependencies.
     implementation("com.huawei.agconnect:agconnect-core:1.9.1.301")
     implementation("com.huawei.agconnect:agconnect-cloud-database:1.5.3.300")
+    implementation("com.huawei.agconnect:agconnect-storage:1.9.1.301")
     implementation("com.huawei.hms:maps:6.11.0.301")
     implementation("com.huawei.hms:maps-basic:6.11.0.300")
     implementation("com.huawei.hms:location:6.12.0.300")

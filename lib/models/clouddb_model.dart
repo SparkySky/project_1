@@ -40,28 +40,28 @@ class users {
 }
 
 class incidents {
-  String? iid;
-  String? uid;
-  double? latitude;
-  double? longitude;
-  DateTime? datetime;
-  String? incidentType;
-  int? isAIGenerated;
-  String? desc;
+  String iid;
+  String uid;
+  double latitude;
+  double longitude;
+  DateTime datetime;
+  String incidentType;
+  bool isAIGenerated;
+  String desc;
   String? mediaID;
-  int? status;
+  String status;
 
   incidents({
-    this.iid,
-    this.uid,
-    this.latitude,
-    this.longitude,
-    this.datetime,
-    this.incidentType,
-    this.isAIGenerated,
-    this.desc,
+    required this.iid,
+    required this.uid,
+    required this.latitude,
+    required this.longitude,
+    required this.datetime,
+    required this.incidentType,
+    required this.isAIGenerated,
+    required this.desc,
     this.mediaID,
-    this.status,
+    required this.status,
   });
 
   Map<String, dynamic> getObjectData() {
@@ -70,8 +70,7 @@ class incidents {
       'uid': uid,
       'latitude': latitude,
       'longitude': longitude,
-      // Convert DateTime to a compatible format (e.g., ISO 8601 String or Timestamp)
-      'datetime': datetime?.toIso8601String(),
+      'datetime': datetime.millisecondsSinceEpoch,
       'incidentType': incidentType,
       'isAIGenerated': isAIGenerated,
       'desc': desc,
@@ -82,18 +81,18 @@ class incidents {
 }
 
 class media {
-  String? mediaID;
-  int? order;
-  int? forLog; // Changed from evidenceType based on user feedback
-  String? mediaType;
-  String? mediaURI;
+  String mediaID;
+  int order;
+  bool forLog;
+  String mediaType;
+  String mediaURI;
 
   media({
-    this.mediaID,
-    this.order,
-    this.forLog,
-    this.mediaType,
-    this.mediaURI,
+    required this.mediaID,
+    required this.order,
+    required this.forLog,
+    required this.mediaType,
+    required this.mediaURI,
   });
 
   Map<String, dynamic> getObjectData() {
@@ -103,30 +102,6 @@ class media {
       'forLog': forLog,
       'mediaType': mediaType,
       'mediaURI': mediaURI,
-    }..removeWhere((key, value) => value == null);
-  }
-}
-
-class incident_logs {
-  String? iid;
-  DateTime? timestamp;
-  String? sensorJsonData; // Keep as String to store serialized JSON
-  String? aiDesc;
-
-  incident_logs({
-    this.iid,
-    this.timestamp,
-    this.sensorJsonData,
-    this.aiDesc,
-  });
-
-  Map<String, dynamic> getObjectData() {
-    return {
-      'iid': iid,
-      // Convert DateTime to a compatible format
-      'timestamp': timestamp?.toIso8601String(),
-      'sensorJsonData': sensorJsonData,
-      'aiDesc': aiDesc,
     }..removeWhere((key, value) => value == null);
   }
 }

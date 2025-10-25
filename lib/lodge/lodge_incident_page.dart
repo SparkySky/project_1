@@ -7,7 +7,14 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import 'media_operations_widget.dart';
+
+import '../models/clouddb_model.dart';
+import '../repository/incident_repository.dart';
+import '../repository/media_repository.dart';
+import 'package:uuid/uuid.dart';
+import 'package:agconnect_auth/agconnect_auth.dart';
 
 class LodgeIncidentPage extends StatefulWidget {
   final String? incidentType;
@@ -47,6 +54,11 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
   bool _isLoadingAddress = false;
   bool _isLoadingLocation = true;
 
+  final _incidentRepository = IncidentRepository();
+  final _mediaRepository = MediaRepository();
+  final _uuid = Uuid();
+  String? _currentUserId;
+
   @override
   void initState() {
     super.initState();
@@ -57,6 +69,8 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
     if (widget.incidentType != null) {
       _incidentType = widget.incidentType!;
     }
+
+    _getCurrentUserId();
 
     // Auto-detect user location when page loads
     _initializeLocation();
@@ -69,6 +83,19 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
     _stateController.dispose();
     _descriptionController.dispose();
     super.dispose();
+  }
+
+  Future<void> _getCurrentUserId() async {
+    try {
+      final user = await AGCAuth.instance.currentUser;
+      if (user != null) {
+        setState(() {
+          _currentUserId = user.uid;
+        });
+      }
+    } catch (e) {
+      print('Error getting current user: $e');
+    }
   }
 
   Future<void> _initializeLocation() async {
@@ -312,45 +339,201 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
     }
   }
 
-  void _submitIncident() {
+Future<void> _submitIncident() async {
     if (_formKey.currentState!.validate()) {
-      final incidentData = {
-        'dateTime': DateTime.now().toIso8601String(),
-        'district': _districtController.text,
-        'postcode': _postcodeController.text,
-        'state': _stateController.text,
-        'incidentType': _incidentType,
-        'description': _descriptionController.text,
-        'mediaFiles': _mediaFiles.map((f) => f.path).toList(),
-      };
-
-      print('Incident Data: $incidentData');
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.white),
-              SizedBox(width: 12),
-              Text('Incident reported successfully!'),
-            ],
+      if (_currentUserId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('User not authenticated'),
+            backgroundColor: Colors.red,
           ),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
+        );
+        return;
+      }
+
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
         ),
       );
 
-      setState(() {
-        _incidentType = 'general';
-        _mediaFiles.clear();
-        _districtController.clear();
-        _postcodeController.clear();
-        _stateController.clear();
-        _descriptionController.clear();
-      });
+      bool dialogShown = true;
+
+      try {
+        await _incidentRepository.openZone();
+        await _mediaRepository.openZone();
+
+        final incidentId = _uuid.v4();
+        String? mediaId;
+
+        // 1. Handle multiple media uploads to AWS S3
+        if (_mediaFiles.isNotEmpty) {
+          // Generate ONE media ID for all files in this incident
+          mediaId = _uuid.v4();
+          
+          print('Uploading ${_mediaFiles.length} media files to AWS S3...');
+          print('Media ID for this incident: $mediaId');
+          
+          for (int i = 0; i < _mediaFiles.length; i++) {
+            final file = _mediaFiles[i];
+            final order = i + 1; // Order starts from 1
+            
+            // Get file extension
+            final fileExtension = file.path.split('.').last.toLowerCase();
+            
+            print('Uploading media ${order}/${_mediaFiles.length}...');
+            
+            // Read file and convert to base64
+            final bytes = await File(file.path).readAsBytes();
+            final base64Content = base64Encode(bytes);
+            
+            // Prepare file name with timestamp and order
+            final timestamp = DateFormat('yyyyMMddHHmmss').format(DateTime.now());
+            final fileName = '${timestamp}_${order}_${file.path.split('/').last}';
+            
+            // Upload to AWS S3
+            final response = await http.post(
+              Uri.parse('https://9bgg6p599h.execute-api.ap-southeast-1.amazonaws.com/dev/media'),
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: jsonEncode({
+                'file_name': fileName,
+                'file_content': base64Content,
+              }),
+            );
+
+            if (response.statusCode != 200) {
+              throw Exception('Failed to upload media ${order} to AWS S3: ${response.body}');
+            }
+
+            // Parse response to get file URL
+            final responseData = jsonDecode(response.body);
+            final mediaURL = responseData['file_url'];
+            
+            if (mediaURL == null || mediaURL.isEmpty) {
+              throw Exception('Failed to get media URL from AWS S3 for file ${order}');
+            }
+
+            print('✅ Media ${order} uploaded to AWS S3');
+            print('✅ Media URL: $mediaURL');
+
+            // Save media reference to CloudDB with the AWS S3 URL
+            final mediaObject = media(
+              mediaID: mediaId,
+              order: order,
+              forLog: false,
+              mediaType: fileExtension,
+              mediaURI: mediaURL, // AWS S3 URL
+            );
+
+            print('Saving media reference to CloudDB - ID: $mediaId, Order: $order');
+            final success = await _mediaRepository.upsertMedia(mediaObject);
+
+            if (!success) {
+              throw Exception('Failed to save media reference ${order} to CloudDB');
+            }
+
+            print('✅ Media reference ${order} saved to CloudDB');
+          }
+          
+          print('✅ All ${_mediaFiles.length} media files processed successfully');
+        } else {
+          print('No media files to upload');
+        }
+
+        // 2. Create incident using CloudDB model
+        final incident = incidents(
+          iid: incidentId,
+          uid: _currentUserId!,
+          latitude: _selectedPosition!.lat,
+          longitude: _selectedPosition!.lng,
+          datetime: DateTime.now().toUtc(),
+          incidentType: _incidentType,
+          isAIGenerated: false,
+          desc: _descriptionController.text.trim(),
+          mediaID: mediaId,
+          status: 'active',
+        );
+
+        print('=== Incident Details ===');
+        print('Incident ID: $incidentId');
+        print('User ID: $_currentUserId');
+        print('Type: $_incidentType');
+        print('Media ID: $mediaId');
+        print('Total Media Files: ${_mediaFiles.length}');
+        print('========================');
+
+        // 3. Upsert incident
+        final success = await _incidentRepository.upsertIncident(incident);
+        
+        if (!success) {
+          throw Exception('Failed to insert incident');
+        }
+
+        print('✅ Incident upserted successfully!');
+
+        await _incidentRepository.closeZone();
+        await _mediaRepository.closeZone();
+
+        if (dialogShown && mounted) {
+          Navigator.of(context).pop();
+          dialogShown = false;
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.white),
+                  SizedBox(width: 12),
+                  Text('Incident reported successfully!'),
+                ],
+              ),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          );
+          
+          // Reset form
+          setState(() {
+            _incidentType = 'general';
+            _mediaFiles.clear();
+            _districtController.clear();
+            _postcodeController.clear();
+            _stateController.clear();
+            _descriptionController.clear();
+            _selectedPosition = null;
+            _markers = {};
+          });
+          
+          _initializeLocation();
+        }
+      } catch (e, stackTrace) {
+        if (dialogShown && mounted) {
+          Navigator.of(context).pop();
+          dialogShown = false;
+        }
+        
+        print('❌ Error submitting incident: $e');
+        print('Stack trace: $stackTrace');
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to submit incident: ${e.toString()}'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
+      }
     }
   }
 
@@ -438,79 +621,79 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                     ),
                   )
                 : _selectedPosition == null
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.location_off,
-                              size: 48,
-                              color: Colors.grey[400],
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Location not available',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            ElevatedButton.icon(
-                              onPressed: _initializeLocation,
-                              icon: const Icon(Icons.refresh, size: 18),
-                              label: const Text('Try Again'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.primaryOrange,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                            ),
-                          ],
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.location_off,
+                          size: 48,
+                          color: Colors.grey[400],
                         ),
-                      )
-                    : HuaweiMap(
-                        initialCameraPosition: CameraPosition(
-                          target: _selectedPosition!,
-                          zoom: 15,
+                        const SizedBox(height: 16),
+                        Text(
+                          'Location not available',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                        mapType: MapType.normal,
-                        compassEnabled: true,
-                        zoomControlsEnabled: true,
-                        zoomGesturesEnabled: true,
-                        scrollGesturesEnabled: true,
-                        tiltGesturesEnabled: true,
-                        rotateGesturesEnabled: true,
-                        myLocationEnabled: true,
-                        myLocationButtonEnabled: true,
-                        markers: _markers,
-                        gestureRecognizers: <Factory<
-                            OneSequenceGestureRecognizer>>{
-                          Factory<OneSequenceGestureRecognizer>(
-                              () => EagerGestureRecognizer()),
-                        },
-                        onMapCreated: (controller) {
-                          _mapController = controller;
-                        },
-                        onClick: (LatLng position) {
-                          setState(() {
-                            _selectedPosition = position;
-                            _markers = {
-                              Marker(
-                                markerId: MarkerId('selected_location'),
-                                position: position,
-                                icon: BitmapDescriptor.defaultMarkerWithHue(
-                                  BitmapDescriptor.hueOrange,
-                                ),
-                              ),
-                            };
-                          });
-                          _reverseGeocodeLocation(position.lat, position.lng);
-                        },
+                        const SizedBox(height: 8),
+                        ElevatedButton.icon(
+                          onPressed: _initializeLocation,
+                          icon: const Icon(Icons.refresh, size: 18),
+                          label: const Text('Try Again'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryOrange,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : HuaweiMap(
+                    initialCameraPosition: CameraPosition(
+                      target: _selectedPosition!,
+                      zoom: 15,
+                    ),
+                    mapType: MapType.normal,
+                    compassEnabled: true,
+                    zoomControlsEnabled: true,
+                    zoomGesturesEnabled: true,
+                    scrollGesturesEnabled: true,
+                    tiltGesturesEnabled: true,
+                    rotateGesturesEnabled: true,
+                    myLocationEnabled: true,
+                    myLocationButtonEnabled: true,
+                    markers: _markers,
+                    gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+                      Factory<OneSequenceGestureRecognizer>(
+                        () => EagerGestureRecognizer(),
                       ),
+                    },
+                    onMapCreated: (controller) {
+                      _mapController = controller;
+                    },
+                    onClick: (LatLng position) {
+                      setState(() {
+                        _selectedPosition = position;
+                        _markers = {
+                          Marker(
+                            markerId: MarkerId('selected_location'),
+                            position: position,
+                            icon: BitmapDescriptor.defaultMarkerWithHue(
+                              BitmapDescriptor.hueOrange,
+                            ),
+                          ),
+                        };
+                      });
+                      _reverseGeocodeLocation(position.lat, position.lng);
+                    },
+                  ),
           ),
         ),
         const SizedBox(height: 16),
@@ -585,9 +768,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
           Set<MaterialState> states,
         ) {
           if (states.contains(MaterialState.focused)) {
-            return const TextStyle(
-              color: AppTheme.primaryOrange,
-            );
+            return const TextStyle(color: AppTheme.primaryOrange);
           }
           if (controller.text.isNotEmpty) {
             return TextStyle(color: Colors.grey[600]);
@@ -673,8 +854,8 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
               Text(
                 'Report Incidents or Post General News',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 10),
               Text(

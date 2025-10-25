@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:agconnect_clouddb/agconnect_clouddb.dart';
+import 'package:agconnect_core/agconnect_core.dart';
 import 'package:huawei_map/huawei_map.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -12,6 +13,7 @@ import 'app_theme.dart';
 import 'bg_services/background_service.dart';
 import 'bg_services/clouddb_service.dart';
 import 'bg_services/sensors_analysis.dart';
+import 'bg_services/cloud_storage_service.dart';
 import 'permissions/permission_handler.dart';
 import 'providers/user_provider.dart';
 import 'util/debug_state.dart';
@@ -47,16 +49,22 @@ Future<void> main() async {
   await initializeBackgroundService();
 
   // 3. Initialize the Sensors Analysis Service
-  final sensorsAnalysisService = SensorsAnalysisService(navigatorKey: navigatorKey);
+  final sensorsAnalysisService = SensorsAnalysisService(
+    navigatorKey: navigatorKey,
+  );
   await sensorsAnalysisService.initialize();
 
-  // 4. Initialize AGConnect Core & CloudDB in the main isolate
+  // 4. Initialize Cloud DB
   try {
+    print('[MAIN] Step 2: Initializing Cloud DB...');
     await CloudDbService.initialize();
     await CloudDbService.createObjectType();
-    print('[MAIN] Cloud DB initialized successfully');
-  } catch (e) {
-    print('[MAIN] Error initializing Cloud DB: $e');
+    print('[MAIN] ✅ Cloud DB initialized successfully');
+    
+    await Future.delayed(const Duration(milliseconds: 300));
+  } catch (e, stackTrace) {
+    print('[MAIN] ❌ Error initializing Cloud DB: $e');
+    print('[MAIN] Stack trace: $stackTrace');
   }
 
   runApp(
