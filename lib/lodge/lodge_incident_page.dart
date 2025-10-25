@@ -16,6 +16,7 @@ import '../repository/incident_repository.dart';
 import '../repository/media_repository.dart';
 import 'package:uuid/uuid.dart';
 import 'package:agconnect_auth/agconnect_auth.dart';
+import '../services/push_notification_service.dart';
 
 class LodgeIncidentPage extends StatefulWidget {
   final String? incidentType;
@@ -58,6 +59,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
   final _incidentRepository = IncidentRepository();
   final _mediaRepository = MediaRepository();
   final _uuid = Uuid();
+  final _pushService = PushNotificationService();
   String? _currentUserId;
 
   @override
@@ -179,7 +181,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
 
     try {
       final apiKey = dotenv.env['HUAWEI_SITE_API_KEY'];
-      
+
       if (apiKey == null || apiKey.isEmpty) {
         throw Exception('API key not found in environment variables');
       }
@@ -343,7 +345,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
     }
   }
 
-Future<void> _submitIncident() async {
+  Future<void> _submitIncident() async {
     if (_formKey.currentState!.validate()) {
       if (_currentUserId == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -358,9 +360,7 @@ Future<void> _submitIncident() async {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(),
-        ),
+        builder: (context) => const Center(child: CircularProgressIndicator()),
       );
 
       bool dialogShown = true;
@@ -376,33 +376,36 @@ Future<void> _submitIncident() async {
         if (_mediaFiles.isNotEmpty) {
           // Generate ONE media ID for all files in this incident
           mediaId = _uuid.v4();
-          
+
           print('Uploading ${_mediaFiles.length} media files to AWS S3...');
           print('Media ID for this incident: $mediaId');
-          
+
           for (int i = 0; i < _mediaFiles.length; i++) {
             final file = _mediaFiles[i];
             final order = i + 1; // Order starts from 1
-            
+
             // Get file extension
             final fileExtension = file.path.split('.').last.toLowerCase();
-            
+
             print('Uploading media ${order}/${_mediaFiles.length}...');
-            
+
             // Read file and convert to base64
             final bytes = await File(file.path).readAsBytes();
             final base64Content = base64Encode(bytes);
-            
+
             // Prepare file name with timestamp and order
-            final timestamp = DateFormat('yyyyMMddHHmmss').format(DateTime.now());
-            final fileName = '${timestamp}_${order}_${file.path.split('/').last}';
-            
+            final timestamp = DateFormat(
+              'yyyyMMddHHmmss',
+            ).format(DateTime.now());
+            final fileName =
+                '${timestamp}_${order}_${file.path.split('/').last}';
+
             // Upload to AWS S3
             final response = await http.post(
-              Uri.parse('https://9bgg6p599h.execute-api.ap-southeast-1.amazonaws.com/dev/media'),
-              headers: {
-                'Content-Type': 'application/json',
-              },
+              Uri.parse(
+                'https://9bgg6p599h.execute-api.ap-southeast-1.amazonaws.com/dev/media',
+              ),
+              headers: {'Content-Type': 'application/json'},
               body: jsonEncode({
                 'file_name': fileName,
                 'file_content': base64Content,
@@ -410,15 +413,19 @@ Future<void> _submitIncident() async {
             );
 
             if (response.statusCode != 200) {
-              throw Exception('Failed to upload media ${order} to AWS S3: ${response.body}');
+              throw Exception(
+                'Failed to upload media ${order} to AWS S3: ${response.body}',
+              );
             }
 
             // Parse response to get file URL
             final responseData = jsonDecode(response.body);
             final mediaURL = responseData['file_url'];
-            
+
             if (mediaURL == null || mediaURL.isEmpty) {
-              throw Exception('Failed to get media URL from AWS S3 for file ${order}');
+              throw Exception(
+                'Failed to get media URL from AWS S3 for file ${order}',
+              );
             }
 
             print('✅ Media ${order} uploaded to AWS S3');
@@ -433,17 +440,23 @@ Future<void> _submitIncident() async {
               mediaURI: mediaURL, // AWS S3 URL
             );
 
-            print('Saving media reference to CloudDB - ID: $mediaId, Order: $order');
+            print(
+              'Saving media reference to CloudDB - ID: $mediaId, Order: $order',
+            );
             final success = await _mediaRepository.upsertMedia(mediaObject);
 
             if (!success) {
-              throw Exception('Failed to save media reference ${order} to CloudDB');
+              throw Exception(
+                'Failed to save media reference ${order} to CloudDB',
+              );
             }
 
             print('✅ Media reference ${order} saved to CloudDB');
           }
-          
-          print('✅ All ${_mediaFiles.length} media files processed successfully');
+
+          print(
+            '✅ All ${_mediaFiles.length} media files processed successfully',
+          );
         } else {
           print('No media files to upload');
         }
@@ -472,12 +485,28 @@ Future<void> _submitIncident() async {
 
         // 3. Upsert incident
         final success = await _incidentRepository.upsertIncident(incident);
-        
+
         if (!success) {
           throw Exception('Failed to insert incident');
         }
 
         print('✅ Incident upserted successfully!');
+
+        // Send push notifications to nearby users
+        try {
+          await _pushService.notifyNearbyUsers(
+            incidentLatitude: _selectedPosition!.lat,
+            incidentLongitude: _selectedPosition!.lng,
+            incidentType: _incidentType,
+            incidentDescription: _descriptionController.text.trim(),
+            incidentId: incidentId,
+            radiusKm: 5.0, // 5km radius for prototyping
+          );
+          print('✅ Push notifications sent to nearby users');
+        } catch (e) {
+          print('⚠️ Failed to send push notifications: $e');
+          // Don't fail the entire incident submission if push fails
+        }
 
         await _incidentRepository.closeZone();
         await _mediaRepository.closeZone();
@@ -504,7 +533,7 @@ Future<void> _submitIncident() async {
               ),
             ),
           );
-          
+
           // Reset form
           setState(() {
             _incidentType = 'general';
@@ -516,7 +545,7 @@ Future<void> _submitIncident() async {
             _selectedPosition = null;
             _markers = {};
           });
-          
+
           _initializeLocation();
         }
       } catch (e, stackTrace) {
@@ -524,10 +553,10 @@ Future<void> _submitIncident() async {
           Navigator.of(context).pop();
           dialogShown = false;
         }
-        
+
         print('❌ Error submitting incident: $e');
         print('Stack trace: $stackTrace');
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(

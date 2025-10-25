@@ -12,6 +12,7 @@ import 'debug_overlay/safety_debug_overlay.dart';
 import 'debug_overlay/debug_state.dart';
 
 import 'bg_services/clouddb_service.dart';
+import 'services/push_notification_service.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -57,6 +58,16 @@ Future<void> main() async {
     await Future.delayed(const Duration(milliseconds: 300));
   } catch (e, stackTrace) {
     print('[MAIN] ❌ Error initializing Cloud DB: $e');
+    print('[MAIN] Stack trace: $stackTrace');
+  }
+
+  // Initialize Push Notification Service
+  try {
+    print('[MAIN] Step 3: Initializing Push Notification Service...');
+    await PushNotificationService().initialize();
+    print('[MAIN] ✅ Push Notification Service initialized successfully');
+  } catch (e, stackTrace) {
+    print('[MAIN] ❌ Error initializing Push Notification Service: $e');
     print('[MAIN] Stack trace: $stackTrace');
   }
 

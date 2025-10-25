@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:geocoding/geocoding.dart';
 import 'dart:async';
+import '../demo/push_notification_demo.dart';
 import 'map_widget.dart';
 import '../app_theme.dart';
 import 'chatbot_widget.dart';
@@ -98,7 +99,7 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _isServiceRunning = safetyProvider.isEnabled;
       });
-      
+
       // Show tutorial after small delay
       await Future.delayed(const Duration(milliseconds: 500));
       if (mounted) {
@@ -242,7 +243,7 @@ class _HomePageState extends State<HomePage> {
       case 3:
         return ProfilePage();
       case 4:
-        return UserManagementScreen();
+        return PushNotificationDemo();
       default:
         return _buildHomePage();
     }
@@ -289,6 +290,7 @@ class _HomePageState extends State<HomePage> {
             _buildNavItem(1, Icons.group, 'Community'),
             _buildNavItem(2, Icons.add_box, 'Lodge'),
             _buildNavItem(3, Icons.person, 'Profile'),
+            _buildNavItem(4, Icons.notifications, 'Demo'),
           ],
         ),
       ),
