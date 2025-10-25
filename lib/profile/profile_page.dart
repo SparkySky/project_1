@@ -1147,14 +1147,11 @@ class _ProfilePageState extends State<ProfilePage> {
             subtitle: 'Others can find you in the app',
             value: _allowDiscoverable,
             onChanged: (value) async {
-              // Save to SharedPreferences only (local storage)
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.setBool('allow_discoverable', value);
-
-              if (!mounted) return;
               setState(() {
                 _allowDiscoverable = value;
               });
+              _cloudDbUser?.allowDiscoverable = value;
+              await _userProvider!.updateCloudDbUser(_cloudDbUser!);
 
               debugPrint('[ProfilePage] 💾 Saved allow_discoverable: $value');
             },
@@ -1169,14 +1166,13 @@ class _ProfilePageState extends State<ProfilePage> {
             subtitle: 'Receive emergency notifications',
             value: _allowEmergencyAlert,
             onChanged: (value) async {
-              // Save to SharedPreferences only (local storage)
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.setBool('allow_emergency_alert', value);
-
-              if (!mounted) return;
               setState(() {
                 _allowEmergencyAlert = value;
               });
+              _cloudDbUser?.allowEmergencyAlert = value;
+              await _userProvider!.updateCloudDbUser(_cloudDbUser!);
+
+              if (!mounted) return;
 
               debugPrint(
                 '[ProfilePage] 💾 Saved allow_emergency_alert: $value',
