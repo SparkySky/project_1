@@ -13,6 +13,7 @@ import 'bg_services/clouddb_service.dart';
 import 'bg_services/sensors_analysis.dart';
 import 'permissions/permission_handler.dart';
 import 'providers/user_provider.dart';
+import 'util/snackbar_helper.dart';
 import 'util/debug_state.dart';
 import 'util/debug_overlay.dart';
 import 'splashscreen.dart';
@@ -21,7 +22,7 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Load the .env file
   await dotenv.load(fileName: ".env");
 
@@ -49,7 +50,9 @@ Future<void> main() async {
   await initializeBackgroundService();
 
   // 3. Initialize the Sensors Analysis Service
-  final sensorsAnalysisService = SensorsAnalysisService(navigatorKey: navigatorKey);
+  final sensorsAnalysisService = SensorsAnalysisService(
+    navigatorKey: navigatorKey,
+  );
   await sensorsAnalysisService.initialize();
 
   // 4. Initialize AGConnect Core & CloudDB in the main isolate
@@ -59,6 +62,10 @@ Future<void> main() async {
     print('[MAIN] Cloud DB initialized successfully');
   } catch (e) {
     print('[MAIN] Error initializing Cloud DB: $e');
+    // Wait for the first frame to be rendered
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Snackbar.error('[MAIN] Error initializing Cloud DB: $e');
+    });
   }
 
   runApp(

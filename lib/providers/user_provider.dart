@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:agconnect_auth/agconnect_auth.dart';
+import '../util/snackbar_helper.dart';
 import '../models/users.dart';
 import '../repository/user_repository.dart';
 import '../signup_login/auth_service.dart';
@@ -30,7 +31,7 @@ class UserProvider extends ChangeNotifier {
 
     try {
       _agcUser = await _authService.currentUser;
-      
+
       if (_agcUser != null) {
         await _loadCloudDbUser();
       }
@@ -48,6 +49,8 @@ class UserProvider extends ChangeNotifier {
 
     try {
       await _userRepository.openZone();
+      debugPrint('Loading CloudDB user: ${_agcUser!.uid}');
+      // Snackbar.success("Logged in success!");
       _cloudDbUser = await _userRepository.getUserById(_agcUser!.uid!);
       notifyListeners();
     } catch (e) {
@@ -65,9 +68,9 @@ class UserProvider extends ChangeNotifier {
     _agcUser = user;
     _isLoading = true;
     notifyListeners();
-    
+
     await _loadCloudDbUser();
-    
+
     _isLoading = false;
     notifyListeners();
   }
@@ -77,7 +80,7 @@ class UserProvider extends ChangeNotifier {
     try {
       await _userRepository.openZone();
       final success = await _userRepository.upsertUser(user);
-      
+
       if (success) {
         _cloudDbUser = user;
         notifyListeners();

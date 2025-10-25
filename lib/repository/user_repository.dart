@@ -16,15 +16,14 @@ class UserRepository {
 
   /// Get user by UID
   Future<Users?> getUserById(String uid) async {
-    final query = AGConnectCloudDBQuery(_objectTypeName)
-      ..equalTo('uid', uid);
-    
+    final query = AGConnectCloudDBQuery(_objectTypeName)..equalTo('uid', uid);
+
     final results = await _dbService.query<Users>(
       _objectTypeName,
       query: query,
       fromMap: (map) => Users.fromMap(map),
     );
-    
+
     return results.isNotEmpty ? results.first : null;
   }
 
@@ -32,7 +31,7 @@ class UserRepository {
   Future<List<Users>> getUsersByDistrict(String district) async {
     final query = AGConnectCloudDBQuery(_objectTypeName)
       ..equalTo('district', district);
-    
+
     return await _dbService.query<Users>(
       _objectTypeName,
       query: query,
@@ -77,9 +76,8 @@ class UserRepository {
   /// Delete user by UID
   Future<bool> deleteUserById(String uid) async {
     try {
-      final query = AGConnectCloudDBQuery(_objectTypeName)
-        ..equalTo('uid', uid);
-      
+      final query = AGConnectCloudDBQuery(_objectTypeName)..equalTo('uid', uid);
+
       final result = await _dbService.deleteByQuery(_objectTypeName, query);
       return result > 0;
     } catch (e) {

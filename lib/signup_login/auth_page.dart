@@ -4,6 +4,7 @@ import 'auth_service.dart';
 import '../util/snackbar_helper.dart';
 import '../app_theme.dart';
 import '../homepage/homepage.dart';
+import 'terms_conditions_page.dart';
 
 class AuthScreen extends StatefulWidget {
   final bool isLogin;
@@ -99,7 +100,11 @@ class _AuthScreenState extends State<AuthScreen> {
     try {
       if (_isLoginMode) {
         // --- LOGIN ---
-        final user = await _authService.signInWithEmail(context, email, password);
+        final user = await _authService.signInWithEmail(
+          context,
+          email,
+          password,
+        );
         if (user != null && mounted) {
           Navigator.pushReplacement(
             context,
