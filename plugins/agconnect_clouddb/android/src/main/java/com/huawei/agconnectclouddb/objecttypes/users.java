@@ -37,9 +37,11 @@ public final class Users extends CloudDBZoneObject {
 
     private Double latitude;
 
-    private Double longtitude;
-
     private Date locUpdateTime;
+
+    private Double longitude;
+
+    private String email;
 
     public Users() {
         super(Users.class);
@@ -117,20 +119,28 @@ public final class Users extends CloudDBZoneObject {
         return latitude;
     }
 
-    public void setLongtitude(Double longtitude) {
-        this.longtitude = longtitude;
-    }
-
-    public Double getLongtitude() {
-        return longtitude;
-    }
-
     public void setLocUpdateTime(Date locUpdateTime) {
         this.locUpdateTime = locUpdateTime;
     }
 
     public Date getLocUpdateTime() {
         return locUpdateTime;
+    }
+
+    public void setLongitude(Double longitude) {
+        this.longitude = longitude;
+    }
+
+    public Double getLongitude() {
+        return longitude;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getEmail() {
+        return email;
     }
 
 }

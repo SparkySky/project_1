@@ -19,14 +19,14 @@ import java.util.List;
  */
 public final class ObjectTypeInfoHelper {
     private static final int FORMAT_VERSION = 2;
-    private static final int OBJECT_TYPE_VERSION = 40;
+    private static final int OBJECT_TYPE_VERSION = 43;
 
     public static ObjectTypeInfo getObjectTypeInfo() {
         ObjectTypeInfo objectTypeInfo = new ObjectTypeInfo();
         objectTypeInfo.setFormatVersion(FORMAT_VERSION);
         objectTypeInfo.setObjectTypeVersion(OBJECT_TYPE_VERSION);
         List<Class<? extends CloudDBZoneObject>> objectTypeList = new ArrayList<>();
-        Collections.addAll(objectTypeList, Media.class, Incidents.class, Users.class);
+        Collections.addAll(objectTypeList, Media.class, Incidents.class, Users.class, IncidentLogs.class);
         objectTypeInfo.setObjectTypes(objectTypeList);
         return objectTypeInfo;
     }

@@ -10,6 +10,7 @@ class Users {
   DateTime? locUpdateTime;
   bool? allowDiscoverable;
   bool? allowEmergencyAlert;
+  String? email;
   String?
   detectionLanguage; // 'en' for English, 'zh' for Chinese (Traditional), 'ms' for Malay
 
@@ -26,6 +27,7 @@ class Users {
     this.allowDiscoverable,
     this.allowEmergencyAlert,
     this.detectionLanguage,
+    this.email,
   });
 
   factory Users.fromMap(Map<String, dynamic> map) {
@@ -44,6 +46,7 @@ class Users {
       allowDiscoverable: map['allowDiscoverable'],
       allowEmergencyAlert: map['allowEmergencyAlert'],
       detectionLanguage: map['detectionLanguage'] ?? 'en', // Default to English
+      email: map['email'],
     );
   }
 
@@ -61,6 +64,7 @@ class Users {
       'allowDiscoverable': allowDiscoverable,
       'allowEmergencyAlert': allowEmergencyAlert,
       'detectionLanguage': detectionLanguage ?? 'en',
+      'email': email,
     };
   }
 }

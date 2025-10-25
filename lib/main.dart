@@ -8,7 +8,6 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'app_theme.dart';
 import 'splashscreen.dart';
 import 'providers/user_provider.dart';
-// import 'bg_services/safety_service.dart'; // No longer needed globally
 import 'debug_overlay/safety_debug_overlay.dart';
 import 'debug_overlay/debug_state.dart';
 
@@ -54,7 +53,7 @@ Future<void> main() async {
     await CloudDbService.initialize();
     await CloudDbService.createObjectType();
     print('[MAIN] ✅ Cloud DB initialized successfully');
-    
+
     await Future.delayed(const Duration(milliseconds: 300));
   } catch (e, stackTrace) {
     print('[MAIN] ❌ Error initializing Cloud DB: $e');

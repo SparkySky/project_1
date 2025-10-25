@@ -40,6 +40,9 @@ class _ProfilePageState extends State<ProfilePage> {
   final TextEditingController _postcodeController = TextEditingController();
   final TextEditingController _stateController = TextEditingController();
 
+  // Track if email has been set before (can only be set once)
+  bool _emailHasBeenSet = false;
+
   File? _profileImage; // Session-only, not saved
   final ImagePicker _picker = ImagePicker();
 
@@ -233,6 +236,7 @@ class _ProfilePageState extends State<ProfilePage> {
     String district,
     String postcode,
     String state,
+    String email,
   ) async {
     if (mounted) {
       setState(() {
@@ -240,6 +244,13 @@ class _ProfilePageState extends State<ProfilePage> {
         _cloudDbUser?.district = district;
         _cloudDbUser?.postcode = postcode;
         _cloudDbUser?.state = state;
+
+        // Only update email if it hasn't been set before
+        if (!_emailHasBeenSet && email.isNotEmpty) {
+          _cloudDbUser?.email = email;
+          _emailHasBeenSet = true;
+        }
+
         _userProvider!.updateCloudDbUser(_cloudDbUser!);
       });
       ScaffoldMessenger.of(context).showSnackBar(
@@ -265,11 +276,15 @@ class _ProfilePageState extends State<ProfilePage> {
     _cloudDbUser = _userProvider!.cloudDbUser;
     final isLoading = _userProvider!.isLoading;
 
-    _emailController.text = _agcUser?.email ?? '';
+    _emailController.text = _cloudDbUser?.email ?? '';
     _phoneController.text = _cloudDbUser?.phoneNo ?? '';
     _districtController.text = _cloudDbUser?.district ?? '';
     _postcodeController.text = _cloudDbUser?.postcode ?? '';
     _stateController.text = _cloudDbUser?.state ?? '';
+
+    // Check if email has been set before (can only be set once)
+    _emailHasBeenSet =
+        _cloudDbUser?.email != null && _cloudDbUser!.email!.isNotEmpty;
 
     if (isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -624,9 +639,11 @@ class _ProfilePageState extends State<ProfilePage> {
         children: [
           _buildTextField(
             controller: _emailController,
-            label: 'Email',
+            label: _emailHasBeenSet ? 'Email (Set Once)' : 'Email',
             icon: Icons.email_outlined,
             keyboardType: TextInputType.emailAddress,
+            enabled: !_emailHasBeenSet,
+            suffixIcon: _emailHasBeenSet ? Icons.lock : null,
           ),
           const SizedBox(height: 16),
           _buildTextField(
@@ -665,6 +682,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   _districtController.text,
                   _postcodeController.text,
                   _stateController.text,
+                  _emailController.text,
                 );
               },
               icon: const Icon(Icons.save_outlined, size: 20),
@@ -692,16 +710,22 @@ class _ProfilePageState extends State<ProfilePage> {
     required String label,
     required IconData icon,
     TextInputType? keyboardType,
+    bool enabled = true,
+    IconData? suffixIcon,
   }) {
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
       cursorColor: AppTheme.primaryOrange,
+      enabled: enabled,
       decoration: InputDecoration(
         labelText: label,
         labelStyle: TextStyle(color: Colors.grey[600]),
         floatingLabelStyle: TextStyle(color: AppTheme.primaryOrange),
         prefixIcon: Icon(icon, color: AppTheme.primaryOrange),
+        suffixIcon: suffixIcon != null
+            ? Icon(suffixIcon, color: Colors.grey[600], size: 20)
+            : null,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: Colors.grey[300]!),
