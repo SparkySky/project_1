@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:project_1/bg_services/clouddb_service.dart';
 import 'package:project_1/providers/safety_service_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -51,6 +52,15 @@ Future<void> main() async {
         AndroidFlutterLocalNotificationsPlugin
       >()
       ?.createNotificationChannel(safetyTriggerChannel);
+
+  // 4. Initialize AGConnect Core & CloudDB in the main isolate
+  try {
+    await CloudDbService.initialize();
+    await CloudDbService.createObjectType();
+    print('[MAIN] Cloud DB initialized successfully');
+  } catch (e) {
+    print('[MAIN] Error initializing Cloud DB: $e');
+  }
 
   runApp(
     MultiProvider(

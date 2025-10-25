@@ -13,12 +13,12 @@ import com.huawei.agconnect.cloud.database.Text;
 import java.util.Date;
 
 /**
- * Definition of ObjectType incident_logs.
+ * Definition of ObjectType IncidentLogs.
  *
- * @since 2025-10-22
+ * @since 2025-10-24
  */
 @PrimaryKeys({"iid", "timestamp"})
-public final class incident_logs extends CloudDBZoneObject {
+public final class IncidentLogs extends CloudDBZoneObject {
     private String iid;
 
     private String timestamp;
@@ -29,8 +29,8 @@ public final class incident_logs extends CloudDBZoneObject {
 
     private String aiDesc;
 
-    public incident_logs() {
-        super(incident_logs.class);
+    public IncidentLogs() {
+        super(IncidentLogs.class);
         this.sensorJsonData = "";
     }
 
