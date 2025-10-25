@@ -12,6 +12,7 @@ import '../profile/profile_page.dart';
 import '../user_management.dart';
 import 'package:provider/provider.dart';
 import '../providers/safety_service_provider.dart';
+import '../tutorial/homepage_tutorial.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -89,7 +90,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final safetyProvider = Provider.of<SafetyServiceProvider>(
         context,
         listen: false,
@@ -97,6 +98,12 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _isServiceRunning = safetyProvider.isEnabled;
       });
+      
+      // Show tutorial after small delay
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (mounted) {
+        HomePageTutorialManager.showTutorialIfNeeded(context);
+      }
     });
     _getAddressesForIncidents();
   }
