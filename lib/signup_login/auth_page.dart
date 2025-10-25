@@ -4,6 +4,8 @@ import 'auth_service.dart';
 import '../util/snackbar_helper.dart';
 import '../app_theme.dart';
 import '../homepage/homepage.dart';
+import 'terms_conditions_page.dart';
+import 'privacy_policy_page.dart';
 
 class AuthScreen extends StatefulWidget {
   final bool isLogin;
@@ -32,6 +34,7 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _isLoading = false;
   late bool _isLoginMode;
   bool _showValidationErrors = false;
+  bool _acceptTerms = false;
 
   @override
   void initState() {
@@ -68,6 +71,7 @@ class _AuthScreenState extends State<AuthScreen> {
       _emailController.clear();
       _passwordController.clear();
       _confirmPasswordController.clear();
+      _acceptTerms = false;
       FocusScope.of(context).unfocus();
       _showValidationErrors = false;
     });
@@ -88,6 +92,12 @@ class _AuthScreenState extends State<AuthScreen> {
       return;
     }
 
+    // Check if terms are accepted for signup
+    if (!_isLoginMode && !_acceptTerms) {
+      Snackbar.error("Please accept the Terms and Conditions to continue.");
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _showValidationErrors = false;
@@ -99,7 +109,11 @@ class _AuthScreenState extends State<AuthScreen> {
     try {
       if (_isLoginMode) {
         // --- LOGIN ---
-        final user = await _authService.signInWithEmail(context, email, password);
+        final user = await _authService.signInWithEmail(
+          context,
+          email,
+          password,
+        );
         if (user != null && mounted) {
           Navigator.pushReplacement(
             context,
@@ -753,6 +767,99 @@ class _AuthScreenState extends State<AuthScreen> {
                       validator: _validateConfirmPassword,
                     ),
                   ],
+                  // Terms and Conditions Checkbox (Sign Up only)
+                  if (!_isLoginMode) ...[
+                    const SizedBox(height: 16),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Checkbox(
+                          value: _acceptTerms,
+                          onChanged: (value) {
+                            setState(() {
+                              _acceptTerms = value ?? false;
+                            });
+                          },
+                          activeColor: AppTheme.primaryOrange,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _acceptTerms = !_acceptTerms;
+                              });
+                            },
+                            child: RichText(
+                              text: TextSpan(
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.black87,
+                                  height: 1.4,
+                                ),
+                                children: [
+                                  const TextSpan(text: 'I agree to the '),
+                                  WidgetSpan(
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                const TermsConditionsPage(),
+                                          ),
+                                        );
+                                      },
+                                      child: const Text(
+                                        'Terms and Conditions',
+                                        style: TextStyle(
+                                          color: AppTheme.primaryOrange,
+                                          fontWeight: FontWeight.w600,
+                                          decoration: TextDecoration.underline,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const TextSpan(text: ' and '),
+                                  WidgetSpan(
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                const TermsConditionsPage(),
+                                          ),
+                                        );
+                                      },
+                                      child: const Text(
+                                        'Privacy Policy',
+                                        style: TextStyle(
+                                          color: AppTheme.primaryOrange,
+                                          fontWeight: FontWeight.w600,
+                                          decoration: TextDecoration.underline,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (_showValidationErrors && !_acceptTerms)
+                      const Padding(
+                        padding: EdgeInsets.only(left: 48.0, top: 4.0),
+                        child: Text(
+                          'Please accept the Terms and Conditions',
+                          style: TextStyle(color: Colors.red, fontSize: 12),
+                        ),
+                      ),
+                  ],
 
                   const SizedBox(height: 24),
 
@@ -824,6 +931,31 @@ class _AuthScreenState extends State<AuthScreen> {
                           style: TextStyle(
                             color: AppTheme.primaryOrange,
                             fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  // Terms and Conditions Link (Login only)
+                  if (_isLoginMode)
+                    Center(
+                      child: TextButton(
+                        onPressed: _isLoading
+                            ? null
+                            : () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const TermsConditionsPage(),
+                                  ),
+                                );
+                              },
+                        child: const Text(
+                          'Terms & Conditions',
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontSize: 12,
+                            decoration: TextDecoration.underline,
                           ),
                         ),
                       ),

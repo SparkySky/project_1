@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:agconnect_clouddb/agconnect_clouddb.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class CloudDbService {
   static AGConnectCloudDB? _cloudDB;
@@ -11,6 +13,7 @@ class CloudDbService {
 
   /// Initialize Cloud DB (call once at app startup)
   static Future<void> initialize() async {
+    debugPrint('Initializing Cloud DB...');
     if (_cloudDB == null) {
       _cloudDB = AGConnectCloudDB.getInstance();
       await _cloudDB!.initialize();
@@ -18,11 +21,23 @@ class CloudDbService {
   }
 
   /// Create object type (call before opening zone)
+
   static Future<void> createObjectType() async {
+    debugPrint('Creating object type...');
     if (_cloudDB == null) {
-      throw Exception('Cloud DB not initialized. Call initialize() first.');
+      debugPrint('Cloud DB not initialized');
+      throw Exception('Cloud DB not initialized');
     }
-    await _cloudDB!.createObjectType();
+
+    try {
+      // This method doesn't take any parameters
+      // It reads the object types from your AGC configuration
+      await _cloudDB!.createObjectType();
+      print('[CloudDB] Object types created successfully');
+    } catch (e) {
+      print('[CloudDB] Error creating object type: $e');
+      rethrow;
+    }
   }
 
   /// Open a Cloud DB Zone

@@ -30,23 +30,24 @@ class Users {
 
   factory Users.fromMap(Map<String, dynamic> map) {
     return Users(
-      uid: map['uid'],
-      district: map['district'],
-      postcode: map['postcode'],
-      state: map['state'],
-      username: map['username'],
-      phoneNo: map['phoneNo'],
-      latitude: map['latitude'],
-      longitude: map['longitude'],
+      uid: map['uid'] as String?,
+      district: map['district'] as String?,
+      postcode: map['postcode'] as String?,
+      state: map['state'] as String?,
+      username: map['username'] as String?,
+      phoneNo: map['phoneNo'] as String?,
+      latitude: map['latitude'] as double?,
+      longitude: map['longtitutde'] as double?,
       locUpdateTime: map['locUpdateTime'] != null
           ? DateTime.fromMillisecondsSinceEpoch(map['locUpdateTime'])
           : null,
-      allowDiscoverable: map['allowDiscoverable'],
-      allowEmergencyAlert: map['allowEmergencyAlert'],
+      allowDiscoverable: map['allowDiscoverable'] as bool?,
+      allowEmergencyAlert: map['allowEmergencyAlert'] as bool?,
       detectionLanguage: map['detectionLanguage'] ?? 'en', // Default to English
     );
   }
 
+  // Convert Users object to Map for CloudDB operations
   Map<String, dynamic> toMap() {
     return {
       'uid': uid,

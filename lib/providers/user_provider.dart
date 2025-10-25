@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:agconnect_auth/agconnect_auth.dart';
+import '../util/snackbar_helper.dart';
 import '../models/users.dart';
 import '../repository/user_repository.dart';
 import '../signup_login/auth_service.dart';
@@ -49,6 +50,8 @@ class UserProvider extends ChangeNotifier {
 
     try {
       await _userRepository.openZone();
+      debugPrint('Loading CloudDB user: ${_agcUser!.uid}');
+      // Snackbar.success("Logged in success!");
       _cloudDbUser = await _userRepository.getUserById(_agcUser!.uid!);
 
       // Immediately sync language preference from SharedPreferences

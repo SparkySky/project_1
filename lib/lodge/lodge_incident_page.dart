@@ -428,7 +428,6 @@ Future<void> _submitIncident() async {
             final mediaObject = media(
               mediaID: mediaId,
               order: order,
-              forLog: false,
               mediaType: fileExtension,
               mediaURI: mediaURL, // AWS S3 URL
             );

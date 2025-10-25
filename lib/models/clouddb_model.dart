@@ -98,14 +98,12 @@ class incidents {
 class media {
   String mediaID;
   int order;
-  bool forLog;
   String mediaType;
   String mediaURI;
 
   media({
     required this.mediaID,
     required this.order,
-    required this.forLog,
     required this.mediaType,
     required this.mediaURI,
   });
@@ -114,9 +112,32 @@ class media {
     return {
       'mediaID': mediaID,
       'order': order,
-      'forLog': forLog,
       'mediaType': mediaType,
       'mediaURI': mediaURI,
+    }..removeWhere((key, value) => value == null);
+  }
+}
+
+class incident_logs {
+  String iid;
+  DateTime timestamp;
+  String sensorJsonData; // Keep as String to store serialized JSON
+  String aiDesc;
+
+  incident_logs({
+    required this.iid,
+    required this.timestamp,
+    required this.sensorJsonData,
+    required this.aiDesc,
+  });
+
+  Map<String, dynamic> getObjectData() {
+    return {
+      'iid': iid,
+      // Convert DateTime to a compatible format
+      'timestamp': timestamp.toIso8601String(),
+      'sensorJsonData': sensorJsonData,
+      'aiDesc': aiDesc,
     }..removeWhere((key, value) => value == null);
   }
 }
