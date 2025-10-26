@@ -110,7 +110,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         HomePageTutorialManager.showTutorialIfNeeded(
           context,
           onFilterTap: _showRadiusFilterDialog,
-          onChatbotTap: _navigateToChatbot,
           onNavigateToLodge: _navigateToLodge,
           onTutorialComplete: () {
             print('[Homepage] onTutorialComplete called');
@@ -857,13 +856,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
-  void _navigateToChatbot() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const ChatbotPage()),
-    );
-  }
-
   void _navigateToLodge() {
     print('[Homepage] _navigateToLodge called, setting _selectedIndex to 2');
     setState(() {
@@ -966,7 +958,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               HomePageTutorialManager.showTutorial(
                 context,
                 onFilterTap: _showRadiusFilterDialog,
-                onChatbotTap: _navigateToChatbot,
               );
             }
           },

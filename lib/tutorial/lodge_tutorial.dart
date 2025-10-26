@@ -126,7 +126,7 @@ class _LodgeTutorialState extends State<LodgeTutorial>
             "Now let's check out your Profile page to manage your settings. Please tap 'Profile' in the bottom navigation bar to continue the tutorial.",
         highlightArea: HighlightArea(
           top: screenHeight - 95, // Start 30px above bottom nav
-          height: 60, // Include full height with more padding
+          height: 65, // Include full height with more padding
           left: screenWidth / 4 * 3 + 10, // Fourth button (index 3)
           width: screenWidth / 4 - 15,
         ),

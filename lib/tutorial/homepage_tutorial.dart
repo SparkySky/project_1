@@ -5,14 +5,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 class HomePageTutorial extends StatefulWidget {
   final VoidCallback onComplete;
   final VoidCallback? onFilterButtonTap;
-  final VoidCallback? onChatbotButtonTap;
   final VoidCallback? onNavigateToLodge;
 
   const HomePageTutorial({
     super.key,
     required this.onComplete,
     this.onFilterButtonTap,
-    this.onChatbotButtonTap,
     this.onNavigateToLodge,
   });
 
@@ -121,7 +119,7 @@ class _HomePageTutorialState extends State<HomePageTutorial>
               bottomNavHeight -
               40,
         ),
-        position: TutorialPosition.center,
+        position: TutorialPosition.top,
       ),
       // Explain filter BEFORE asking user to tap
       TutorialStep(
@@ -138,21 +136,6 @@ class _HomePageTutorialState extends State<HomePageTutorial>
         requireUserTap: true,
         interactionType: InteractionType.filter,
       ),
-      // Explain chatbot and ask user to tap chatbot button
-      TutorialStep(
-        title: "AI Chatbot Assistant",
-        description:
-            "Tap the chatbot button to chat with MYSafeZone Assistant.",
-        highlightArea: HighlightArea(
-          top: screenHeight - bottomNavHeight - 118,
-          height: 56,
-          left: screenWidth - 72,
-          width: 56,
-        ),
-        position: TutorialPosition.top,
-        requireUserTap: true,
-        interactionType: InteractionType.chatbot,
-      ),
       // Final step - guide to Lodge page
       TutorialStep(
         title: "Homepage Tutorial Complete!",
@@ -166,7 +149,7 @@ class _HomePageTutorialState extends State<HomePageTutorial>
           height: bottomNavHeight + 10, // Include full height with more padding
           left:
               screenWidth / 4 * 2 + 10, // Third button (index 2) - moved right
-          width: screenWidth / 4 - 15,
+          width: screenWidth / 4 - 10,
         ),
         position: TutorialPosition.top,
         requireUserTap: true,
@@ -213,18 +196,6 @@ class _HomePageTutorialState extends State<HomePageTutorial>
           widget.onFilterButtonTap?.call();
           // Move to next step IMMEDIATELY - explanation will show with dialog open
           Future.delayed(const Duration(milliseconds: 200), () {
-            if (mounted) {
-              setState(() {
-                _isHidden = false;
-              });
-              _nextStep();
-            }
-          });
-          break;
-        case InteractionType.chatbot:
-          widget.onChatbotButtonTap?.call();
-          // Complete step immediately - tutorial will show in chatbot page
-          Future.delayed(const Duration(milliseconds: 500), () {
             if (mounted) {
               setState(() {
                 _isHidden = false;
@@ -291,18 +262,12 @@ class _HomePageTutorialState extends State<HomePageTutorial>
           // Animated arrow outside the button (not blocking it)
           if (currentStep.requireUserTap && currentStep.highlightArea != null)
             Positioned(
-              left: currentStep.interactionType == InteractionType.chatbot
-                  ? (currentStep.highlightArea!.left ?? 0) -
-                        100 // Position left of chatbot button
-                  : currentStep.interactionType == InteractionType.filter
+              left: currentStep.interactionType == InteractionType.filter
                   ? (currentStep.highlightArea!.left ?? 0) -
                         10 // Position left of filter button
                   : (currentStep.highlightArea!.left ?? 0) +
                         10, // Position left for lodge button
-              top: currentStep.interactionType == InteractionType.chatbot
-                  ? currentStep.highlightArea!.top -
-                        20 // Position higher for chatbot
-                  : currentStep.interactionType == InteractionType.filter
+              top: currentStep.interactionType == InteractionType.filter
                   ? currentStep.highlightArea!.top -
                         80 // Position higher above filter button
                   : currentStep.highlightArea!.top -
@@ -312,28 +277,12 @@ class _HomePageTutorialState extends State<HomePageTutorial>
                 child: AnimatedBuilder(
                   animation: _arrowAnimationController,
                   builder: (context, child) {
-                    // Determine arrow direction and animation based on button type
-                    bool isChatbotButton =
-                        currentStep.interactionType == InteractionType.chatbot;
-                    bool isFilterButton =
-                        currentStep.interactionType == InteractionType.filter;
-                    bool isNavigateButton =
-                        currentStep.interactionType ==
-                        InteractionType.navigateToLodge;
-
                     // Calculate animation offset
                     double animationOffset =
                         _arrowAnimationController.value * 10;
 
                     return Transform.translate(
-                      offset: Offset(
-                        isChatbotButton ? animationOffset : 0,
-                        isFilterButton
-                            ? -animationOffset // Move up for filter
-                            : isNavigateButton
-                            ? -animationOffset // Move down for navigate button
-                            : 0,
-                      ),
+                      offset: Offset(0, -animationOffset), // Move up
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -354,11 +303,9 @@ class _HomePageTutorialState extends State<HomePageTutorial>
                             ),
                           ),
                           const SizedBox(height: 8),
-                          // Animated arrow - all point down to buttons
-                          Icon(
-                            isChatbotButton
-                                ? Icons.arrow_forward
-                                : Icons.arrow_downward,
+                          // Animated arrow - points down to buttons
+                          const Icon(
+                            Icons.arrow_downward,
                             color: Colors.orange,
                             size: 40,
                           ),
@@ -609,7 +556,7 @@ class SpotlightPainter extends CustomPainter {
 }
 
 // Interaction types
-enum InteractionType { filter, chatbot, navigateToLodge }
+enum InteractionType { filter, navigateToLodge }
 
 // Tutorial step model
 class TutorialStep {
@@ -670,7 +617,6 @@ class HomePageTutorialManager {
   static Future<void> showTutorialIfNeeded(
     BuildContext context, {
     VoidCallback? onFilterTap,
-    VoidCallback? onChatbotTap,
     VoidCallback? onNavigateToLodge,
     VoidCallback? onTutorialComplete,
   }) async {
@@ -679,7 +625,6 @@ class HomePageTutorialManager {
       showTutorial(
         context,
         onFilterTap: onFilterTap,
-        onChatbotTap: onChatbotTap,
         onNavigateToLodge: onNavigateToLodge,
         onTutorialComplete: onTutorialComplete,
       );
@@ -690,7 +635,6 @@ class HomePageTutorialManager {
   static void showTutorial(
     BuildContext context, {
     VoidCallback? onFilterTap,
-    VoidCallback? onChatbotTap,
     VoidCallback? onNavigateToLodge,
     VoidCallback? onTutorialComplete,
   }) {
@@ -707,7 +651,6 @@ class HomePageTutorialManager {
           onTutorialComplete?.call();
         },
         onFilterButtonTap: onFilterTap,
-        onChatbotButtonTap: onChatbotTap,
         onNavigateToLodge: onNavigateToLodge,
       ),
     );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:io';
 import '../app_theme.dart';
 import '../models/clouddb_model.dart';
 import '../repository/incident_repository.dart';
@@ -10,6 +11,7 @@ import 'package:agconnect_auth/agconnect_auth.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:video_player/video_player.dart';
+import 'package:video_thumbnail/video_thumbnail.dart';
 
 class IncidentHistoryPage extends StatefulWidget {
   const IncidentHistoryPage({super.key});
@@ -191,7 +193,7 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
         incidentType: incident.incidentType,
         mediaID: incident.mediaID,
         isAIGenerated: incident.isAIGenerated,
-        status: 'resolve', // Update status to 'resolve'
+        status: 'resolved', // Update status to 'resolved'
       );
 
       final success = await _incidentRepository.upsertIncident(updatedIncident);
@@ -232,8 +234,8 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
   }
 
   Future<void> _deleteIncident(incidents incident, int index) async {
-    // Only allow deletion for 'active' or 'endbybtn' status
-    if (incident.status != 'active' && incident.status != 'endbybtn') {
+    // Only allow deletion for 'active' or 'endedByBtn' status
+    if (incident.status != 'active' && incident.status != 'endedByBtn') {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -318,11 +320,11 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
     switch (status) {
       case 'active':
         return 'Active';
-      case 'endbybtn':
-        return 'Ended';
-      case 'resolve':
+      case 'endedByBtn':
+        return 'Button Ended';
+      case 'resolved':
         return 'Resolved';
-      case 'fpositive':
+      case 'fPositive':
         return 'False Positive';
       default:
         return status;
@@ -332,16 +334,80 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
   Color _getStatusColor(String status) {
     switch (status) {
       case 'active':
-        return Colors.red;
-      case 'endbybtn':
         return Colors.orange;
-      case 'resolve':
+      case 'endedByBtn':
+        return Colors.yellow[700]!;
+      case 'resolved':
         return Colors.green;
-      case 'fpositive':
+      case 'fPositive':
         return Colors.grey;
       default:
         return Colors.blue;
     }
+  }
+
+  Widget _buildVideoThumbnail(String videoUrl) {
+    return FutureBuilder<String?>(
+      future: VideoThumbnail.thumbnailFile(
+        video: videoUrl,
+        imageFormat: ImageFormat.PNG,
+        maxWidth: 200,
+        quality: 75,
+      ),
+      builder: (context, snapshot) {
+        return Container(
+          width: 100,
+          height: 100,
+          decoration: BoxDecoration(
+            color: Colors.grey[800],
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // Thumbnail image or loading
+                if (snapshot.connectionState == ConnectionState.done &&
+                    snapshot.hasData &&
+                    snapshot.data != null)
+                  Image.file(
+                    File(snapshot.data!),
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(color: Colors.grey[800]);
+                    },
+                  )
+                else
+                  Container(
+                    color: Colors.grey[800],
+                    child: snapshot.connectionState == ConnectionState.waiting
+                        ? const Center(
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            ),
+                          )
+                        : null,
+                  ),
+                // Play button overlay
+                const Center(
+                  child: Icon(
+                    Icons.play_circle_filled,
+                    color: Colors.white,
+                    size: 50,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _viewImage(String imageUrl) {
@@ -539,6 +605,7 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
+      color: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       elevation: 2,
       child: Padding(
@@ -563,7 +630,7 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
                     incident.incidentType == 'threat'
                         ? Icons.error_outline
                         : Icons.info_outline,
-                    size: 24,
+                    size: 32,
                     color: incident.incidentType == 'threat'
                         ? Colors.red[700]
                         : Colors.blue[700],
@@ -713,10 +780,13 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  Icons.location_on_outlined,
-                  size: 16,
-                  color: Colors.grey[600],
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Icon(
+                    Icons.location_on_outlined,
+                    size: 16,
+                    color: Colors.grey[600],
+                  ),
                 ),
                 const SizedBox(width: 4),
                 Expanded(
@@ -735,248 +805,138 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
               const SizedBox(height: 12),
               Divider(color: Colors.grey[300], thickness: 1),
               const SizedBox(height: 12),
-              // Images (clickable)
-              if (mediaList.any(
-                (m) =>
-                    m.mediaType == 'jpg' ||
-                    m.mediaType == 'jpeg' ||
-                    m.mediaType == 'png',
-              ))
-                SizedBox(
-                  height: 80,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: mediaList
-                        .where(
-                          (m) =>
-                              m.mediaType == 'jpg' ||
-                              m.mediaType == 'jpeg' ||
-                              m.mediaType == 'png',
-                        )
-                        .length,
-                    itemBuilder: (context, i) {
-                      final imageList = mediaList
-                          .where(
-                            (m) =>
-                                m.mediaType == 'jpg' ||
-                                m.mediaType == 'jpeg' ||
-                                m.mediaType == 'png',
-                          )
-                          .toList();
-                      final mediaItem = imageList[i];
+              // Display all media types in a grid
+              SizedBox(
+                height: 100,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: mediaList.length,
+                  itemBuilder: (context, i) {
+                    final mediaItem = mediaList[i];
+                    final isImage =
+                        mediaItem.mediaType == 'jpg' ||
+                        mediaItem.mediaType == 'jpeg' ||
+                        mediaItem.mediaType == 'png';
+                    final isVideo =
+                        mediaItem.mediaType == 'mp4' ||
+                        mediaItem.mediaType == 'mov' ||
+                        mediaItem.mediaType == 'avi';
+                    final isAudio =
+                        mediaItem.mediaType == 'mp3' ||
+                        mediaItem.mediaType == 'wav' ||
+                        mediaItem.mediaType == 'm4a';
 
-                      return GestureDetector(
-                        onTap: () => _viewImage(mediaItem.mediaURI),
-                        child: Container(
-                          margin: const EdgeInsets.only(right: 8),
-                          width: 80,
-                          decoration: BoxDecoration(
-                            color: Colors.grey[200],
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: AppTheme.primaryOrange.withOpacity(0.5),
-                              width: 2,
-                            ),
-                          ),
-                          child: Stack(
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(6),
-                                child: Image.network(
-                                  mediaItem.mediaURI,
-                                  fit: BoxFit.cover,
-                                  width: 80,
-                                  height: 80,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Icon(
-                                      Icons.broken_image,
-                                      color: Colors.grey[400],
-                                    );
-                                  },
+                    Widget mediaWidget;
+
+                    if (isImage) {
+                      // Image widget
+                      mediaWidget = ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          mediaItem.mediaURI,
+                          fit: BoxFit.cover,
+                          width: 100,
+                          height: 100,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              width: 100,
+                              height: 100,
+                              color: Colors.grey[200],
+                              child: Center(
+                                child: Icon(
+                                  Icons.broken_image,
+                                  color: Colors.grey[400],
+                                  size: 40,
                                 ),
                               ),
-                              // Tap hint overlay
-                              Positioned(
-                                bottom: 4,
-                                right: 4,
-                                child: Container(
-                                  padding: const EdgeInsets.all(2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black54,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: const Icon(
-                                    Icons.zoom_in,
-                                    color: Colors.white,
-                                    size: 16,
-                                  ),
-                                ),
-                              ),
-                            ],
+                            );
+                          },
+                        ),
+                      );
+                    } else if (isVideo) {
+                      // Video thumbnail - actual frame from video with play button overlay
+                      mediaWidget = _buildVideoThumbnail(mediaItem.mediaURI);
+                    } else {
+                      // Audio - black with orange play button
+                      mediaWidget = Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          color: Colors.black,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Center(
+                          child: Icon(
+                            Icons.play_circle_filled,
+                            color: AppTheme.primaryOrange,
+                            size: 50,
                           ),
                         ),
                       );
-                    },
-                  ),
+                    }
+
+                    return GestureDetector(
+                      onTap: () {
+                        if (isImage) {
+                          _viewImage(mediaItem.mediaURI);
+                        } else if (isVideo) {
+                          _playVideo(mediaItem.mediaURI);
+                        } else if (isAudio) {
+                          _playAudio(mediaItem.mediaURI);
+                        }
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        child: mediaWidget,
+                      ),
+                    );
+                  },
                 ),
-              // Audio (playable)
-              if (mediaList.any(
-                (m) =>
-                    m.mediaType == 'mp3' ||
-                    m.mediaType == 'wav' ||
-                    m.mediaType == 'm4a',
-              )) ...[
-                const SizedBox(height: 8),
-                ...mediaList
-                    .where(
-                      (m) =>
-                          m.mediaType == 'mp3' ||
-                          m.mediaType == 'wav' ||
-                          m.mediaType == 'm4a',
-                    )
-                    .map(
-                      (audioItem) => Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: InkWell(
-                          onTap: () => _playAudio(audioItem.mediaURI),
-                          borderRadius: BorderRadius.circular(8),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 10,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryOrange.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: AppTheme.primaryOrange.withOpacity(0.3),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.play_circle_outline,
-                                  color: AppTheme.primaryOrange,
-                                  size: 24,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Play Audio',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: AppTheme.primaryOrange,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    )
-                    .toList(),
-              ],
-              // Video (playable)
-              if (mediaList.any(
-                (m) =>
-                    m.mediaType == 'mp4' ||
-                    m.mediaType == 'mov' ||
-                    m.mediaType == 'avi',
-              )) ...[
-                const SizedBox(height: 8),
-                ...mediaList
-                    .where(
-                      (m) =>
-                          m.mediaType == 'mp4' ||
-                          m.mediaType == 'mov' ||
-                          m.mediaType == 'avi',
-                    )
-                    .map(
-                      (videoItem) => Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: InkWell(
-                          onTap: () => _playVideo(videoItem.mediaURI),
-                          borderRadius: BorderRadius.circular(8),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 10,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.blue.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: Colors.blue.withOpacity(0.3),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.play_circle_outline,
-                                  color: Colors.blue,
-                                  size: 24,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Play Video',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: Colors.blue[700],
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    )
-                    .toList(),
-              ],
+              ),
             ],
 
             // Action Buttons (at the bottom, based on status)
             if (incident.status == 'active' ||
-                incident.status == 'endbybtn') ...[
+                incident.status == 'endedByBtn') ...[
               const SizedBox(height: 16),
               Divider(color: Colors.grey[300], thickness: 1),
               const SizedBox(height: 12),
               Row(
                 children: [
-                  // Mark as Resolved button (only for active status)
-                  if (incident.status == 'active')
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () => _markAsResolved(incident, index),
-                        icon: const Icon(Icons.check_circle_outline, size: 18),
-                        label: const Text('Mark Resolved'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (incident.status == 'active') const SizedBox(width: 8),
-                  // Delete button (for active and endbybtn)
+                  // Delete button (for active and endedByBtn)
                   Expanded(
-                    child: ElevatedButton.icon(
+                    child: OutlinedButton.icon(
                       onPressed: () => _deleteIncident(incident, index),
                       icon: const Icon(Icons.delete_outline, size: 18),
                       label: const Text('Delete'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        foregroundColor: Colors.white,
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: Colors.red,
+                        side: const BorderSide(color: Colors.red, width: 2),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
                     ),
                   ),
+                  if (incident.status == 'active') const SizedBox(width: 8),
+                  // Mark as Resolved button (only for active status)
+                  if (incident.status == 'active')
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _markAsResolved(incident, index),
+                        icon: const Icon(Icons.check_circle_outline, size: 18),
+                        label: const Text('Mark Resolved'),
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: Colors.green,
+                          side: const BorderSide(color: Colors.green, width: 2),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ],
