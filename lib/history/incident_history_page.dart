@@ -542,7 +542,7 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Loading your incident history...',
+                    'Loading incident history...',
                     style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                   ),
                 ],
