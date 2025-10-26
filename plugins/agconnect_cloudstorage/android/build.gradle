@@ -24,13 +24,12 @@ rootProject.allprojects {
 apply plugin: 'com.android.library'
 
 android {
-    compileSdkVersion 30
+    compileSdkVersion 36
     namespace 'com.huawei.agconnect_cloudstorage'
-    buildToolsVersion "30.0.3"
 
     defaultConfig {
         minSdkVersion 18
-        targetSdkVersion 30
+        targetSdkVersion 34
     }
 
     lintOptions{

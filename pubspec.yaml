@@ -8,69 +8,108 @@ environment:
 
 
 dependencies:
+  # ========================================
+  # CORE FLUTTER DEPENDENCIES
+  # ========================================
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
   provider: ^6.1.5+1
 
-  # --- Core Service & Permissions ---
+  # ========================================
+  # ACTIVELY USED - Background Services & Permissions
+  # ========================================
   flutter_background_service: ^5.0.0
   flutter_local_notifications: ^17.2.1
   permission_handler: ^11.3.1
+  
+  # ========================================
+  # ACTIVELY USED - Sensors & Audio
+  # ========================================
   sensors_plus: ^5.0.1
-  # flutter_sound: ^9.2.13  # UNUSED - Commented out for faster builds
-  record: ^6.1.2 # Audio recording with amplitude monitoring for dB detection
-  uuid: ^4.4.0
+  record: ^6.1.2
+  speech_to_text: ^7.3.0
+  
+  # ========================================
+  # ACTIVELY USED - Storage & Data
+  # ========================================
   shared_preferences: ^2.2.3
-  path_provider: ^2.0.0 # Often needed with flutter_sound
-  geocoding: ^3.0.0 # Added for reverse geocoding
-  speech_to_text: ^7.3.0 # Or the latest version
-  google_generative_ai: ^0.4.0
-  http: ^1.1.0
+  flutter_secure_storage: ^9.0.0
+  path_provider: ^2.0.0
+  
+  # ========================================
+  # ACTIVELY USED - Location & Maps
+  # ========================================
+  geocoding: ^3.0.0
+  
+  # ========================================
+  # ACTIVELY USED - Media & Files
+  # ========================================
   image_picker: ^1.0.4
   video_thumbnail: ^0.5.3
   file_picker: ^8.1.4
   video_player: ^2.8.0
   audioplayers: ^5.2.1
+  
+  # ========================================
+  # ACTIVELY USED - Utilities
+  # ========================================
+  uuid: ^4.4.0
   intl: ^0.18.0
+  http: ^1.1.0
   flutter_dotenv: ^5.1.0
-  local_auth: ^2.1.8
-  flutter_secure_storage: ^9.0.0
   url_launcher: ^6.2.5
-  cached_network_image: ^3.3.1
+  local_auth: ^2.1.8
+  
+  # ========================================
+  # ACTIVELY USED - AI/ML
+  # ========================================
+  google_generative_ai: ^0.4.0
 
-
-  #  Huawei/HMS
-  # huawei_site: ^6.5.1+303  # UNUSED - Commented out for faster builds
+  # ========================================
+  # ACTIVELY USED - Huawei HMS Services
+  # ========================================
   huawei_map:
     path: plugins/huawei_map
   huawei_location: 6.11.0+301
-  # huawei_ml_text:  # UNUSED - Commented out for faster builds
-  #   path: plugins/huawei_ml_text
-  # huawei_ml_body:  # UNUSED - Commented out for faster builds
-  #   path: plugins/huawei_ml_body
-  # huawei_ml_image:  # UNUSED - Commented out for faster builds
-  #   path: plugins/huawei_ml_image
-  # huawei_ml_language:  # UNUSED - Commented out for faster builds
-  #   path: plugins/huawei_ml_language
   huawei_account:
     path: plugins/huawei_account
   huawei_push:
     path: plugins/huawei_push
-  # huawei_drive:  # UNUSED - Commented out for faster builds
-  #     path: plugins/huawei_drive
+
+  # ========================================
+  # ACTIVELY USED - AGConnect Services
+  # ========================================
   agconnect_core:
-      path: plugins/agconnect_core
+    path: plugins/agconnect_core
   agconnect_auth:
-      path: plugins/agconnect_auth
+    path: plugins/agconnect_auth
   agconnect_cloudstorage:
-      path: plugins/agconnect_cloudstorage
-  # agconnect_cloudfunctions:  # UNUSED - Commented out for faster builds
-  #     path: plugins/agconnect_cloudfunctions
+    path: plugins/agconnect_cloudstorage
   agconnect_clouddb:
-      path: plugins/agconnect_clouddb
-  # agconnect_crash:  # UNUSED - Commented out for faster builds
-  #     path: plugins/agconnect_crash
+    path: plugins/agconnect_clouddb
+
+  # ========================================
+  # UNUSED DEPENDENCIES (Commented Out)
+  # ========================================
+  # cached_network_image: ^3.3.1  # NOT USED - No imports found
+  # flutter_sound: ^9.2.13  # NOT USED - Replaced by 'record' package
+  
+  # huawei_site: ^6.5.1+303  # NOT USED - No site services implemented
+  # huawei_ml_text:  # NOT USED - ML features not implemented
+  #   path: plugins/huawei_ml_text
+  # huawei_ml_body:  # NOT USED - ML features not implemented
+  #   path: plugins/huawei_ml_body
+  # huawei_ml_image:  # NOT USED - ML features not implemented
+  #   path: plugins/huawei_ml_image
+  # huawei_ml_language:  # NOT USED - ML features not implemented
+  #   path: plugins/huawei_ml_language
+  # huawei_drive:  # NOT USED - Drive features not implemented
+  #   path: plugins/huawei_drive
+  # agconnect_cloudfunctions:  # NOT USED - Cloud functions not implemented
+  #   path: plugins/agconnect_cloudfunctions
+  # agconnect_crash:  # NOT USED - Crash reporting not implemented
+  #   path: plugins/agconnect_crash
 
 dev_dependencies:
   flutter_test:

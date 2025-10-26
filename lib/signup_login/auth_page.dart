@@ -6,7 +6,6 @@ import '../util/snackbar_helper.dart';
 import '../app_theme.dart';
 import '../homepage/homepage.dart';
 import 'terms_conditions_page.dart';
-import 'privacy_policy_page.dart';
 
 class AuthScreen extends StatefulWidget {
   final bool isLogin;
