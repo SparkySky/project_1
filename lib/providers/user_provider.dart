@@ -186,6 +186,18 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
+  // Delete user
+  Future<void> deleteUser(Users user) async {
+    try {
+      await _userRepository.openZone();
+      await _userRepository.deleteUser(user);
+      debugPrint('✅ User deleted from CloudDB');
+    } catch (e) {
+      debugPrint('❌ Error deleting user from CloudDB: $e');
+      rethrow;
+    }
+  }
+
   // Sign out
   Future<void> signOut() async {
     await _authService.signOut();

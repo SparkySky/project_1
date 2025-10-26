@@ -18,12 +18,6 @@
 @import agconnect_clouddb;
 #endif
 
-#if __has_include(<agconnect_cloudfunctions/AGCCloudFunctionsPlugin.h>)
-#import <agconnect_cloudfunctions/AGCCloudFunctionsPlugin.h>
-#else
-@import agconnect_cloudfunctions;
-#endif
-
 #if __has_include(<agconnect_cloudstorage/AGCStoragePlugin.h>)
 #import <agconnect_cloudstorage/AGCStoragePlugin.h>
 #else
@@ -34,12 +28,6 @@
 #import <agconnect_core/AGConnectCorePlugin.h>
 #else
 @import agconnect_core;
-#endif
-
-#if __has_include(<agconnect_crash/AGConnectCrashPlugin.h>)
-#import <agconnect_crash/AGConnectCrashPlugin.h>
-#else
-@import agconnect_crash;
 #endif
 
 #if __has_include(<audioplayers_darwin/AudioplayersDarwinPlugin.h>)
@@ -66,10 +54,10 @@
 @import flutter_local_notifications;
 #endif
 
-#if __has_include(<flutter_sound/FlutterSound.h>)
-#import <flutter_sound/FlutterSound.h>
+#if __has_include(<flutter_secure_storage/FlutterSecureStoragePlugin.h>)
+#import <flutter_secure_storage/FlutterSecureStoragePlugin.h>
 #else
-@import flutter_sound;
+@import flutter_secure_storage;
 #endif
 
 #if __has_include(<geocoding_ios/GeocodingPlugin.h>)
@@ -82,6 +70,12 @@
 #import <image_picker_ios/FLTImagePickerPlugin.h>
 #else
 @import image_picker_ios;
+#endif
+
+#if __has_include(<local_auth_darwin/LocalAuthPlugin.h>)
+#import <local_auth_darwin/LocalAuthPlugin.h>
+#else
+@import local_auth_darwin;
 #endif
 
 #if __has_include(<path_provider_foundation/PathProviderPlugin.h>)
@@ -137,17 +131,16 @@
 + (void)registerWithRegistry:(NSObject<FlutterPluginRegistry>*)registry {
   [AGConnectAuthPlugin registerWithRegistrar:[registry registrarForPlugin:@"AGConnectAuthPlugin"]];
   [AGConnectCloudDBPlugin registerWithRegistrar:[registry registrarForPlugin:@"AGConnectCloudDBPlugin"]];
-  [AGCCloudFunctionsPlugin registerWithRegistrar:[registry registrarForPlugin:@"AGCCloudFunctionsPlugin"]];
   [AGCStoragePlugin registerWithRegistrar:[registry registrarForPlugin:@"AGCStoragePlugin"]];
   [AGConnectCorePlugin registerWithRegistrar:[registry registrarForPlugin:@"AGConnectCorePlugin"]];
-  [AGConnectCrashPlugin registerWithRegistrar:[registry registrarForPlugin:@"AGConnectCrashPlugin"]];
   [AudioplayersDarwinPlugin registerWithRegistrar:[registry registrarForPlugin:@"AudioplayersDarwinPlugin"]];
   [FilePickerPlugin registerWithRegistrar:[registry registrarForPlugin:@"FilePickerPlugin"]];
   [FlutterBackgroundServicePlugin registerWithRegistrar:[registry registrarForPlugin:@"FlutterBackgroundServicePlugin"]];
   [FlutterLocalNotificationsPlugin registerWithRegistrar:[registry registrarForPlugin:@"FlutterLocalNotificationsPlugin"]];
-  [FlutterSound registerWithRegistrar:[registry registrarForPlugin:@"FlutterSound"]];
+  [FlutterSecureStoragePlugin registerWithRegistrar:[registry registrarForPlugin:@"FlutterSecureStoragePlugin"]];
   [GeocodingPlugin registerWithRegistrar:[registry registrarForPlugin:@"GeocodingPlugin"]];
   [FLTImagePickerPlugin registerWithRegistrar:[registry registrarForPlugin:@"FLTImagePickerPlugin"]];
+  [LocalAuthPlugin registerWithRegistrar:[registry registrarForPlugin:@"LocalAuthPlugin"]];
   [PathProviderPlugin registerWithRegistrar:[registry registrarForPlugin:@"PathProviderPlugin"]];
   [PermissionHandlerPlugin registerWithRegistrar:[registry registrarForPlugin:@"PermissionHandlerPlugin"]];
   [RecordIosPlugin registerWithRegistrar:[registry registrarForPlugin:@"RecordIosPlugin"]];

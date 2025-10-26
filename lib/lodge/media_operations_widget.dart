@@ -12,12 +12,14 @@ class MediaOperationsWidget extends StatefulWidget {
   final List<File> mediaFiles;
   final Function(List<File>) onMediaFilesChanged;
   final File? initialAudioFile;
+  final Color accentColor;
 
   const MediaOperationsWidget({
     super.key,
     required this.mediaFiles,
     required this.onMediaFilesChanged,
     this.initialAudioFile,
+    this.accentColor = AppTheme.primaryOrange,
   });
 
   @override
@@ -103,10 +105,9 @@ class _MediaOperationsWidgetState extends State<MediaOperationsWidget> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Text(
                 'Add Media',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleLarge
-                    ?.copyWith(fontWeight: FontWeight.bold),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
               ),
             ),
             const SizedBox(height: 20),
@@ -208,13 +209,15 @@ class _MediaOperationsWidgetState extends State<MediaOperationsWidget> {
     required VoidCallback onTap,
   }) {
     return ListTile(
-      leading: Container(
+      leading: AnimatedContainer(
+        duration: const Duration(milliseconds: 3000),
+        curve: Curves.easeInOut,
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: AppTheme.primaryOrange.withOpacity(0.1),
+          color: widget.accentColor.withOpacity(0.1),
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Icon(icon, color: AppTheme.primaryOrange),
+        child: Icon(icon, color: widget.accentColor),
       ),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
       subtitle: Text(
@@ -295,15 +298,19 @@ class _MediaOperationsWidgetState extends State<MediaOperationsWidget> {
               ),
               actions: [
                 if (!_isRecording)
-                  TextButton(
-                    onPressed: () {
-                      Navigator.pop(dialogContext);
-                    },
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(
-                        color: AppTheme.primaryOrange,
-                        fontWeight: FontWeight.bold,
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 3000),
+                    curve: Curves.easeInOut,
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.pop(dialogContext);
+                      },
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: widget.accentColor,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
@@ -343,7 +350,7 @@ class _MediaOperationsWidgetState extends State<MediaOperationsWidget> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _isRecording
                           ? Colors.red
-                          : AppTheme.primaryOrange,
+                          : widget.accentColor,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -510,52 +517,52 @@ class _MediaOperationsWidgetState extends State<MediaOperationsWidget> {
                         height: double.infinity,
                       )
                     : isVideo && videoThumbnail != null
-                        ? Stack(
-                            children: [
-                              Image.file(
-                                File(videoThumbnail),
-                                fit: BoxFit.cover,
-                                width: double.infinity,
-                                height: double.infinity,
+                    ? Stack(
+                        children: [
+                          Image.file(
+                            File(videoThumbnail),
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            height: double.infinity,
+                          ),
+                          Center(
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.6),
+                                shape: BoxShape.circle,
                               ),
-                              Center(
-                                child: Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.6),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.play_arrow,
-                                    color: Colors.white,
-                                    size: 24,
-                                  ),
-                                ),
+                              child: const Icon(
+                                Icons.play_arrow,
+                                color: Colors.white,
+                                size: 24,
                               ),
-                            ],
-                          )
-                        : isAudio
-                            ? Center(
-                                child: Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.2),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.play_arrow,
-                                    color: Colors.white,
-                                    size: 32,
-                                  ),
-                                ),
-                              )
-                            : Center(
-                                child: Icon(
-                                  Icons.insert_drive_file,
-                                  color: AppTheme.primaryOrange,
-                                  size: 40,
-                                ),
-                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : isAudio
+                    ? Center(
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.play_arrow,
+                            color: Colors.white,
+                            size: 32,
+                          ),
+                        ),
+                      )
+                    : Center(
+                        child: Icon(
+                          Icons.insert_drive_file,
+                          color: widget.accentColor,
+                          size: 40,
+                        ),
+                      ),
               ),
             ),
             Positioned(
@@ -605,40 +612,37 @@ class _MediaOperationsWidgetState extends State<MediaOperationsWidget> {
         children: [
           Row(
             children: [
-              Container(
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 3000),
+                curve: Curves.easeInOut,
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryOrange.withOpacity(0.1),
+                  color: widget.accentColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.photo_library,
-                  color: AppTheme.primaryOrange,
+                  color: widget.accentColor,
                   size: 20,
                 ),
               ),
               const SizedBox(width: 12),
               const Text(
                 'Media Evidence',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const Spacer(),
               IconButton(
                 onPressed: _pickMedia,
-                icon: Container(
+                icon: AnimatedContainer(
+                  duration: const Duration(milliseconds: 3000),
+                  curve: Curves.easeInOut,
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryOrange,
+                    color: widget.accentColor,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(
-                    Icons.add,
-                    color: Colors.white,
-                    size: 20,
-                  ),
+                  child: const Icon(Icons.add, color: Colors.white, size: 20),
                 ),
               ),
             ],
@@ -658,26 +662,16 @@ class _MediaOperationsWidgetState extends State<MediaOperationsWidget> {
               ),
               child: Column(
                 children: [
-                  Icon(
-                    Icons.photo_camera,
-                    size: 48,
-                    color: Colors.grey[400],
-                  ),
+                  Icon(Icons.photo_camera, size: 48, color: Colors.grey[400]),
                   const SizedBox(height: 12),
                   Text(
                     'No media added yet',
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 14,
-                    ),
+                    style: TextStyle(color: Colors.grey[600], fontSize: 14),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'Tap + to add photos, videos or audio',
-                    style: TextStyle(
-                      color: Colors.grey[500],
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: Colors.grey[500], fontSize: 12),
                   ),
                 ],
               ),

@@ -15,13 +15,6 @@ packages:
       relative: true
     source: path
     version: "1.9.0+300"
-  agconnect_cloudfunctions:
-    dependency: "direct main"
-    description:
-      path: "plugins/agconnect_cloudfunctions"
-      relative: true
-    source: path
-    version: "1.9.0+300"
   agconnect_cloudstorage:
     dependency: "direct main"
     description:
@@ -33,13 +26,6 @@ packages:
     dependency: "direct main"
     description:
       path: "plugins/agconnect_core"
-      relative: true
-    source: path
-    version: "1.9.0+300"
-  agconnect_crash:
-    dependency: "direct main"
-    description:
-      path: "plugins/agconnect_crash"
       relative: true
     source: path
     version: "1.9.0+300"
@@ -376,30 +362,54 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.32"
-  flutter_sound:
+  flutter_secure_storage:
     dependency: "direct main"
     description:
-      name: flutter_sound
-      sha256: ef89477f6e8ce2fa395158ebc4a8b11982e3ada440b4021c06fd97a4e771554b
+      name: flutter_secure_storage
+      sha256: "9cad52d75ebc511adfae3d447d5d13da15a55a92c9410e50f67335b6d21d16ea"
       url: "https://pub.dev"
     source: hosted
-    version: "9.28.0"
-  flutter_sound_platform_interface:
+    version: "9.2.4"
+  flutter_secure_storage_linux:
     dependency: transitive
     description:
-      name: flutter_sound_platform_interface
-      sha256: "3394d7e664a09796818014ff85a81db0dec397f4c286cbe52f8783886fa5a497"
+      name: flutter_secure_storage_linux
+      sha256: be76c1d24a97d0b98f8b54bce6b481a380a6590df992d0098f868ad54dc8f688
       url: "https://pub.dev"
     source: hosted
-    version: "9.28.0"
-  flutter_sound_web:
+    version: "1.2.3"
+  flutter_secure_storage_macos:
     dependency: transitive
     description:
-      name: flutter_sound_web
-      sha256: "4e10c94a8574bd93bb8668af59bf76f5312a890bccd3778d73168a7133217dc5"
+      name: flutter_secure_storage_macos
+      sha256: "6c0a2795a2d1de26ae202a0d78527d163f4acbb11cde4c75c670f3a0fc064247"
       url: "https://pub.dev"
     source: hosted
-    version: "9.28.0"
+    version: "3.1.3"
+  flutter_secure_storage_platform_interface:
+    dependency: transitive
+    description:
+      name: flutter_secure_storage_platform_interface
+      sha256: cf91ad32ce5adef6fba4d736a542baca9daf3beac4db2d04be350b87f69ac4a8
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.2"
+  flutter_secure_storage_web:
+    dependency: transitive
+    description:
+      name: flutter_secure_storage_web
+      sha256: f4ebff989b4f07b2656fb16b47852c0aab9fed9b4ec1c70103368337bc1886a9
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.2.1"
+  flutter_secure_storage_windows:
+    dependency: transitive
+    description:
+      name: flutter_secure_storage_windows
+      sha256: b20b07cb5ed4ed74fc567b78a72936203f587eba460af1df11281c9326cd3709
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.1.2"
   flutter_test:
     dependency: "direct dev"
     description: flutter
@@ -481,13 +491,6 @@ packages:
       relative: true
     source: path
     version: "6.12.0+301"
-  huawei_drive:
-    dependency: "direct main"
-    description:
-      path: "plugins/huawei_drive"
-      relative: true
-    source: path
-    version: "5.0.0+308"
   huawei_location:
     dependency: "direct main"
     description:
@@ -503,49 +506,6 @@ packages:
       relative: true
     source: path
     version: "6.11.2+305"
-  huawei_ml_body:
-    dependency: "direct main"
-    description:
-      path: "plugins/huawei_ml_body"
-      relative: true
-    source: path
-    version: "3.12.0+301"
-  huawei_ml_image:
-    dependency: "direct main"
-    description:
-      path: "plugins/huawei_ml_image"
-      relative: true
-    source: path
-    version: "3.11.0+300"
-  huawei_ml_language:
-    dependency: "direct main"
-    description:
-      path: "plugins/huawei_ml_language"
-      relative: true
-    source: path
-    version: "3.11.0+300"
-  huawei_ml_text:
-    dependency: "direct main"
-    description:
-      path: "plugins/huawei_ml_text"
-      relative: true
-    source: path
-    version: "3.12.0+301"
-  huawei_push:
-    dependency: "direct main"
-    description:
-      path: "plugins/huawei_push"
-      relative: true
-    source: path
-    version: "6.13.0+300"
-  huawei_site:
-    dependency: "direct main"
-    description:
-      name: huawei_site
-      sha256: "31474f51c17ef50c0f6109cbee8a606ab00955464bea625ad7aeed752e855f1e"
-      url: "https://pub.dev"
-    source: hosted
-    version: "6.5.1+303"
   image:
     dependency: transitive
     description:
@@ -674,14 +634,46 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "6.0.0"
-  logger:
-    dependency: transitive
+  local_auth:
+    dependency: "direct main"
     description:
-      name: logger
-      sha256: a7967e31b703831a893bbc3c3dd11db08126fe5f369b5c648a36f821979f5be3
+      name: local_auth
+      sha256: "434d854cf478f17f12ab29a76a02b3067f86a63a6d6c4eb8fbfdcfe4879c1b7b"
       url: "https://pub.dev"
     source: hosted
-    version: "2.6.2"
+    version: "2.3.0"
+  local_auth_android:
+    dependency: transitive
+    description:
+      name: local_auth_android
+      sha256: a0bdfcc0607050a26ef5b31d6b4b254581c3d3ce3c1816ab4d4f4a9173e84467
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.56"
+  local_auth_darwin:
+    dependency: transitive
+    description:
+      name: local_auth_darwin
+      sha256: "699873970067a40ef2f2c09b4c72eb1cfef64224ef041b3df9fdc5c4c1f91f49"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.6.1"
+  local_auth_platform_interface:
+    dependency: transitive
+    description:
+      name: local_auth_platform_interface
+      sha256: f98b8e388588583d3f781f6806e4f4c9f9e189d898d27f0c249b93a1973dd122
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.0"
+  local_auth_windows:
+    dependency: transitive
+    description:
+      name: local_auth_windows
+      sha256: bc4e66a29b0fdf751aafbec923b5bed7ad6ed3614875d8151afe2578520b2ab5
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.11"
   logging:
     dependency: transitive
     description:

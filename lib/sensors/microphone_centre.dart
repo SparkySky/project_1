@@ -262,11 +262,29 @@ class MicrophoneService {
   /// Load custom keywords from SharedPreferences for the current language
   Future<void> _loadCustomKeywords() async {
     final prefs = await SharedPreferences.getInstance();
-    // Load from combined storage (all keywords are stored in 'en' now)
-    _customKeywords = prefs.getStringList('custom_keywords_en') ?? [];
+
+    // Load keywords from ALL language categories
+    final enKeywords = prefs.getStringList('custom_keywords_en') ?? [];
+    final msKeywords = prefs.getStringList('custom_keywords_ms') ?? [];
+    final zhKeywords = prefs.getStringList('custom_keywords_zh') ?? [];
+
+    // Combine all keywords
+    _customKeywords = [...enKeywords, ...msKeywords, ...zhKeywords];
+
+    debugPrint('[MicrophoneService] 🎯 Loaded custom keywords:');
+    debugPrint('[MicrophoneService]   - EN: ${enKeywords.length} keywords');
+    debugPrint('[MicrophoneService]   - MS: ${msKeywords.length} keywords');
     debugPrint(
-      '[MicrophoneService] 🎯 Loaded ${_customKeywords.length} custom keywords (all languages combined): $_customKeywords',
+      '[MicrophoneService]   - ZH: ${zhKeywords.length} keywords (Chinese)',
     );
+    debugPrint(
+      '[MicrophoneService]   - TOTAL: ${_customKeywords.length} keywords',
+    );
+    if (zhKeywords.isNotEmpty) {
+      debugPrint(
+        '[MicrophoneService] 🇨🇳 Chinese keywords: ${zhKeywords.join(", ")}',
+      );
+    }
   }
 
   Future<void> startKeywordDetection({String preferredLanguage = 'en'}) async {
@@ -461,16 +479,23 @@ class MicrophoneService {
       // Start listening - this is NON-BLOCKING
       _speechToText!.listen(
         onResult: (result) {
-          final transcript = result.recognizedWords.toLowerCase();
+          final originalTranscript = result.recognizedWords;
+          final transcript = originalTranscript.toLowerCase();
           final isFinal = result.finalResult;
 
           // Always send transcript, even if empty
           if (transcript.isNotEmpty) {
             debugPrint(
-              "[MicrophoneService] 📝 RAW TRANSCRIPT: '$transcript' (${isFinal ? 'FINAL' : 'partial'})",
+              "[MicrophoneService] 📝 RAW TRANSCRIPT (original): '$originalTranscript'",
             );
             debugPrint(
-              "[MicrophoneService] 🔍 Checking against ${KEYWORDS.length} keywords...",
+              "[MicrophoneService] 📝 RAW TRANSCRIPT (lowercased): '$transcript' (${isFinal ? 'FINAL' : 'partial'})",
+            );
+            debugPrint(
+              "[MicrophoneService] 🌐 Current language mode: $_preferredLanguage",
+            );
+            debugPrint(
+              "[MicrophoneService] 🔍 Checking against ${KEYWORDS.length} default keywords + ${_customKeywords.length} custom keywords",
             );
             _transcriptController?.add(transcript);
 
@@ -673,31 +698,55 @@ class MicrophoneService {
     }
   }
 
+  /// Normalize text for keyword matching (especially important for Chinese)
+  String _normalizeForMatching(String text) {
+    return text
+        .toLowerCase()
+        .replaceAll(
+          RegExp(r'[.,!?;:，。！？；：、]'),
+          '',
+        ) // Remove punctuation (both EN and CN)
+        .replaceAll(RegExp(r'\s+'), '') // Remove all whitespace
+        .trim();
+  }
+
   /// Check transcript for keywords (both default and custom)
   bool _checkForKeywords(String transcript) {
+    // Normalize transcript once for all comparisons
+    final normalizedTranscript = _normalizeForMatching(transcript);
+
     // Check default keywords first
     for (final keyword in KEYWORDS) {
-      if (transcript.contains(keyword)) {
+      final normalizedKeyword = _normalizeForMatching(keyword);
+      if (normalizedTranscript.contains(normalizedKeyword)) {
         // Normalize the keyword before sending (e.g., "sauce" → "SOS")
-        final normalizedKeyword = normalizeKeyword(keyword);
+        final displayKeyword = normalizeKeyword(keyword);
         debugPrint(
-          "[MicrophoneService] ✅✅✅ KEYWORD MATCH: '$keyword' → normalized to '$normalizedKeyword'",
+          "[MicrophoneService] ✅✅✅ KEYWORD MATCH: '$keyword' → normalized to '$displayKeyword'",
         );
         debugPrint(
-          "[MicrophoneService] 📤 Sending normalized keyword: '$normalizedKeyword'",
+          "[MicrophoneService] 📤 Sending normalized keyword: '$displayKeyword'",
         );
         debugPrint(
           "[MicrophoneService] 📜 Pre-trigger context: ${getPreTriggerContext()}",
         );
-        _keywordController?.add(normalizedKeyword);
+        _keywordController?.add(displayKeyword);
         return true;
       }
     }
 
-    // Check custom keywords
+    // Check custom keywords (especially important for Chinese characters)
     for (final keyword in _customKeywords) {
-      if (transcript.contains(keyword)) {
+      final normalizedKeyword = _normalizeForMatching(keyword);
+      if (normalizedTranscript.contains(normalizedKeyword)) {
         debugPrint("[MicrophoneService] 🎯✅ CUSTOM KEYWORD MATCH: '$keyword'");
+        debugPrint("[MicrophoneService] 🔍 Original transcript: '$transcript'");
+        debugPrint(
+          "[MicrophoneService] 🔍 Normalized transcript: '$normalizedTranscript'",
+        );
+        debugPrint(
+          "[MicrophoneService] 🔍 Normalized keyword: '$normalizedKeyword'",
+        );
         debugPrint("[MicrophoneService] 📤 Sending custom keyword: '$keyword'");
         debugPrint(
           "[MicrophoneService] 📜 Pre-trigger context: ${getPreTriggerContext()}",
@@ -708,9 +757,23 @@ class MicrophoneService {
     }
 
     debugPrint("[MicrophoneService] ❌ No keyword match in: '$transcript'");
+    debugPrint(
+      "[MicrophoneService] 🔍 Normalized transcript: '$normalizedTranscript'",
+    );
     // Log individual words for debugging
     final words = transcript.split(' ');
     debugPrint("[MicrophoneService] 📋 Individual words: ${words.join(', ')}");
+
+    // Debug: Show what custom keywords we're looking for
+    if (_customKeywords.isNotEmpty) {
+      debugPrint("[MicrophoneService] 🎯 Custom keywords being checked:");
+      for (final kw in _customKeywords) {
+        debugPrint(
+          "[MicrophoneService]   - '$kw' (normalized: '${_normalizeForMatching(kw)}')",
+        );
+      }
+    }
+
     return false;
   }
 }

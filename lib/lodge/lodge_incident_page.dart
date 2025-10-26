@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
+import 'dart:async';
 import '../app_theme.dart';
 import '../sensors/location_centre.dart';
 import 'package:huawei_map/huawei_map.dart';
@@ -9,6 +10,8 @@ import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'media_operations_widget.dart';
 
 import '../models/clouddb_model.dart';
@@ -16,6 +19,10 @@ import '../repository/incident_repository.dart';
 import '../repository/media_repository.dart';
 import 'package:uuid/uuid.dart';
 import 'package:agconnect_auth/agconnect_auth.dart';
+import 'package:provider/provider.dart';
+import '../providers/safety_service_provider.dart';
+import '../bg_services/rapid_location_service.dart';
+import '../widgets/rapid_location_overlay.dart';
 
 class LodgeIncidentPage extends StatefulWidget {
   final String? incidentType;
@@ -24,6 +31,7 @@ class LodgeIncidentPage extends StatefulWidget {
   final String? postcode;
   final String? state;
   final String? audioRecordingPath;
+  final ValueNotifier<String>? incidentTypeNotifier;
 
   const LodgeIncidentPage({
     super.key,
@@ -33,6 +41,7 @@ class LodgeIncidentPage extends StatefulWidget {
     this.postcode,
     this.state,
     this.audioRecordingPath,
+    this.incidentTypeNotifier,
   });
 
   @override
@@ -41,6 +50,7 @@ class LodgeIncidentPage extends StatefulWidget {
 
 class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
   final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _titleController;
   late final TextEditingController _districtController;
   late final TextEditingController _postcodeController;
   late final TextEditingController _stateController;
@@ -52,7 +62,6 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
   HuaweiMapController? _mapController;
   LatLng? _selectedPosition;
   Set<Marker> _markers = {};
-  bool _isLoadingAddress = false;
   bool _isLoadingLocation = true;
 
   final _incidentRepository = IncidentRepository();
@@ -60,25 +69,154 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
   final _uuid = Uuid();
   String? _currentUserId;
 
+  // Scroll controller for title animation
+  final ScrollController _scrollController = ScrollController();
+  final ValueNotifier<double> _titleAnimationValue = ValueNotifier<double>(1.0);
+
+  // Color animation for incident type
+  Color _titleBgColor = Colors.amber[100]!;
+  Color _titleTextColor = Colors.amber[900]!;
+  Color _titleShadowBaseColor = Colors.amber;
+  Color _accentColor = AppTheme.primaryOrange; // For icons, buttons, etc.
+
+  // Auto-submit timer for safety trigger
+  Timer? _autoSubmitTimer;
+  int _countdown = 10;
+  bool _isAutoSubmitting = false;
+
   @override
   void initState() {
     super.initState();
     _districtController = TextEditingController(text: widget.district);
     _postcodeController = TextEditingController(text: widget.postcode);
     _stateController = TextEditingController(text: widget.state);
-    _descriptionController = TextEditingController(text: widget.description);
+
+    // Parse title and description if coming from Gemini (format: "Title\n---\nDescription")
+    String initialTitle = '';
+    String initialDescription = widget.description ?? '';
+    if (widget.description != null && widget.description!.contains('\n---\n')) {
+      final parts = widget.description!.split('\n---\n');
+      if (parts.length >= 2) {
+        initialTitle = parts[0].trim();
+        initialDescription = parts.sublist(1).join('\n---\n').trim();
+      }
+    }
+
+    _titleController = TextEditingController(text: initialTitle);
+    _descriptionController = TextEditingController(text: initialDescription);
+
     if (widget.incidentType != null) {
       _incidentType = widget.incidentType!;
+      // Initialize title colors based on incident type
+      if (_incidentType == 'threat') {
+        _titleBgColor = Colors.red[100]!;
+        _titleTextColor = Colors.red[900]!;
+        _titleShadowBaseColor = Colors.red;
+        _accentColor = Colors.red[700]!;
+      }
     }
 
     _getCurrentUserId();
 
     // Auto-detect user location when page loads
     _initializeLocation();
+
+    // Add scroll listener for title animation
+    _scrollController.addListener(_onScroll);
+
+    // Start auto-submit timer if coming from safety trigger (has audio recording)
+    // Note: Audio file is automatically added by MediaOperationsWidget via initialAudioFile
+    if (widget.audioRecordingPath != null) {
+      _startAutoSubmitTimer();
+    }
+  }
+
+  void _startAutoSubmitTimer() {
+    setState(() {
+      _isAutoSubmitting = true;
+      _countdown = 10;
+    });
+
+    _autoSubmitTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_countdown > 0) {
+        setState(() {
+          _countdown--;
+        });
+      } else {
+        timer.cancel();
+        _submitIncident();
+      }
+    });
+  }
+
+  void _stopAutoSubmitTimer() {
+    _autoSubmitTimer?.cancel();
+    setState(() {
+      _isAutoSubmitting = false;
+    });
+  }
+
+  void _handleCancel() async {
+    _stopAutoSubmitTimer();
+
+    // Restart safety trigger service
+    final safetyProvider = Provider.of<SafetyServiceProvider>(
+      context,
+      listen: false,
+    );
+    await safetyProvider.toggle(true, context);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.security, color: Colors.white),
+              SizedBox(width: 12),
+              Text('Safety trigger reactivated'),
+            ],
+          ),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      Navigator.pop(context);
+    }
+  }
+
+  void _handleModify() {
+    _stopAutoSubmitTimer();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Auto-submit stopped. You can now modify the incident.'),
+        backgroundColor: Colors.blue,
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _onScroll() {
+    // Calculate animation value based on scroll position (0 to 100px range)
+    const fadeEndOffset = 100.0;
+    final scrollOffset = _scrollController.offset.clamp(0.0, fadeEndOffset);
+    final newValue = 1.0 - (scrollOffset / fadeEndOffset);
+
+    // Update only if changed significantly (reduces updates by ~90%)
+    if ((newValue - _titleAnimationValue.value).abs() > 0.02) {
+      _titleAnimationValue.value = newValue;
+    }
   }
 
   @override
   void dispose() {
+    // Reset to yellow/general when leaving Lodge page
+    widget.incidentTypeNotifier?.value = 'general';
+
+    _autoSubmitTimer?.cancel();
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    _titleAnimationValue.dispose();
+    _titleController.dispose();
     _districtController.dispose();
     _postcodeController.dispose();
     _stateController.dispose();
@@ -96,6 +234,154 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
       }
     } catch (e) {
       print('Error getting current user: $e');
+    }
+  }
+
+  // Generate title from description using Gemini
+  Future<void> _generateTitleFromDescription() async {
+    final description = _descriptionController.text.trim();
+
+    // Check if description has at least 3 words
+    final wordCount = description
+        .split(RegExp(r'\s+'))
+        .where((word) => word.isNotEmpty)
+        .length;
+
+    if (description.isEmpty || wordCount < 3) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a description first (at least 3 words)'),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(color: AppTheme.primaryOrange),
+      ),
+    );
+
+    try {
+      // Check for custom API key from secure storage first (AES-256-GCM encrypted)
+      const secureStorage = FlutterSecureStorage(
+        aOptions: AndroidOptions(
+          encryptedSharedPreferences: true,
+          resetOnError: true,
+        ),
+      );
+
+      String? customApiKey = await secureStorage.read(key: 'gemini_api_key');
+
+      // Migration: Check SharedPreferences if not in secure storage
+      if (customApiKey == null) {
+        final prefs = await SharedPreferences.getInstance();
+        customApiKey = prefs.getString('gemini_api_key');
+
+        if (customApiKey != null && customApiKey.isNotEmpty) {
+          // Migrate to secure storage
+          await secureStorage.write(key: 'gemini_api_key', value: customApiKey);
+          await prefs.remove('gemini_api_key');
+          debugPrint('[LodgeIncident] 🔄 Migrated API key to secure storage');
+        }
+      }
+
+      // Use custom key if available, otherwise fallback to default
+      final apiKey = customApiKey ?? dotenv.env['GEMINI_API_KEY'];
+
+      if (apiKey == null || apiKey.isEmpty) {
+        throw Exception('Gemini API key not configured');
+      }
+
+      debugPrint(
+        '[LodgeIncident] Using ${customApiKey != null ? 'custom (🔐 encrypted)' : 'default'} API key for title generation',
+      );
+
+      // Call Gemini API to generate title
+      final response = await http.post(
+        Uri.parse(
+          'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=$apiKey',
+        ),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'contents': [
+            {
+              'parts': [
+                {
+                  'text':
+                      'Generate a concise title for this incident description. The title must be STRICTLY less than 45 characters. Be brief and capture the main point. Do not include quotes or extra formatting, just the title text.\n\nDescription: $description',
+                },
+              ],
+            },
+          ],
+          'generationConfig': {'temperature': 0.7, 'maxOutputTokens': 50},
+        }),
+      );
+
+      if (!mounted) return;
+      Navigator.of(context).pop(); // Close loading
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        String generatedTitle =
+            data['candidates']?[0]?['content']?['parts']?[0]?['text'] ?? '';
+
+        // Clean up the title
+        generatedTitle = generatedTitle.trim();
+        // Remove quotes at start and end
+        if (generatedTitle.startsWith('"') || generatedTitle.startsWith("'")) {
+          generatedTitle = generatedTitle.substring(1);
+        }
+        if (generatedTitle.endsWith('"') || generatedTitle.endsWith("'")) {
+          generatedTitle = generatedTitle.substring(
+            0,
+            generatedTitle.length - 1,
+          );
+        }
+        generatedTitle = generatedTitle.split('\n')[0]; // Take first line only
+
+        // Ensure it's under 45 characters
+        if (generatedTitle.length > 45) {
+          generatedTitle = generatedTitle.substring(0, 42) + '...';
+        }
+
+        // Set to controller
+        setState(() {
+          _titleController.text = generatedTitle;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Title generated successfully by AI'),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      } else {
+        throw Exception('Failed to generate title: ${response.statusCode}');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop(); // Close loading if still open
+
+      debugPrint('Error generating title: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to generate title: ${e.toString()}'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+        ),
+      );
     }
   }
 
@@ -173,13 +459,11 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
     double latitude,
     double longitude,
   ) async {
-    setState(() {
-      _isLoadingAddress = true;
-    });
+    setState(() {});
 
     try {
       final apiKey = dotenv.env['HUAWEI_SITE_API_KEY'];
-      
+
       if (apiKey == null || apiKey.isEmpty) {
         throw Exception('API key not found in environment variables');
       }
@@ -268,8 +552,6 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                 address['subAdminArea'].isNotEmpty) {
               _stateController.text = address['subAdminArea'];
             }
-
-            _isLoadingAddress = false;
           });
 
           if (mounted) {
@@ -304,9 +586,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
       }
     } catch (e) {
       print('Error reverse geocoding: $e');
-      setState(() {
-        _isLoadingAddress = false;
-      });
+      setState(() {});
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -325,9 +605,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
   }
 
   void _handleNoAddress() {
-    setState(() {
-      _isLoadingAddress = false;
-    });
+    setState(() {});
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -343,7 +621,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
     }
   }
 
-Future<void> _submitIncident() async {
+  Future<void> _submitIncident() async {
     if (_formKey.currentState!.validate()) {
       if (_currentUserId == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -358,9 +636,7 @@ Future<void> _submitIncident() async {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(),
-        ),
+        builder: (context) => const Center(child: CircularProgressIndicator()),
       );
 
       bool dialogShown = true;
@@ -376,33 +652,46 @@ Future<void> _submitIncident() async {
         if (_mediaFiles.isNotEmpty) {
           // Generate ONE media ID for all files in this incident
           mediaId = _uuid.v4();
-          
+
           print('Uploading ${_mediaFiles.length} media files to AWS S3...');
           print('Media ID for this incident: $mediaId');
-          
+
           for (int i = 0; i < _mediaFiles.length; i++) {
             final file = _mediaFiles[i];
             final order = i + 1; // Order starts from 1
-            
+
             // Get file extension
-            final fileExtension = file.path.split('.').last.toLowerCase();
-            
+            var fileExtension = file.path.split('.').last.toLowerCase();
+
             print('Uploading media ${order}/${_mediaFiles.length}...');
-            
+
             // Read file and convert to base64
             final bytes = await File(file.path).readAsBytes();
             final base64Content = base64Encode(bytes);
-            
+
             // Prepare file name with timestamp and order
-            final timestamp = DateFormat('yyyyMMddHHmmss').format(DateTime.now());
-            final fileName = '${timestamp}_${order}_${file.path.split('/').last}';
-            
+            final timestamp = DateFormat(
+              'yyyyMMddHHmmss',
+            ).format(DateTime.now());
+
+            // For audio files, temporarily use .mp4 extension for AWS Lambda compatibility
+            String baseFileName = file.path.split('/').last;
+            if (fileExtension == 'm4a' ||
+                fileExtension == 'aac' ||
+                fileExtension == 'mp3' ||
+                fileExtension == 'wav') {
+              baseFileName = baseFileName.replaceAll('.$fileExtension', '.mp4');
+              fileExtension = 'mp4';
+            }
+
+            final fileName = '${timestamp}_${order}_$baseFileName';
+
             // Upload to AWS S3
             final response = await http.post(
-              Uri.parse('https://9bgg6p599h.execute-api.ap-southeast-1.amazonaws.com/dev/media'),
-              headers: {
-                'Content-Type': 'application/json',
-              },
+              Uri.parse(
+                'https://9bgg6p599h.execute-api.ap-southeast-1.amazonaws.com/dev/media',
+              ),
+              headers: {'Content-Type': 'application/json'},
               body: jsonEncode({
                 'file_name': fileName,
                 'file_content': base64Content,
@@ -410,15 +699,19 @@ Future<void> _submitIncident() async {
             );
 
             if (response.statusCode != 200) {
-              throw Exception('Failed to upload media ${order} to AWS S3: ${response.body}');
+              throw Exception(
+                'Failed to upload media ${order} to AWS S3: ${response.body}',
+              );
             }
 
             // Parse response to get file URL
             final responseData = jsonDecode(response.body);
             final mediaURL = responseData['file_url'];
-            
+
             if (mediaURL == null || mediaURL.isEmpty) {
-              throw Exception('Failed to get media URL from AWS S3 for file ${order}');
+              throw Exception(
+                'Failed to get media URL from AWS S3 for file ${order}',
+              );
             }
 
             print('✅ Media ${order} uploaded to AWS S3');
@@ -432,22 +725,37 @@ Future<void> _submitIncident() async {
               mediaURI: mediaURL, // AWS S3 URL
             );
 
-            print('Saving media reference to CloudDB - ID: $mediaId, Order: $order');
+            print(
+              'Saving media reference to CloudDB - ID: $mediaId, Order: $order',
+            );
             final success = await _mediaRepository.upsertMedia(mediaObject);
 
             if (!success) {
-              throw Exception('Failed to save media reference ${order} to CloudDB');
+              throw Exception(
+                'Failed to save media reference ${order} to CloudDB',
+              );
             }
 
             print('✅ Media reference ${order} saved to CloudDB');
           }
-          
-          print('✅ All ${_mediaFiles.length} media files processed successfully');
+
+          print(
+            '✅ All ${_mediaFiles.length} media files processed successfully',
+          );
         } else {
           print('No media files to upload');
         }
 
-        // 2. Create incident using CloudDB model
+        // 2. Combine title and description with separator
+        final title = _titleController.text.trim();
+        final description = _descriptionController.text.trim();
+        final combinedDesc = title.isNotEmpty && description.isNotEmpty
+            ? '$title\n---\n$description'
+            : title.isNotEmpty
+            ? title
+            : description;
+
+        // 3. Create incident using CloudDB model
         final incident = incidents(
           iid: incidentId,
           uid: _currentUserId!,
@@ -456,7 +764,7 @@ Future<void> _submitIncident() async {
           datetime: DateTime.now().toUtc(),
           incidentType: _incidentType,
           isAIGenerated: false,
-          desc: _descriptionController.text.trim(),
+          desc: combinedDesc,
           mediaID: mediaId,
           status: 'active',
         );
@@ -471,7 +779,7 @@ Future<void> _submitIncident() async {
 
         // 3. Upsert incident
         final success = await _incidentRepository.upsertIncident(incident);
-        
+
         if (!success) {
           throw Exception('Failed to insert incident');
         }
@@ -503,7 +811,10 @@ Future<void> _submitIncident() async {
               ),
             ),
           );
-          
+
+          // Check if this was from safety trigger
+          final bool fromSafetyTrigger = widget.audioRecordingPath != null;
+
           // Reset form
           setState(() {
             _incidentType = 'general';
@@ -512,21 +823,40 @@ Future<void> _submitIncident() async {
             _postcodeController.clear();
             _stateController.clear();
             _descriptionController.clear();
+            _titleController.clear();
             _selectedPosition = null;
             _markers = {};
           });
-          
+
           _initializeLocation();
+
+          // If from safety trigger, start rapid location updates and show overlay
+          if (fromSafetyTrigger) {
+            final rapidService = Provider.of<RapidLocationService>(
+              context,
+              listen: false,
+            );
+            await rapidService.startRapidUpdates(incidentMediaId: mediaId);
+
+            // Navigate to overlay screen
+            if (mounted) {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (context) => const RapidLocationOverlayScreen(),
+                ),
+              );
+            }
+          }
         }
       } catch (e, stackTrace) {
         if (dialogShown && mounted) {
           Navigator.of(context).pop();
           dialogShown = false;
         }
-        
+
         print('❌ Error submitting incident: $e');
         print('Stack trace: $stackTrace');
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -540,61 +870,40 @@ Future<void> _submitIncident() async {
     }
   }
 
-  Widget _buildSectionCard({
-    required String title,
-    required IconData icon,
-    required List<Widget> children,
-    Widget? trailing,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+  // Helper method to build label with icon (with animated color)
+  Widget _buildLabelWithIcon(IconData icon, String label) {
+    return Row(
+      children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 3000),
+          curve: Curves.easeInOut,
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: _accentColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(6),
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryOrange.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, color: AppTheme.primaryOrange, size: 20),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              if (trailing != null) ...[const Spacer(), trailing],
-            ],
+          child: Icon(icon, color: _accentColor, size: 18),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
           ),
-          const SizedBox(height: 16),
-          ...children,
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  Widget _buildLocationSection() {
-    return _buildSectionCard(
-      title: 'Location Details',
-      icon: Icons.location_on,
+  // Helper method to build just the map widget
+  Widget _buildMapWidget() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _buildLabelWithIcon(Icons.location_on, 'Location'),
+        const SizedBox(height: 12),
         // Embedded Map
         Container(
           height: 250,
@@ -699,102 +1008,41 @@ Future<void> _submitIncident() async {
                   ),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 8),
         Text(
-          'Use current location or tap on the map to select location',
+          'Tap on map to select location or use auto-detected location',
           style: TextStyle(
             color: Colors.grey[600],
-            fontSize: 10,
+            fontSize: 12,
             fontStyle: FontStyle.italic,
           ),
         ),
-        const SizedBox(height: 24),
-        _buildTextField(
-          controller: _districtController,
-          label: 'District',
-          icon: Icons.location_city,
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Please enter district';
-            }
-            return null;
-          },
-        ),
         const SizedBox(height: 16),
-        _buildTextField(
-          controller: _postcodeController,
-          label: 'Postcode',
-          icon: Icons.markunread_mailbox,
-          keyboardType: TextInputType.number,
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Please enter postcode';
-            }
-            return null;
-          },
-        ),
-        const SizedBox(height: 16),
-        _buildTextField(
-          controller: _stateController,
-          label: 'State',
-          icon: Icons.map,
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Please enter state';
-            }
-            return null;
-          },
-        ),
+        // Location details (read-only, auto-filled)
+        if (_districtController.text.isNotEmpty ||
+            _postcodeController.text.isNotEmpty ||
+            _stateController.text.isNotEmpty)
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey[200]!),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, size: 16, color: Colors.grey[600]),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '${_districtController.text}${_postcodeController.text.isNotEmpty ? ', ' + _postcodeController.text : ''}${_stateController.text.isNotEmpty ? ', ' + _stateController.text : ''}',
+                    style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+                  ),
+                ),
+              ],
+            ),
+          ),
       ],
-    );
-  }
-
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    required IconData icon,
-    TextInputType? keyboardType,
-    String? Function(String?)? validator,
-  }) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: keyboardType,
-      cursorColor: AppTheme.primaryOrange,
-      onChanged: (value) {
-        // Trigger rebuild to update label color
-        setState(() {});
-      },
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: TextStyle(color: Colors.grey[600]),
-        floatingLabelStyle: WidgetStateTextStyle.resolveWith((
-          Set<WidgetState> states,
-        ) {
-          if (states.contains(MaterialState.focused)) {
-            return const TextStyle(color: AppTheme.primaryOrange);
-          }
-          if (controller.text.isNotEmpty) {
-            return TextStyle(color: Colors.grey[600]);
-          }
-          return const TextStyle(color: AppTheme.primaryOrange);
-        }),
-        prefixIcon: Icon(icon, color: Colors.grey[600]),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey[300]!),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey[300]!),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppTheme.primaryOrange, width: 2),
-        ),
-        filled: true,
-        fillColor: Colors.white,
-      ),
-      validator: validator,
     );
   }
 
@@ -804,29 +1052,63 @@ Future<void> _submitIncident() async {
     required String label,
   }) {
     final isSelected = _incidentType == type;
+    final isThreat = type == 'threat';
+
+    // Define colors based on type
+    Color selectedColor;
+    Color selectedBgColor;
+    Color unselectedColor;
+    Color unselectedBgColor;
+    Color borderColor;
+
+    if (isThreat) {
+      // Threat button: darker red when selected, lighter red when not
+      selectedColor = Colors.red[900]!;
+      selectedBgColor = Colors.red.withOpacity(0.2);
+      unselectedColor = Colors.red[200]!;
+      unselectedBgColor = Colors.red.withOpacity(0.05);
+      borderColor = isSelected ? Colors.red[900]! : Colors.red[100]!;
+    } else {
+      // General button: darker yellow when selected, lighter yellow when not
+      selectedColor = Colors.amber[900]!;
+      selectedBgColor = Colors.amber.withOpacity(0.2);
+      unselectedColor = Colors.amber[200]!;
+      unselectedBgColor = Colors.amber.withOpacity(0.05);
+      borderColor = isSelected ? Colors.amber[900]! : Colors.amber[100]!;
+    }
+
     return GestureDetector(
       onTap: () {
         setState(() {
           _incidentType = type;
+          // Animate title and accent colors based on incident type
+          if (type == 'threat') {
+            _titleBgColor = Colors.red[100]!;
+            _titleTextColor = Colors.red[900]!;
+            _titleShadowBaseColor = Colors.red;
+            _accentColor = Colors.red[700]!;
+          } else {
+            _titleBgColor = Colors.amber[100]!;
+            _titleTextColor = Colors.amber[900]!;
+            _titleShadowBaseColor = Colors.amber;
+            _accentColor = AppTheme.primaryOrange;
+          }
+          // Update the notifier to change AppBar and navigation colors
+          widget.incidentTypeNotifier?.value = type;
         });
       },
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isSelected
-              ? AppTheme.primaryOrange.withOpacity(0.1)
-              : Colors.grey[100],
+          color: isSelected ? selectedBgColor : unselectedBgColor,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? AppTheme.primaryOrange : Colors.grey[300]!,
-            width: 2,
-          ),
+          border: Border.all(color: borderColor, width: 2),
         ),
         child: Column(
           children: [
             Icon(
               icon,
-              color: isSelected ? AppTheme.primaryOrange : Colors.grey[600],
+              color: isSelected ? selectedColor : unselectedColor,
               size: 32,
             ),
             const SizedBox(height: 8),
@@ -834,7 +1116,7 @@ Future<void> _submitIncident() async {
               label,
               style: TextStyle(
                 fontWeight: FontWeight.w600,
-                color: isSelected ? AppTheme.primaryOrange : Colors.grey[700],
+                color: isSelected ? selectedColor : unselectedColor,
               ),
             ),
           ],
@@ -848,156 +1130,387 @@ Future<void> _submitIncident() async {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       body: SingleChildScrollView(
+        controller: _scrollController,
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 15),
-              Text(
-                'Report Incidents or Post General News',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+              const SizedBox(height: 20),
+              ValueListenableBuilder<double>(
+                valueListenable: _titleAnimationValue,
+                builder: (context, value, child) {
+                  // Calculate opacity and offset from single value
+                  final opacity = value;
+                  final offset = -(1.0 - value) * 50.0;
+
+                  return Opacity(
+                    opacity: opacity,
+                    child: Transform.translate(
+                      offset: Offset(0, offset),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 3000),
+                        curve: Curves.easeInOut,
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 20,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _titleBgColor,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _titleShadowBaseColor.withOpacity(
+                                0.2 * opacity,
+                              ),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: AnimatedDefaultTextStyle(
+                            duration: const Duration(milliseconds: 3000),
+                            curve: Curves.easeInOut,
+                            style: Theme.of(context).textTheme.headlineMedium!
+                                .copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: _titleTextColor,
+                                ),
+                            child: const Text('Lodge Incident'),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
-              const SizedBox(height: 10),
-              Text(
-                'Share important information with the community',
-                style: TextStyle(color: Colors.grey[600]),
-              ),
-              const SizedBox(height: 36),
+              const SizedBox(height: 20),
               Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildSectionCard(
-                      title: 'Date & Time',
-                      icon: Icons.calendar_today,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[100],
-                            borderRadius: BorderRadius.circular(12),
+                    // Combined white box with all content
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
                           ),
-                          child: Row(
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Map Section
+                          _buildMapWidget(),
+                          const SizedBox(height: 16),
+
+                          // Incident Type
+                          _buildLabelWithIcon(Icons.category, 'Incident Type'),
+                          const SizedBox(height: 8),
+                          Row(
                             children: [
+                              Expanded(
+                                child: _buildIncidentTypeCard(
+                                  type: 'general',
+                                  icon: Icons.info_outline,
+                                  label: 'General',
+                                ),
+                              ),
                               const SizedBox(width: 12),
-                              Text(
-                                DateTime.now().toString().substring(0, 16),
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
+                              Expanded(
+                                child: _buildIncidentTypeCard(
+                                  type: 'threat',
+                                  icon: Icons.warning_amber_rounded,
+                                  label: 'Threat',
                                 ),
                               ),
                             ],
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    _buildLocationSection(),
-                    const SizedBox(height: 20),
-                    _buildSectionCard(
-                      title: 'Incident Type',
-                      icon: Icons.category,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildIncidentTypeCard(
-                                type: 'general',
-                                icon: Icons.info_outline,
-                                label: 'General',
+                          const SizedBox(height: 16),
+
+                          // Description
+                          _buildLabelWithIcon(Icons.description, 'Description'),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: _descriptionController,
+                            decoration: InputDecoration(
+                              hintText: 'Describe what happened in detail...',
+                              hintStyle: TextStyle(color: Colors.grey[400]),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: Colors.grey[300]!,
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _buildIncidentTypeCard(
-                                type: 'threat',
-                                icon: Icons.warning_amber_rounded,
-                                label: 'Threat',
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: Colors.grey[300]!,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    _buildSectionCard(
-                      title: 'Description',
-                      icon: Icons.description,
-                      children: [
-                        TextFormField(
-                          controller: _descriptionController,
-                          decoration: InputDecoration(
-                            hintText: 'Describe what happened in detail...',
-                            hintStyle: TextStyle(color: Colors.grey[400]),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.grey[300]!),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.grey[300]!),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(
-                                color: AppTheme.primaryOrange,
-                                width: 2,
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(
+                                  color: AppTheme.primaryOrange,
+                                  width: 2,
+                                ),
                               ),
+                              filled: true,
+                              fillColor: Colors.white,
                             ),
-                            filled: true,
-                            fillColor: Colors.white,
+                            maxLines: 6,
+                            cursorColor: AppTheme.primaryOrange,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter a description';
+                              }
+                              return null;
+                            },
                           ),
-                          maxLines: 6,
-                          cursorColor: AppTheme.primaryOrange,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter a description';
-                            }
-                            return null;
-                          },
-                        ),
-                      ],
+                          const SizedBox(height: 16),
+
+                          // Incident Title with Generate Button
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildLabelWithIcon(
+                                  Icons.title,
+                                  'Incident Title',
+                                ),
+                              ),
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 3000),
+                                curve: Curves.easeInOut,
+                                child: TextButton.icon(
+                                  onPressed: _generateTitleFromDescription,
+                                  icon: const Icon(
+                                    Icons.auto_awesome,
+                                    size: 18,
+                                  ),
+                                  label: const Text('Generate'),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: _accentColor,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: _titleController,
+                            decoration: InputDecoration(
+                              hintText: 'Enter or generate a brief title',
+                              hintStyle: TextStyle(color: Colors.grey[400]),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: Colors.grey[300]!,
+                                ),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: Colors.grey[300]!,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(
+                                  color: AppTheme.primaryOrange,
+                                  width: 2,
+                                ),
+                              ),
+                              filled: true,
+                              fillColor: Colors.grey[50],
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 16,
+                              ),
+                            ),
+                            maxLines: 1,
+                            maxLength: 45,
+                            textCapitalization: TextCapitalization.sentences,
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Please enter an incident title';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Media Evidence
+                          MediaOperationsWidget(
+                            mediaFiles: _mediaFiles,
+                            onMediaFilesChanged: (files) {
+                              setState(() {
+                                _mediaFiles = files;
+                              });
+                            },
+                            initialAudioFile: widget.audioRecordingPath != null
+                                ? File(widget.audioRecordingPath!)
+                                : null,
+                            accentColor: _accentColor,
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 20),
-                    MediaOperationsWidget(
-                      mediaFiles: _mediaFiles,
-                      onMediaFilesChanged: (files) {
-                        setState(() {
-                          _mediaFiles = files;
-                        });
-                      },
-                      initialAudioFile: widget.audioRecordingPath != null
-                          ? File(widget.audioRecordingPath!)
-                          : null,
-                    ),
-                    const SizedBox(height: 45),
+
+                    // Submit Button with DateTime inside
                     SizedBox(
                       width: double.infinity,
-                      height: 56,
-                      child: ElevatedButton(
-                        onPressed: _submitIncident,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryOrange,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                      height: 72,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 3000),
+                        curve: Curves.easeInOut,
+                        child: ElevatedButton(
+                          onPressed: _submitIncident,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _accentColor,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
-                          elevation: 0,
-                        ),
-                        child: const Text(
-                          'Submit',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text(
+                                'Submit',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(
+                                    Icons.access_time,
+                                    size: 14,
+                                    color: Colors.white70,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Datetime: ${DateFormat('MMM dd, yyyy • hh:mm a').format(DateTime.now())}',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.white70,
+                                      fontWeight: FontWeight.w400,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ),
+
+                    // Auto-submit countdown and Cancel/Modify buttons
+                    if (_isAutoSubmitting) ...[
+                      const SizedBox(height: 24),
+                      // Countdown display
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.orange[50],
+                          border: Border.all(color: Colors.orange, width: 2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.timer,
+                              color: Colors.orange,
+                              size: 28,
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              'Auto-submitting in $_countdown seconds...',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.orange,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // Cancel and Modify buttons
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: _handleCancel,
+                              icon: const Icon(
+                                Icons.cancel,
+                                color: Colors.white,
+                              ),
+                              label: const Text(
+                                'Cancel',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: _handleModify,
+                              icon: const Icon(Icons.edit, color: Colors.white),
+                              label: const Text(
+                                'Modify',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),

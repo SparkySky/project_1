@@ -6,8 +6,8 @@ class IncidentRepository {
   final CloudDbService _dbService;
   static const String _objectTypeName = 'Incidents';
 
-  IncidentRepository({String zoneName = "dev"}) 
-      : _dbService = CloudDbService(zoneName);
+  IncidentRepository({String zoneName = "dev"})
+    : _dbService = CloudDbService(zoneName);
 
   IncidentRepository.withService(this._dbService);
 
@@ -58,22 +58,21 @@ class IncidentRepository {
   Future<bool> upsertIncident(incidents incident) async {
     try {
       final map = incident.getObjectData(); // Use CloudDB method
-      
+
       print('=== Upserting Incident to CloudDB ===');
       print('Object Type: $_objectTypeName');
       print('Map data: $map');
-      
+
       // Call CloudDB service
       final result = await _dbService.upsert(_objectTypeName, map);
       print('CloudDB upsert result: $result');
-      
+
       if (result <= 0) {
         throw Exception('CloudDB upsert failed with result: $result');
       }
-      
+
       print('✅ Incident upserted successfully');
       return true;
-      
     } catch (e, stackTrace) {
       print('❌ Error upserting incident: $e');
       print('Stack trace: $stackTrace');
@@ -127,6 +126,31 @@ class IncidentRepository {
     } catch (e) {
       print('❌ Error opening Incidents zone: $e');
       rethrow;
+    }
+  }
+
+  /// Disable incidents by user ID (set status to 'disabled')
+  Future<bool> disableIncidentsByUserId(String uid) async {
+    try {
+      // Get all user incidents
+      final userIncidents = await getIncidentsByUserId(uid);
+
+      if (userIncidents.isEmpty) {
+        print('No incidents to disable for user $uid');
+        return true;
+      }
+
+      // Update each incident status to 'disabled'
+      for (var incident in userIncidents) {
+        incident.status = 'disabled';
+        await upsertIncident(incident);
+      }
+
+      print('✅ Disabled ${userIncidents.length} incidents for user $uid');
+      return true;
+    } catch (e) {
+      print('❌ Error disabling incidents: $e');
+      return false;
     }
   }
 

@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../sensors/microphone_centre.dart';
 import '../sensors/location_centre.dart';
 import '../util/imu_centre.dart';
@@ -110,9 +112,36 @@ class SafetyTriggerService {
 
   /// Initialize the service
   Future<void> initialize() async {
-    final apiKey = dotenv.env['GEMINI_API_KEY'] ?? '';
+    // Check for custom API key from secure storage first (AES-256-GCM encrypted)
+    const secureStorage = FlutterSecureStorage(
+      aOptions: AndroidOptions(
+        encryptedSharedPreferences: true,
+        resetOnError: true,
+      ),
+    );
+
+    String? customApiKey = await secureStorage.read(key: 'gemini_api_key');
+
+    // Migration: Check SharedPreferences if not in secure storage
+    if (customApiKey == null) {
+      final prefs = await SharedPreferences.getInstance();
+      customApiKey = prefs.getString('gemini_api_key');
+
+      if (customApiKey != null && customApiKey.isNotEmpty) {
+        // Migrate to secure storage
+        await secureStorage.write(key: 'gemini_api_key', value: customApiKey);
+        await prefs.remove('gemini_api_key');
+        debugPrint('[SafetyTrigger] 🔄 Migrated API key to secure storage');
+      }
+    }
+
+    // Use custom key if available, otherwise fallback to default
+    final apiKey = customApiKey ?? dotenv.env['GEMINI_API_KEY'] ?? '';
+
     _geminiService = GeminiAnalysisService(apiKey: apiKey);
-    debugPrint('[SafetyTrigger] Initialized with Gemini API');
+    debugPrint(
+      '[SafetyTrigger] Initialized with ${customApiKey != null ? 'custom (🔐 encrypted)' : 'default'} Gemini API key',
+    );
   }
 
   /// Set current user ID for location updates
@@ -699,14 +728,19 @@ class SafetyTriggerService {
       // Get current location
       final location = await _locationService.getCurrentLocation();
 
+      // Extract title and description from Gemini result
+      final title = geminiResult['title'] as String? ?? 'AI-Detected Incident';
       final description =
           geminiResult['description'] as String? ??
           'AI-detected incident: $_triggerSource';
 
+      // Combine title and description with separator (format: "Title\n---\nDescription")
+      final combinedDescription = '$title\n---\n$description';
+
       // Prepare data for lodge screen
       final lodgeData = {
         'incidentType': 'threat',
-        'description': description,
+        'description': combinedDescription,
         'mediaID': _audioFilePath ?? '',
         'isAIGenerated': true,
         'latitude': location?.latitude,

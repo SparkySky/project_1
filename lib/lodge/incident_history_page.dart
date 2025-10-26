@@ -14,7 +14,7 @@ class IncidentHistoryPage extends StatefulWidget {
 
 class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
   bool _isLoadingAddresses = false;
-  
+
   // Sample incident history data with latitude/longitude only
   // District, postcode, and state will be fetched via reverse geocoding
   final List<Incident> _incidentHistory = [
@@ -27,15 +27,18 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
       postcode: '',
       state: '',
       incidentType: IncidentType.threat,
-      description: 'Suspicious activity near the park area. Multiple people acting strangely.',
+      description:
+          'Suspicious activity near the park area. Multiple people acting strangely.',
       status: IncidentStatus.active,
       media: [
         IncidentMedia(
-          path: 'https://images.unsplash.com/photo-1551650975-87deedd944c3?w=800',
+          path:
+              'https://images.unsplash.com/photo-1551650975-87deedd944c3?w=800',
           type: MediaType.image,
         ),
         IncidentMedia(
-          path: 'https://images.unsplash.com/photo-1509281373149-e957c6296406?w=800',
+          path:
+              'https://images.unsplash.com/photo-1509281373149-e957c6296406?w=800',
           type: MediaType.image,
         ),
       ],
@@ -65,10 +68,7 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
       description: 'Attempted break-in at residential area. Police notified.',
       status: IncidentStatus.resolved,
       media: [
-        IncidentMedia(
-          path: 'audio_recording.mp3',
-          type: MediaType.audio,
-        ),
+        IncidentMedia(path: 'audio_recording.mp3', type: MediaType.audio),
       ],
     ),
     Incident(
@@ -80,11 +80,13 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
       postcode: '',
       state: '',
       incidentType: IncidentType.general,
-      description: 'Traffic accident at main intersection. Minor injuries reported.',
+      description:
+          'Traffic accident at main intersection. Minor injuries reported.',
       status: IncidentStatus.resolved,
       media: [
         IncidentMedia(
-          path: 'https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?w=800',
+          path:
+              'https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?w=800',
           type: MediaType.image,
         ),
       ],
@@ -116,7 +118,8 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
   Future<void> _reverseGeocodeForIncident(int index) async {
     try {
       final incident = _incidentHistory[index];
-      final apiKey = "DgEDAOcs4D0sDGUBoVxbgVd02uYRdo2kw9qeSFS5/KrMMaYEI7cOCtkJtpYr0nlE9+D1YwFMnU0G7L630uhclxboFY3v3jXCx0j8Hg==";
+      final apiKey =
+          "DgEDAOcs4D0sDGUBoVxbgVd02uYRdo2kw9qeSFS5/KrMMaYEI7cOCtkJtpYr0nlE9+D1YwFMnU0G7L630uhclxboFY3v3jXCx0j8Hg==";
 
       final url = Uri.parse(
         'https://siteapi.cloud.huawei.com/mapApi/v1/siteService/reverseGeocode',
@@ -139,13 +142,15 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
         final data = jsonDecode(response.body);
 
         if (data['returnCode'] != null && data['returnCode'] != '0') {
-          throw Exception('API Error: ${data['returnDesc'] ?? 'Unknown error'}');
+          throw Exception(
+            'API Error: ${data['returnDesc'] ?? 'Unknown error'}',
+          );
         }
 
         if (data['sites'] != null && data['sites'].isNotEmpty) {
           final site = data['sites'][0];
           final address = site['address'];
-          
+
           String district = '';
           String postcode = '';
           String state = '';
@@ -153,7 +158,8 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
           // Extract district (full address before postcode)
           String fullAddress = site['formatAddress'] ?? '';
           if (fullAddress.isNotEmpty) {
-            if (address['postalCode'] != null && address['postalCode'].isNotEmpty) {
+            if (address['postalCode'] != null &&
+                address['postalCode'].isNotEmpty) {
               String postcodeStr = address['postalCode'];
               int postcodeIndex = fullAddress.indexOf(postcodeStr);
               if (postcodeIndex > 0) {
@@ -169,22 +175,26 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
             // Fallback to locality
             if (address['locality'] != null && address['locality'].isNotEmpty) {
               district = address['locality'];
-            } else if (address['subLocality'] != null && address['subLocality'].isNotEmpty) {
+            } else if (address['subLocality'] != null &&
+                address['subLocality'].isNotEmpty) {
               district = address['subLocality'];
-            } else if (address['county'] != null && address['county'].isNotEmpty) {
+            } else if (address['county'] != null &&
+                address['county'].isNotEmpty) {
               district = address['county'];
             }
           }
 
           // Extract postcode
-          if (address['postalCode'] != null && address['postalCode'].isNotEmpty) {
+          if (address['postalCode'] != null &&
+              address['postalCode'].isNotEmpty) {
             postcode = address['postalCode'];
           }
 
           // Extract state
           if (address['adminArea'] != null && address['adminArea'].isNotEmpty) {
             state = address['adminArea'];
-          } else if (address['subAdminArea'] != null && address['subAdminArea'].isNotEmpty) {
+          } else if (address['subAdminArea'] != null &&
+              address['subAdminArea'].isNotEmpty) {
             state = address['subAdminArea'];
           }
 
@@ -231,9 +241,7 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
         ),
         backgroundColor: Colors.green,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }
@@ -242,18 +250,15 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Delete Incident'),
-        content: const Text('Are you sure you want to delete this incident? The action cannot be undone.'),
+        content: const Text(
+          'Are you sure you want to delete this incident? The action cannot be undone.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: Colors.grey),
-            ),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
           ),
           TextButton(
             onPressed: () {
@@ -278,10 +283,7 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
                 ),
               );
             },
-            child: const Text(
-              'Delete',
-              style: TextStyle(color: Colors.red),
-            ),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -292,18 +294,15 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Delete All Incidents'),
-        content: const Text('Are you sure you want to delete all incident history? This action cannot be undone.'),
+        content: const Text(
+          'Are you sure you want to delete all incident history? This action cannot be undone.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: Colors.grey),
-            ),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
           ),
           TextButton(
             onPressed: () {
@@ -348,11 +347,15 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
         actions: [
           if (_incidentHistory.isNotEmpty)
             IconButton(
-              icon: const Icon(Icons.delete_sweep, size: 28, color: Colors.white),
+              icon: const Icon(
+                Icons.delete_sweep,
+                size: 28,
+                color: Colors.white,
+              ),
               padding: const EdgeInsets.only(right: 24),
               onPressed: _deleteAllIncidents,
             ),
-        ]
+        ],
       ),
       body: _isLoadingAddresses
           ? Center(
@@ -363,54 +366,86 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
                   const SizedBox(height: 16),
                   Text(
                     'Loading incidents...',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                   ),
                 ],
               ),
             )
           : _incidentHistory.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.history,
-                        size: 80,
-                        color: Colors.grey[400],
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No incident history',
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: Colors.grey[600],
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Your reported incidents will appear here',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[500],
-                        ),
-                      ),
-                    ],
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.history, size: 80, color: Colors.grey[400]),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No incident history',
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: Colors.grey[600],
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _incidentHistory.length,
-                  itemBuilder: (context, index) {
-                    return _buildIncidentPost(
-                      _incidentHistory[index],
-                      index,
-                    );
-                  },
-                ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Your reported incidents will appear here',
+                    style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+                  ),
+                ],
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: _incidentHistory.length,
+              itemBuilder: (context, index) {
+                return _buildIncidentPost(_incidentHistory[index], index);
+              },
+            ),
+    );
+  }
+
+  // Helper method to build description section with title/description parsing
+  Widget _buildDescriptionSection(String fullDescription) {
+    // Parse title and description (format: "Title\n---\nDescription")
+    String? title;
+    String description;
+
+    if (fullDescription.contains('\n---\n')) {
+      final parts = fullDescription.split('\n---\n');
+      if (parts.length >= 2) {
+        title = parts[0].trim();
+        description = parts.sublist(1).join('\n---\n').trim();
+      } else {
+        description = fullDescription;
+      }
+    } else {
+      description = fullDescription;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Title (if present)
+        if (title != null && title.isNotEmpty) ...[
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[900],
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Divider(color: Colors.grey[300], thickness: 1),
+          const SizedBox(height: 8),
+        ],
+        // Description
+        Text(
+          description,
+          style: TextStyle(fontSize: 14, color: Colors.grey[800], height: 1.5),
+        ),
+      ],
     );
   }
 
@@ -444,8 +479,8 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: isThreat 
-                        ? Colors.red.withOpacity(0.1) 
+                    color: isThreat
+                        ? Colors.red.withOpacity(0.1)
                         : Colors.blue.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -496,7 +531,9 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
-                                  isResolved ? Icons.check_circle : Icons.circle,
+                                  isResolved
+                                      ? Icons.check_circle
+                                      : Icons.circle,
                                   size: 12,
                                   color: Colors.white,
                                 ),
@@ -547,15 +584,11 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
-                Icon(
-                  Icons.location_on,
-                  size: 16,
-                  color: Colors.grey[600],
-                ),
+                Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
-                    incident.district.isEmpty 
+                    incident.district.isEmpty
                         ? 'Loading location...'
                         : '${incident.district}, ${incident.postcode}, ${incident.state}',
                     style: TextStyle(
@@ -571,17 +604,10 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
 
           const SizedBox(height: 12),
 
-          // Description
+          // Title and Description
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              incident.description,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[800],
-                height: 1.5,
-              ),
-            ),
+            child: _buildDescriptionSection(incident.description),
           ),
 
           // Media section
@@ -601,10 +627,7 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () => _markAsResolved(index),
-                      icon: const Icon(
-                        Icons.check_circle_outline,
-                        size: 18,
-                      ),
+                      icon: const Icon(Icons.check_circle_outline, size: 18),
                       label: const Text('Mark as Resolved'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.green,
@@ -731,46 +754,50 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Column(
-              children: videos.map((video) => Container(
-                    margin: const EdgeInsets.only(top: 8),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[100],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryOrange,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.play_arrow,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Video recording',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.grey[800],
+              children: videos
+                  .map(
+                    (video) => Container(
+                      margin: const EdgeInsets.only(top: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryOrange,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              Icons.play_arrow,
+                              color: Colors.white,
+                              size: 20,
                             ),
                           ),
-                        ),
-                        Icon(
-                          Icons.open_in_new,
-                          size: 18,
-                          color: Colors.grey[600],
-                        ),
-                      ],
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Video recording',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.grey[800],
+                              ),
+                            ),
+                          ),
+                          Icon(
+                            Icons.open_in_new,
+                            size: 18,
+                            color: Colors.grey[600],
+                          ),
+                        ],
+                      ),
                     ),
-                  )).toList(),
+                  )
+                  .toList(),
             ),
           ),
         ],
@@ -780,46 +807,50 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Column(
-              children: audios.map((audio) => Container(
-                    margin: const EdgeInsets.only(top: 8),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[100],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.blue,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.mic,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Audio recording',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.grey[800],
+              children: audios
+                  .map(
+                    (audio) => Container(
+                      margin: const EdgeInsets.only(top: 8),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.blue,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              Icons.mic,
+                              color: Colors.white,
+                              size: 20,
                             ),
                           ),
-                        ),
-                        Icon(
-                          Icons.play_circle_outline,
-                          size: 24,
-                          color: Colors.grey[600],
-                        ),
-                      ],
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Audio recording',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.grey[800],
+                              ),
+                            ),
+                          ),
+                          Icon(
+                            Icons.play_circle_outline,
+                            size: 24,
+                            color: Colors.grey[600],
+                          ),
+                        ],
+                      ),
                     ),
-                  )).toList(),
+                  )
+                  .toList(),
             ),
           ),
         ],

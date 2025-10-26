@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:project_1/bg_services/clouddb_service.dart';
 import 'package:project_1/providers/safety_service_provider.dart';
+import 'package:project_1/bg_services/rapid_location_service.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -13,12 +15,24 @@ import 'providers/user_provider.dart';
 import 'debug_overlay/safety_debug_overlay.dart';
 import 'debug_overlay/debug_state.dart';
 
-import 'bg_services/clouddb_service.dart';
-
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Global error handlers to prevent crashes
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    debugPrint('Flutter Error: ${details.exception}');
+    debugPrint('Stack trace: ${details.stack}');
+  };
+
+  // Catch errors in async code
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('Async Error: $error');
+    debugPrint('Stack trace: $stack');
+    return true; // Mark as handled
+  };
 
   await dotenv.load(fileName: ".env");
   await DebugState().loadState();
@@ -55,7 +69,7 @@ Future<void> main() async {
     await CloudDbService.initialize();
     await CloudDbService.createObjectType();
     print('[MAIN] ✅ Cloud DB initialized successfully');
-    
+
     await Future.delayed(const Duration(milliseconds: 300));
   } catch (e, stackTrace) {
     print('[MAIN] ❌ Error initializing Cloud DB: $e');
@@ -84,6 +98,12 @@ Future<void> main() async {
           create: (_) {
             debugPrint("[main.dart] SafetyServiceProvider created.");
             return SafetyServiceProvider();
+          },
+        ),
+        ChangeNotifierProvider(
+          create: (_) {
+            debugPrint("[main.dart] RapidLocationService created.");
+            return RapidLocationService();
           },
         ),
       ],

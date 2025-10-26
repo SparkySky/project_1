@@ -68,8 +68,9 @@ CRITICAL INSTRUCTIONS:
 Provide a JSON response with the following structure:
 - "isIncident": boolean (true ONLY if you are confident it is a real incident based on audio + context, false otherwise)
 - "incidentType": string (e.g., "Fall", "Distress Call", "False Positive")
+- "title": string (A SHORT, concise title summarizing the incident in 5-10 words. Examples: "Distress Call Detected", "Fall Incident with Injury", "False Positive - Heavy Lifting")
 - "transcript": string (The COMPLETE COMBINED sentence: pre-trigger text + audio transcription. Piece them together into natural, coherent sentences.)
-- "description": string (A concise summary based on what you HEAR in the audio and see in the data. Be factual, not speculative.)
+- "description": string (A detailed summary based on what you HEAR in the audio and see in the data. Be factual, not speculative.)
 - "district": string (Infer if possible, otherwise leave empty)
 - "postcode": string (Infer if possible, otherwise leave empty)
 - "state": string (Infer if possible, otherwise leave empty)
@@ -81,6 +82,7 @@ Pre-trigger: "can i get your", Audio: "help please the file is very heavy"
 {
   "isIncident": false,
   "incidentType": "False Positive - Physical Task",
+  "title": "False Positive - Heavy Lifting",
   "transcript": "Can I get your help please, the file is very heavy",
   "description": "Voice tone indicates physical strain from lifting, not danger. Normal conversational volume. Keyword 'help' refers to assistance with heavy object, not emergency. No panic or distress detected.",
   "district": "", "postcode": "", "state": ""
@@ -91,6 +93,7 @@ Pre-trigger: "", Audio: "help me help me please"
 {
   "isIncident": false,
   "incidentType": "False Positive - System Test",
+  "title": "False Positive - System Test",
   "transcript": "Help me help me please",
   "description": "Calm, monotone voice speaking keywords deliberately. No emotional distress. Likely testing the safety system.",
   "district": "", "postcode": "", "state": ""
@@ -101,6 +104,7 @@ Pre-trigger: "someone is following me", Audio: "help someone please help me"
 {
   "isIncident": true,
   "incidentType": "Distress Call",
+  "title": "Distress Call - Person Being Followed",
   "transcript": "Someone is following me, help someone please help me",
   "description": "Voice analysis indicates genuine panic and fear. Rapid breathing, elevated pitch, and trembling voice detected. Background sounds suggest struggle. IMU data shows sudden movement consistent with distress scenario.",
   "district": "", "postcode": "", "state": ""
@@ -111,6 +115,7 @@ Pre-trigger: "please", Audio: "help me quietly please someone help"
 {
   "isIncident": true,
   "incidentType": "Distress Call - Whispered",
+  "title": "Whispered Distress Call - Possible Hostage",
   "transcript": "Please help me quietly, please someone help",
   "description": "Whispered distress call detected with urgent tone. Voice shows fear despite low volume. Person appears to be trying to remain quiet, possibly hiding from danger or in hostage situation. Context and urgency indicate genuine emergency despite whisper.",
   "district": "", "postcode": "", "state": ""

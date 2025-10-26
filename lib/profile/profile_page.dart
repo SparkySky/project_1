@@ -1,11 +1,20 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:agconnect_auth/agconnect_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+import 'package:local_auth/local_auth.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/users.dart';
+import '../repository/incident_repository.dart';
+import '../repository/media_repository.dart';
 import '../../signup_login/auth_page.dart';
+import '../../signup_login/auth_service.dart';
+import '../../signup_login/terms_conditions_page.dart';
+import '../../signup_login/privacy_policy_page.dart';
 import '../../app_theme.dart';
 import '../../constants/provider_types.dart';
 import '../debug_overlay/debug_state.dart';
@@ -29,6 +38,9 @@ class _ProfilePageState extends State<ProfilePage> {
   bool _allowDiscoverable = true;
   bool _allowEmergencyAlert = true;
 
+  // Developer settings
+  bool _isApiKeySet = false;
+
   UserProvider? _userProvider;
   AGCUser? _agcUser;
   Users? _cloudDbUser;
@@ -42,13 +54,49 @@ class _ProfilePageState extends State<ProfilePage> {
 
   File? _profileImage; // Session-only, not saved
   final ImagePicker _picker = ImagePicker();
+  final LocalAuthentication _localAuth = LocalAuthentication();
+
+  // Secure storage with AES-256-GCM encryption and hardware-backed keys
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage(
+    aOptions: AndroidOptions(
+      encryptedSharedPreferences: true,
+      resetOnError: true,
+    ),
+  );
 
   @override
   void initState() {
     super.initState();
     _loadDebugOverlayState();
     _loadLocalPreferences();
+    _loadDeveloperSettings();
     _debugState.addListener(_onDebugStateChanged);
+  }
+
+  /// Load developer settings (API key status)
+  Future<void> _loadDeveloperSettings() async {
+    // Try to read from secure storage first
+    String? apiKey = await _secureStorage.read(key: 'gemini_api_key');
+
+    // Migration: If not in secure storage, check SharedPreferences (old storage)
+    if (apiKey == null) {
+      final prefs = await SharedPreferences.getInstance();
+      final oldApiKey = prefs.getString('gemini_api_key');
+
+      if (oldApiKey != null && oldApiKey.isNotEmpty) {
+        // Migrate to secure storage
+        await _secureStorage.write(key: 'gemini_api_key', value: oldApiKey);
+        // Remove from old storage
+        await prefs.remove('gemini_api_key');
+        apiKey = oldApiKey;
+        debugPrint('[ProfilePage] 🔄 Migrated API key to secure storage');
+      }
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _isApiKeySet = apiKey != null && apiKey.isNotEmpty;
+    });
   }
 
   /// Load all preferences from SharedPreferences (local storage only)
@@ -104,6 +152,13 @@ class _ProfilePageState extends State<ProfilePage> {
     if (!_hasLoadedLanguagePreference) {
       _hasLoadedLanguagePreference = true;
     }
+  }
+
+  /// Calculate minutes ago from a given DateTime (always display in minutes, never convert to hours)
+  int _getMinutesAgo(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+    return difference.inMinutes;
   }
 
   @override
@@ -258,6 +313,745 @@ class _ProfilePageState extends State<ProfilePage> {
     return AuthProviderName.name(providerId);
   }
 
+  // Check if Huawei ID is linked to the account
+  bool _isHuaweiIdLinked() {
+    if (_agcUser?.providerInfo == null) return false;
+
+    // Check if any provider is Huawei ID (provider index 10)
+    for (final provider in _agcUser!.providerInfo!) {
+      if (provider['providerId'] == '10') {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Build card showing all linked providers
+  Widget _buildLinkedProvidersCard() {
+    final providers = _agcUser!.providerInfo!;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 12, bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.green.withOpacity(0.3), width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            spreadRadius: 0,
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.check_circle,
+                  color: Colors.green,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Linked Sign-in Methods',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'You can sign in with any of these',
+                      style: TextStyle(fontSize: 11, color: Colors.black54),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: providers.map((provider) {
+              final providerId =
+                  int.tryParse(provider['providerId'] ?? '0') ?? 0;
+              final providerName = _getProviderName(providerId);
+              final providerIcon = _getProviderIcon(providerId);
+              final providerColor = _getProviderColor(providerId);
+
+              return Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: providerColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: providerColor.withOpacity(0.3),
+                    width: 1.5,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(providerIcon, size: 16, color: providerColor),
+                    const SizedBox(width: 6),
+                    Text(
+                      providerName,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: providerColor,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Get icon for provider
+  IconData _getProviderIcon(int providerId) {
+    switch (providerId) {
+      case 10: // Huawei ID
+        return Icons.account_circle;
+      case 12: // Email
+        return Icons.email;
+      case 11: // Phone
+        return Icons.phone;
+      case 0: // Anonymous
+        return Icons.person_outline;
+      default:
+        return Icons.login;
+    }
+  }
+
+  // Get color for provider
+  Color _getProviderColor(int providerId) {
+    switch (providerId) {
+      case 10: // Huawei ID
+        return Colors.red;
+      case 12: // Email
+        return AppTheme.primaryOrange;
+      case 11: // Phone
+        return Colors.green;
+      case 0: // Anonymous
+        return Colors.grey;
+      default:
+        return Colors.blue;
+    }
+  }
+
+  // Build action card (for Terms, Privacy, etc.)
+  Widget _buildActionCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  spreadRadius: 0,
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: color, size: 24),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right, color: Colors.grey[400]),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Build delete account card with warning
+  Widget _buildDeleteAccountCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.red.withOpacity(0.3), width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.red.withOpacity(0.1),
+            spreadRadius: 0,
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.delete_forever,
+                  color: Colors.red,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Delete Account',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Permanently delete your account',
+                      style: TextStyle(fontSize: 12, color: Colors.black54),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.red.withOpacity(0.2), width: 1),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.warning_amber_rounded,
+                  color: Colors.red[700],
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Warning',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.red[700],
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'This action cannot be undone. Your profile and user-uploaded media will be deleted. Incidents will be disabled (not deleted) and trigger evidence will be preserved.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.red[900],
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _handleDeleteAccount,
+              icon: const Icon(Icons.delete_forever, size: 20),
+              label: const Text(
+                'Delete My Account',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Handle delete account
+  Future<void> _handleDeleteAccount() async {
+    // First confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.red, size: 28),
+            SizedBox(width: 12),
+            Text('Delete Account?'),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Are you sure you want to delete your account?',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 12),
+            Text('This will:', style: TextStyle(fontSize: 14)),
+            SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.delete_forever, size: 16, color: Colors.red),
+                SizedBox(width: 8),
+                Expanded(child: Text('• DELETE: Profile information')),
+              ],
+            ),
+            Row(
+              children: [
+                Icon(Icons.delete_forever, size: 16, color: Colors.red),
+                SizedBox(width: 8),
+                Expanded(child: Text('• DELETE: User-uploaded media')),
+              ],
+            ),
+            Row(
+              children: [
+                Icon(Icons.block, size: 16, color: Colors.orange),
+                SizedBox(width: 8),
+                Expanded(child: Text('• DISABLE: All incident reports')),
+              ],
+            ),
+            Row(
+              children: [
+                Icon(Icons.save, size: 16, color: Colors.green),
+                SizedBox(width: 8),
+                Expanded(child: Text('• PRESERVE: Trigger evidence')),
+              ],
+            ),
+            SizedBox(height: 12),
+            Text(
+              'This action cannot be undone!',
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            style: TextButton.styleFrom(foregroundColor: Colors.grey),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Continue'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    // Second confirmation - type to confirm
+    final textController = TextEditingController();
+    final confirmed2 = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Final Confirmation'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'To confirm deletion, please type:',
+              style: TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                'DELETE',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: Colors.red,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: textController,
+              decoration: const InputDecoration(
+                labelText: 'Type DELETE to confirm',
+                border: OutlineInputBorder(),
+              ),
+              textCapitalization: TextCapitalization.characters,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            style: TextButton.styleFrom(foregroundColor: Colors.grey),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (textController.text.trim().toUpperCase() == 'DELETE') {
+                Navigator.of(context).pop(true);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please type DELETE to confirm'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Delete Account'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed2 != true) return;
+
+    // Perform deletion
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      final uid = _agcUser?.uid;
+      if (uid != null) {
+        // Import repositories
+        final incidentRepo = IncidentRepository();
+        final mediaRepo = MediaRepository();
+
+        try {
+          // Open zones
+          await incidentRepo.openZone();
+          await mediaRepo.openZone();
+
+          // Get all user incidents
+          final userIncidents = await incidentRepo.getIncidentsByUserId(uid);
+
+          // Delete media from non-AI-generated incidents only
+          // Keep evidence from trigger events (AI-generated)
+          for (var incident in userIncidents) {
+            if (incident.mediaID != null && incident.mediaID!.isNotEmpty) {
+              if (!incident.isAIGenerated) {
+                // Not AI-generated = user uploaded = can be deleted
+                await mediaRepo.deleteMediaByMediaId(incident.mediaID!);
+                debugPrint('✅ Deleted media for incident ${incident.iid}');
+              } else {
+                // AI-generated = trigger evidence = keep it
+                debugPrint(
+                  '⚠️ Preserved evidence media for incident ${incident.iid}',
+                );
+              }
+            }
+          }
+
+          // Disable all incidents (don't delete them)
+          await incidentRepo.disableIncidentsByUserId(uid);
+
+          // Close zones
+          await incidentRepo.closeZone();
+          await mediaRepo.closeZone();
+        } catch (e) {
+          debugPrint('❌ Error during incident/media cleanup: $e');
+          // Continue with user deletion even if this fails
+        }
+      }
+
+      // Delete user from CloudDB
+      if (_cloudDbUser != null) {
+        await _userProvider?.deleteUser(_cloudDbUser!);
+      }
+
+      // Delete AGConnect Auth user (commented out - implement if needed)
+      // await _agcUser?.delete();
+
+      // Sign out
+      await _userProvider?.signOut();
+
+      if (!mounted) return;
+      Navigator.of(context).pop(); // Close loading
+
+      // Navigate to auth screen
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (context) => const AuthScreen(isLogin: true),
+        ),
+        (route) => false,
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Account deleted successfully. Incidents preserved with disabled status.',
+          ),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 4),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop(); // Close loading
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to delete account: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  // Build card prompting user to link Huawei ID
+  Widget _buildLinkHuaweiIdCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppTheme.primaryOrange.withOpacity(0.1),
+            Colors.blue.withOpacity(0.1),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppTheme.primaryOrange.withOpacity(0.3),
+          width: 2,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.link,
+                  color: AppTheme.primaryOrange,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Link Huawei ID',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Get your profile picture & easier sign-in',
+                      style: TextStyle(fontSize: 12, color: Colors.black54),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _handleLinkHuaweiId,
+              icon: const Icon(Icons.account_circle, size: 20),
+              label: const Text(
+                'Link Huawei Account',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryOrange,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Handle linking Huawei ID
+  Future<void> _handleLinkHuaweiId() async {
+    try {
+      // Show loading dialog
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      // Import auth service
+      final authService = AuthService();
+      await authService.linkHuaweiID(context);
+
+      // Close loading dialog
+      if (!mounted) return;
+      Navigator.of(context).pop();
+
+      // Refresh user data
+      if (!mounted) return;
+      await _userProvider?.refreshUser();
+
+      // Show success
+      if (!mounted) return;
+      setState(() {}); // Refresh UI
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.white),
+              SizedBox(width: 12),
+              Expanded(child: Text('Huawei ID linked successfully! 🎉')),
+            ],
+          ),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      );
+    } catch (e) {
+      // Close loading dialog
+      if (!mounted) return;
+      Navigator.of(context).pop();
+
+      // Show error
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to link Huawei ID: $e'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 4),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     _userProvider = Provider.of<UserProvider>(context);
@@ -265,7 +1059,8 @@ class _ProfilePageState extends State<ProfilePage> {
     _cloudDbUser = _userProvider!.cloudDbUser;
     final isLoading = _userProvider!.isLoading;
 
-    _emailController.text = _agcUser?.email ?? '';
+    // Email: prefer AGCUser email, fallback to CloudDB email
+    _emailController.text = _agcUser?.email ?? _cloudDbUser?.email ?? '';
     _phoneController.text = _cloudDbUser?.phoneNo ?? '';
     _districtController.text = _cloudDbUser?.district ?? '';
     _postcodeController.text = _cloudDbUser?.postcode ?? '';
@@ -394,12 +1189,14 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                   const SizedBox(height: 8),
                   // Email and Phone - show only if at least one has data
-                  if ((_agcUser?.email?.isNotEmpty ?? false) ||
+                  if (((_agcUser?.email?.isNotEmpty ?? false) ||
+                          (_cloudDbUser?.email?.isNotEmpty ?? false)) ||
                       (_cloudDbUser?.phoneNo?.isNotEmpty ?? false))
                     Column(
                       children: [
-                        // Email
-                        if (_agcUser?.email?.isNotEmpty ?? false)
+                        // Email (from AGCUser or CloudDB)
+                        if ((_agcUser?.email?.isNotEmpty ?? false) ||
+                            (_cloudDbUser?.email?.isNotEmpty ?? false))
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 16,
@@ -420,7 +1217,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
-                                  _agcUser!.email!,
+                                  _agcUser?.email ?? _cloudDbUser?.email ?? '',
                                   style: TextStyle(
                                     fontSize: 14,
                                     color: AppTheme.primaryOrange,
@@ -505,9 +1302,22 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                   _buildInfoCard(
                     icon: Icons.login,
-                    title: 'Sign-in Method',
+                    title: 'Primary Sign-in Method',
                     value: _getProviderName(_agcUser!.providerId!.index),
                   ),
+
+                  // Display all linked providers
+                  if (_agcUser!.providerInfo != null &&
+                      _agcUser!.providerInfo!.length > 1)
+                    _buildLinkedProvidersCard(),
+
+                  // Link Huawei ID button (only for email users without Huawei ID linked)
+                  if (_agcUser!.providerId?.index == 12 && // Email provider
+                      !_isHuaweiIdLinked())
+                    Container(
+                      margin: const EdgeInsets.only(top: 12),
+                      child: _buildLinkHuaweiIdCard(),
+                    ),
                   if (_agcUser!.email != null && _agcUser!.email!.isNotEmpty)
                     _buildInfoCard(
                       icon: _agcUser!.emailVerified!
@@ -539,13 +1349,17 @@ class _ProfilePageState extends State<ProfilePage> {
                   // Combined Voice Detection Language Card with toggles
                   _buildLanguageSelectionCard(),
 
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 32),
 
-                  // Debug Overlay Toggle (separate card)
+                  // Developer Section
+                  _buildSectionHeader('Developer', Icons.code),
+                  const SizedBox(height: 16),
+
+                  // Debug Overlay Toggle
                   _buildToggleCard(
                     icon: Icons.bug_report_outlined,
-                    title: 'Allow Debug Overlay',
-                    subtitle: 'Show developer information',
+                    title: 'Debug Overlay',
+                    subtitle: 'Show developer diagnostics',
                     value: _allowDebugOverlay,
                     onChanged: (value) {
                       setState(() => _allowDebugOverlay = value);
@@ -553,7 +1367,197 @@ class _ProfilePageState extends State<ProfilePage> {
                     },
                   ),
 
-                  const SizedBox(height: 48),
+                  const SizedBox(height: 12),
+
+                  // Gemini API Key Card
+                  _buildApiKeyCard(),
+
+                  const SizedBox(height: 12),
+
+                  // TEMPORARY: Emergency Clear Button
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.red.withOpacity(0.3),
+                        width: 2,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.warning_amber_rounded,
+                              color: Colors.red,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'TEMPORARY: Emergency API Key Reset',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.red,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'If you cannot access your API key due to authentication issues, use this button to clear it. This button will be removed in future updates.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[700],
+                            height: 1.3,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: () async {
+                              // Show confirmation dialog
+                              final confirmed = await showDialog<bool>(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: const Row(
+                                    children: [
+                                      Icon(Icons.warning, color: Colors.red),
+                                      SizedBox(width: 12),
+                                      Text('Clear API Key?'),
+                                    ],
+                                  ),
+                                  content: const Text(
+                                    'This will delete your custom API key from secure storage. You will need to set it up again.',
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.of(context).pop(false),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    ElevatedButton(
+                                      onPressed: () =>
+                                          Navigator.of(context).pop(true),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.red,
+                                      ),
+                                      child: const Text('Clear Key'),
+                                    ),
+                                  ],
+                                ),
+                              );
+
+                              if (confirmed == true) {
+                                try {
+                                  await _secureStorage.delete(
+                                    key: 'gemini_api_key',
+                                  );
+                                  // Also check old storage
+                                  final prefs =
+                                      await SharedPreferences.getInstance();
+                                  await prefs.remove('gemini_api_key');
+
+                                  setState(() {
+                                    _isApiKeySet = false;
+                                  });
+
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          '✅ API key cleared successfully',
+                                        ),
+                                        backgroundColor: Colors.green,
+                                      ),
+                                    );
+                                  }
+                                  debugPrint(
+                                    '[ProfilePage] 🗑️ Emergency cleared API key',
+                                  );
+                                } catch (e) {
+                                  debugPrint(
+                                    '[ProfilePage] ❌ Error clearing API key: $e',
+                                  );
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Error clearing key: $e'),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                }
+                              }
+                            },
+                            icon: const Icon(Icons.delete_forever, size: 18),
+                            label: const Text('Emergency Clear API Key'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 32),
+
+                  // Legal Section
+                  _buildSectionHeader('Legal', Icons.description_outlined),
+                  const SizedBox(height: 16),
+
+                  // Terms & Conditions Button
+                  _buildActionCard(
+                    icon: Icons.article_outlined,
+                    title: 'Terms & Conditions',
+                    subtitle: 'View our terms of service',
+                    color: Colors.blue,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const TermsConditionsPage(),
+                        ),
+                      );
+                    },
+                  ),
+
+                  // Privacy Policy Button
+                  _buildActionCard(
+                    icon: Icons.privacy_tip_outlined,
+                    title: 'Privacy Policy',
+                    subtitle: 'View our privacy policy',
+                    color: Colors.green,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const PrivacyPolicyPage(),
+                        ),
+                      );
+                    },
+                  ),
+
+                  const SizedBox(height: 32),
+
+                  // Delete Account Section
+                  _buildSectionHeader(
+                    'Danger Zone',
+                    Icons.warning_amber_rounded,
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Delete Account Button
+                  _buildDeleteAccountCard(),
+
+                  const SizedBox(height: 32),
 
                   // Logout Button
                   Container(
@@ -627,6 +1631,10 @@ class _ProfilePageState extends State<ProfilePage> {
             label: 'Email',
             icon: Icons.email_outlined,
             keyboardType: TextInputType.emailAddress,
+            readOnly: true, // Email from auth provider is read-only
+            helperText: _agcUser?.email != null
+                ? 'Email from ${_getProviderName(_agcUser!.providerId!.index)}'
+                : null,
           ),
           const SizedBox(height: 16),
           _buildTextField(
@@ -692,16 +1700,25 @@ class _ProfilePageState extends State<ProfilePage> {
     required String label,
     required IconData icon,
     TextInputType? keyboardType,
+    bool readOnly = false,
+    String? helperText,
   }) {
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
+      readOnly: readOnly,
       cursorColor: AppTheme.primaryOrange,
+      style: TextStyle(color: readOnly ? Colors.grey[600] : Colors.black87),
       decoration: InputDecoration(
         labelText: label,
         labelStyle: TextStyle(color: Colors.grey[600]),
         floatingLabelStyle: TextStyle(color: AppTheme.primaryOrange),
+        helperText: helperText,
+        helperStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
         prefixIcon: Icon(icon, color: AppTheme.primaryOrange),
+        suffixIcon: readOnly
+            ? Icon(Icons.lock_outline, color: Colors.grey[400], size: 18)
+            : null,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: Colors.grey[300]!),
@@ -710,12 +1727,16 @@ class _ProfilePageState extends State<ProfilePage> {
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: Colors.grey[300]!),
         ),
+        disabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey[200]!),
+        ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: AppTheme.primaryOrange, width: 2),
         ),
         filled: true,
-        fillColor: Colors.grey[50],
+        fillColor: readOnly ? Colors.grey[100] : Colors.grey[50],
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 16,
@@ -813,6 +1834,675 @@ class _ProfilePageState extends State<ProfilePage> {
             onChanged: onChanged,
           ),
         ],
+      ),
+    );
+  }
+
+  /// Build API Key Card for Gemini configuration
+  Widget _buildApiKeyCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            spreadRadius: 0,
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.purple.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.key, color: Colors.purple, size: 24),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Gemini API Key',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _isApiKeySet
+                          ? 'Custom key configured'
+                          : 'Using default key',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: _isApiKeySet ? Colors.green : Colors.grey[600],
+                        fontWeight: _isApiKeySet
+                            ? FontWeight.w600
+                            : FontWeight.normal,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Use your own Google API key for Gemini to reduce downtime and improve reliability. Your key is encrypted with AES-256-GCM and stored in Android Keystore (hardware-backed).',
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey[700],
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                // Require authentication before accessing API key
+                final authenticated = await _authenticateUser();
+                if (authenticated && mounted) {
+                  _showApiKeyDialog();
+                } else if (!authenticated && mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Authentication required to access API key settings',
+                      ),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              },
+              icon: Icon(_isApiKeySet ? Icons.edit : Icons.add, size: 18),
+              label: Text(_isApiKeySet ? 'Manage API Key' : 'Set API Key'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.purple.withOpacity(0.1),
+                foregroundColor: Colors.purple,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: Colors.purple.withOpacity(0.3)),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Authenticate user before accessing API key
+  Future<bool> _authenticateUser() async {
+    try {
+      // Check if device supports authentication
+      final bool canCheckBiometrics = await _localAuth.canCheckBiometrics;
+      final bool isDeviceSupported = await _localAuth.isDeviceSupported();
+
+      debugPrint('[ProfilePage] Can check biometrics: $canCheckBiometrics');
+      debugPrint('[ProfilePage] Is device supported: $isDeviceSupported');
+
+      if (!isDeviceSupported) {
+        // Device doesn't support any authentication, allow access
+        debugPrint(
+          '[ProfilePage] Device does not support authentication - allowing access',
+        );
+        return true;
+      }
+
+      // Check if device has any authentication methods enrolled
+      List<BiometricType> availableBiometrics = [];
+      try {
+        availableBiometrics = await _localAuth.getAvailableBiometrics();
+        debugPrint('[ProfilePage] Available biometrics: $availableBiometrics');
+      } catch (e) {
+        debugPrint('[ProfilePage] Error checking biometrics: $e');
+      }
+
+      if (!canCheckBiometrics && availableBiometrics.isEmpty) {
+        // No security set up - show warning but allow access
+        debugPrint(
+          '[ProfilePage] No device security enrolled - showing warning',
+        );
+        if (mounted) {
+          final shouldProceed = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded, color: Colors.orange),
+                  SizedBox(width: 12),
+                  Expanded(child: Text('No Device Security')),
+                ],
+              ),
+              content: const Text(
+                'Your device does not have a screen lock (PIN, password, pattern, or biometric) set up.\n\n'
+                'For security, it is recommended to set up device security before managing API keys.\n\n'
+                'Do you want to proceed anyway?',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                  ),
+                  child: const Text('Proceed Anyway'),
+                ),
+              ],
+            ),
+          );
+          return shouldProceed ?? false;
+        }
+        return false;
+      }
+
+      // Try to authenticate
+      final bool authenticated = await _localAuth.authenticate(
+        localizedReason: 'Authenticate to access Gemini API key settings',
+        options: const AuthenticationOptions(
+          stickyAuth: true,
+          biometricOnly: false, // Allow PIN/password/pattern as fallback
+        ),
+      );
+
+      debugPrint('[ProfilePage] Authentication result: $authenticated');
+      return authenticated;
+    } catch (e) {
+      debugPrint('[ProfilePage] Authentication error: $e');
+
+      // Show error dialog with option to proceed
+      if (mounted) {
+        final shouldProceed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.error_outline, color: Colors.red),
+                SizedBox(width: 12),
+                Expanded(child: Text('Authentication Error')),
+              ],
+            ),
+            content: Text(
+              'Failed to authenticate: $e\n\n'
+              'This might happen if:\n'
+              '• No screen lock is set up\n'
+              '• Authentication was cancelled\n'
+              '• Biometric sensor failed\n\n'
+              'Do you want to proceed without authentication?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                child: const Text('Proceed Anyway'),
+              ),
+            ],
+          ),
+        );
+        return shouldProceed ?? false;
+      }
+      return false;
+    }
+  }
+
+  /// Test Gemini API key
+  Future<bool> _testApiKey(String apiKey) async {
+    try {
+      debugPrint('[ProfilePage] 🧪 Testing API key...');
+      final response = await http
+          .post(
+            Uri.parse(
+              'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=$apiKey',
+            ),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'contents': [
+                {
+                  'parts': [
+                    {
+                      'text':
+                          'Respond with only the word "OK" if you can read this.',
+                    },
+                  ],
+                },
+              ],
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        // Check if we got a valid response
+        if (data['candidates'] != null && data['candidates'].isNotEmpty) {
+          debugPrint('[ProfilePage] ✅ API key test successful');
+          return true;
+        }
+      }
+
+      debugPrint('[ProfilePage] ❌ API key test failed: ${response.statusCode}');
+      debugPrint('[ProfilePage] Response: ${response.body}');
+      return false;
+    } catch (e) {
+      debugPrint('[ProfilePage] ❌ API key test error: $e');
+      return false;
+    }
+  }
+
+  /// Show API Key management dialog
+  Future<void> _showApiKeyDialog() async {
+    final TextEditingController apiKeyController = TextEditingController();
+    final existingKey = await _secureStorage.read(key: 'gemini_api_key') ?? '';
+    bool isTestPassed =
+        existingKey.isNotEmpty; // Existing key is already validated
+    bool isTesting = false;
+    String? testMessage;
+    String? saveError;
+
+    if (existingKey.isNotEmpty) {
+      // Show masked version
+      apiKeyController.text =
+          '••••••••${existingKey.substring(existingKey.length - 4)}';
+    }
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.key, color: Colors.purple),
+              const SizedBox(width: 12),
+              const Text('Gemini API Key'),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Security Notice
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.security, color: Colors.green, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Your Key is Secure',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green,
+                                fontSize: 13,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Your API key never leaves your device and is encrypted with AES-256-GCM in Android Keystore (hardware-backed keys).',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[800],
+                                height: 1.3,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Important Info
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(
+                        Icons.info_outline,
+                        color: Colors.blue,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Google API Key Only',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue,
+                                fontSize: 13,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Use only official Google Gemini API keys. Benefits: Lower downtime, better reliability.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[800],
+                                height: 1.3,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                TextField(
+                  controller: apiKeyController,
+                  decoration: InputDecoration(
+                    labelText: 'API Key',
+                    hintText: 'AIzaSy...',
+                    prefixIcon: const Icon(Icons.vpn_key),
+                    suffixIcon: existingKey.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              setDialogState(() {
+                                apiKeyController.clear();
+                                isTestPassed = false;
+                                testMessage = null;
+                                saveError = null;
+                              });
+                            },
+                          )
+                        : null,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    helperText: 'Leave empty to use default key',
+                    helperMaxLines: 2,
+                  ),
+                  maxLines: 2,
+                  onChanged: (value) {
+                    // Reset test status and save error when user types
+                    setDialogState(() {
+                      isTestPassed = false;
+                      testMessage = null;
+                      saveError = null;
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                // Test button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: isTesting
+                        ? null
+                        : () async {
+                            final apiKey = apiKeyController.text.trim();
+
+                            // If field is masked and unchanged, don't test
+                            if (apiKey.startsWith('••••••••')) {
+                              setDialogState(() {
+                                isTestPassed = true;
+                                testMessage = 'Using existing validated key';
+                              });
+                              return;
+                            }
+
+                            if (apiKey.isEmpty) {
+                              setDialogState(() {
+                                testMessage = 'Please enter an API key to test';
+                              });
+                              return;
+                            }
+
+                            // Basic format validation
+                            if (!apiKey.startsWith('AIzaSy') ||
+                                apiKey.length < 30) {
+                              setDialogState(() {
+                                testMessage =
+                                    '❌ Invalid format. Key should start with "AIzaSy"';
+                              });
+                              return;
+                            }
+
+                            // Test the API key
+                            setDialogState(() {
+                              isTesting = true;
+                              testMessage = 'Testing API key...';
+                            });
+
+                            final testResult = await _testApiKey(apiKey);
+
+                            setDialogState(() {
+                              isTesting = false;
+                              isTestPassed = testResult;
+                              testMessage = testResult
+                                  ? '✅ API key works! You can save it now.'
+                                  : '❌ Test failed. Please check your API key.';
+                            });
+                          },
+                    icon: isTesting
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.flash_on, size: 18),
+                    label: Text(isTesting ? 'Testing...' : 'Test API Key'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange.withOpacity(0.9),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Test status message
+                if (testMessage != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isTestPassed
+                            ? Colors.green.withOpacity(0.1)
+                            : Colors.red.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isTestPassed
+                              ? Colors.green.withOpacity(0.3)
+                              : Colors.red.withOpacity(0.3),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            isTestPassed ? Icons.check_circle : Icons.error,
+                            color: isTestPassed ? Colors.green : Colors.red,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              testMessage!,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: isTestPassed
+                                    ? Colors.green[800]
+                                    : Colors.red[800],
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                // Save error message
+                if (saveError != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Colors.orange.withOpacity(0.3),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.warning,
+                            color: Colors.orange,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              saveError!,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.orange[800],
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            if (_isApiKeySet)
+              TextButton(
+                onPressed: () async {
+                  await _secureStorage.delete(key: 'gemini_api_key');
+                  setState(() {
+                    _isApiKeySet = false;
+                  });
+                  if (mounted) {
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('API key removed. Using default key.'),
+                        backgroundColor: Colors.orange,
+                      ),
+                    );
+                  }
+                },
+                child: const Text('Remove Key'),
+              ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final apiKey = apiKeyController.text.trim();
+
+                // If field is masked and unchanged, don't update
+                if (apiKey.startsWith('••••••••')) {
+                  Navigator.of(context).pop();
+                  return;
+                }
+
+                if (apiKey.isEmpty) {
+                  // Remove key, use default
+                  await _secureStorage.delete(key: 'gemini_api_key');
+                  setState(() {
+                    _isApiKeySet = false;
+                  });
+                  if (mounted) {
+                    Navigator.of(context).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Using default API key'),
+                        backgroundColor: Colors.blue,
+                      ),
+                    );
+                  }
+                } else {
+                  // Must pass test before saving
+                  if (!isTestPassed) {
+                    setDialogState(() {
+                      saveError =
+                          '⚠️ Please test the API key first before saving';
+                    });
+                    return;
+                  }
+
+                  // Save key to secure storage with AES-256-GCM encryption
+                  await _secureStorage.write(
+                    key: 'gemini_api_key',
+                    value: apiKey,
+                  );
+                  debugPrint(
+                    '[ProfilePage] 🔐 API key saved to secure storage (AES-256-GCM encrypted)',
+                  );
+                  setState(() {
+                    _isApiKeySet = true;
+                  });
+                  if (mounted) {
+                    Navigator.of(context).pop();
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.purple,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Save'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1116,24 +2806,54 @@ class _ProfilePageState extends State<ProfilePage> {
           const Divider(height: 1),
           const SizedBox(height: 20),
 
-          // Allow Discoverable Toggle
-          _buildInlineToggle(
-            icon: Icons.visibility_outlined,
-            title: 'Allow Discoverable',
-            subtitle: 'Others can find you in the app',
-            value: _allowDiscoverable,
-            onChanged: (value) async {
-              // Save to SharedPreferences only (local storage)
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.setBool('allow_discoverable', value);
+          // Allow Discoverable Toggle with last update time
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildInlineToggle(
+                icon: Icons.visibility_outlined,
+                title: 'Allow Discoverable',
+                subtitle: 'Others can find you in the app',
+                value: _allowDiscoverable,
+                onChanged: (value) async {
+                  // Save to SharedPreferences only (local storage)
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setBool('allow_discoverable', value);
 
-              if (!mounted) return;
-              setState(() {
-                _allowDiscoverable = value;
-              });
+                  if (!mounted) return;
+                  setState(() {
+                    _allowDiscoverable = value;
+                  });
 
-              debugPrint('[ProfilePage] 💾 Saved allow_discoverable: $value');
-            },
+                  debugPrint(
+                    '[ProfilePage] 💾 Saved allow_discoverable: $value',
+                  );
+                },
+              ),
+              // Show last location update time when toggle is ON
+              if (_allowDiscoverable && _cloudDbUser?.locUpdateTime != null)
+                Padding(
+                  padding: const EdgeInsets.only(left: 16, top: 8, bottom: 4),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.access_time,
+                        size: 14,
+                        color: Colors.grey[600],
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Last location update: ${_getMinutesAgo(_cloudDbUser!.locUpdateTime!)} minutes ago',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
           ),
 
           const SizedBox(height: 16),
@@ -1824,7 +3544,12 @@ class _ProfilePageState extends State<ProfilePage> {
 
     final newKeywords = value
         .split(',')
-        .map((k) => k.trim().toLowerCase())
+        .map((k) {
+          final trimmed = k.trim();
+          // Only lowercase non-Chinese keywords
+          final isChinese = RegExp(r'[\u4e00-\u9fa5]').hasMatch(trimmed);
+          return isChinese ? trimmed : trimmed.toLowerCase();
+        })
         .where((k) => k.isNotEmpty && !allKeywords.contains(k))
         .toList();
 
@@ -2172,7 +3897,10 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             ElevatedButton(
               onPressed: () async {
-                final keyword = keywordController.text.trim().toLowerCase();
+                final trimmed = keywordController.text.trim();
+                // Only lowercase non-Chinese keywords
+                final isChinese = RegExp(r'[\u4e00-\u9fa5]').hasMatch(trimmed);
+                final keyword = isChinese ? trimmed : trimmed.toLowerCase();
 
                 // Validation
                 if (keyword.isEmpty) {

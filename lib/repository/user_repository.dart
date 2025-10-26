@@ -27,6 +27,25 @@ class UserRepository {
     return results.isNotEmpty ? results.first : null;
   }
 
+  /// Get user by email (for account linking)
+  Future<Users?> getUserByEmail(String email) async {
+    try {
+      final query = AGConnectCloudDBQuery(_objectTypeName)
+        ..equalTo('email', email);
+
+      final results = await _dbService.query<Users>(
+        _objectTypeName,
+        query: query,
+        fromMap: (map) => Users.fromMap(map),
+      );
+
+      return results.isNotEmpty ? results.first : null;
+    } catch (e) {
+      print('Error getting user by email: $e');
+      return null;
+    }
+  }
+
   /// Get users by district
   Future<List<Users>> getUsersByDistrict(String district) async {
     final query = AGConnectCloudDBQuery(_objectTypeName)

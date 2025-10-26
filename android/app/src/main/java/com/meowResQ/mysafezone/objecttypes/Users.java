@@ -39,6 +39,8 @@ public final class Users extends CloudDBZoneObject {
 
     private Double longtitude;
 
+    private String email;
+
     public Users() {
         super(Users.class);
     }
@@ -121,6 +123,14 @@ public final class Users extends CloudDBZoneObject {
 
     public Double getLongtitude() {
         return longtitude;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getEmail() {
+        return email;
     }
 
 }

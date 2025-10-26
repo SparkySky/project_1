@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import '../app_theme.dart';
 
 class ChatbotWidget extends StatefulWidget {
-  const ChatbotWidget({super.key});
+  final bool isCollapsed;
+
+  const ChatbotWidget({super.key, this.isCollapsed = false});
 
   @override
   State<ChatbotWidget> createState() => _ChatbotWidgetState();
@@ -18,33 +20,15 @@ class _ChatbotWidgetState extends State<ChatbotWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return Positioned(
-      bottom: 20,
+    return AnimatedPositioned(
+      duration: const Duration(milliseconds: 200),
+      bottom: widget.isCollapsed ? null : 20,
+      top: widget.isCollapsed ? 88 : null, // Below filter button (16 + 56 + 16)
       right: 16,
-      child: GestureDetector(
-        onTap: _openChatbot,
-        child: Container(
-          width: 70,
-          height: 70,
-          decoration: BoxDecoration(
-            color: Colors.orange[100],
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.primaryOrange.withOpacity(0.3),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Center(
-            child: Icon(
-             Icons.smart_toy,
-              size: 45,
-              color: AppTheme.primaryOrange,
-            ),
-          ),
-        ),
+      child: FloatingActionButton(
+        onPressed: _openChatbot,
+        backgroundColor: AppTheme.primaryOrange,
+        child: const Icon(Icons.smart_toy, color: Colors.white, size: 32),
       ),
     );
   }
@@ -87,11 +71,13 @@ class _ChatbotPageState extends State<ChatbotPage> {
 
     if (lowerMessage.contains('emergency') || lowerMessage.contains('help')) {
       return "🚨 For emergencies, call 999 or 112 immediately. Stay safe!";
-    } else if (lowerMessage.contains('incident') || lowerMessage.contains('report')) {
+    } else if (lowerMessage.contains('incident') ||
+        lowerMessage.contains('report')) {
       return "📍 You can report an incident by tapping the map or visiting the Community section. Make sure to provide details and location.";
     } else if (lowerMessage.contains('safe')) {
       return "✅ Stay safe by:\n• Staying aware of surroundings\n• Using the incident map\n• Reporting suspicious activity\n• Sharing with community";
-    } else if (lowerMessage.contains('location') || lowerMessage.contains('nearby')) {
+    } else if (lowerMessage.contains('location') ||
+        lowerMessage.contains('nearby')) {
       return "📍 The map shows incidents near your area. Red indicates high severity, orange for medium, and yellow for low.";
     } else if (lowerMessage.contains('hi') || lowerMessage.contains('hello')) {
       return "Hello! 👋 I can help you with incident reporting, safety tips, or navigation. What do you need?";
@@ -107,11 +93,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
 
     setState(() {
       messages.add(
-        ChatMessage(
-          text: userMessage,
-          isUser: true,
-          timestamp: DateTime.now(),
-        ),
+        ChatMessage(text: userMessage, isUser: true, timestamp: DateTime.now()),
       );
       _isLoading = true;
     });
@@ -132,11 +114,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
 
     setState(() {
       messages.add(
-        ChatMessage(
-          text: aiResponse,
-          isUser: false,
-          timestamp: DateTime.now(),
-        ),
+        ChatMessage(text: aiResponse, isUser: false, timestamp: DateTime.now()),
       );
       _isLoading = false;
     });
@@ -230,9 +208,9 @@ class _ChatbotPageState extends State<ChatbotPage> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           color: Colors.grey[200],
-          borderRadius: BorderRadius.circular(16).copyWith(
-            bottomLeft: const Radius.circular(4),
-          ),
+          borderRadius: BorderRadius.circular(
+            16,
+          ).copyWith(bottomLeft: const Radius.circular(4)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -242,16 +220,15 @@ class _ChatbotPageState extends State<ChatbotPage> {
               height: 16,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryOrange),
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  AppTheme.primaryOrange,
+                ),
               ),
             ),
             const SizedBox(width: 8),
             Text(
               'Thinking...',
-              style: TextStyle(
-                fontSize: 15,
-                color: Colors.grey[600],
-              ),
+              style: TextStyle(fontSize: 15, color: Colors.grey[600]),
             ),
           ],
         ),
@@ -271,8 +248,12 @@ class _ChatbotPageState extends State<ChatbotPage> {
         decoration: BoxDecoration(
           color: message.isUser ? AppTheme.primaryOrange : Colors.grey[200],
           borderRadius: BorderRadius.circular(16).copyWith(
-            bottomRight: message.isUser ? const Radius.circular(4) : const Radius.circular(16),
-            bottomLeft: message.isUser ? const Radius.circular(16) : const Radius.circular(4),
+            bottomRight: message.isUser
+                ? const Radius.circular(4)
+                : const Radius.circular(16),
+            bottomLeft: message.isUser
+                ? const Radius.circular(16)
+                : const Radius.circular(4),
           ),
         ),
         child: Column(
@@ -329,7 +310,9 @@ class _ChatbotPageState extends State<ChatbotPage> {
               controller: _messageController,
               enabled: !_isLoading,
               decoration: InputDecoration(
-                hintText: _isLoading ? 'Waiting for response...' : 'Type your message...',
+                hintText: _isLoading
+                    ? 'Waiting for response...'
+                    : 'Type your message...',
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
                   borderSide: BorderSide(color: Colors.grey[300]!),

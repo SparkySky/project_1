@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:huawei_account/huawei_account.dart';
 import 'auth_service.dart';
 import '../util/snackbar_helper.dart';
@@ -115,6 +116,9 @@ class _AuthScreenState extends State<AuthScreen> {
           password,
         );
         if (user != null && mounted) {
+          // Save credentials for autofill
+          TextInput.finishAutofillContext();
+
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const HomePage()),
@@ -197,6 +201,9 @@ class _AuthScreenState extends State<AuthScreen> {
                             );
 
                             if (mounted) {
+                              // Save credentials for autofill
+                              TextInput.finishAutofillContext();
+
                               Navigator.of(context).pop();
                               Snackbar.success(
                                 "Account created! Please log in.",
@@ -627,370 +634,394 @@ class _AuthScreenState extends State<AuthScreen> {
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Logo
-                  Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(20),
-                      child: Image.asset(
-                        'assets/images/mysafezone_logo.png',
-                        fit: BoxFit.contain,
+            child: AutofillGroup(
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Logo
+                    Container(
+                      width: 120,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(20),
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'MYSafeZone',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontFamily: 'Goldman',
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: Color.fromARGB(255, 77, 57, 22),
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _isLoginMode
-                        ? 'Welcome Back'
-                        : 'Join MYSafeZone community today',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-                  ),
-                  const SizedBox(height: 40),
-
-                  // Email Field
-                  TextFormField(
-                    controller: _emailController,
-                    focusNode: _emailFocus,
-                    cursorColor: AppTheme.primaryOrange,
-                    keyboardType: TextInputType.emailAddress,
-                    onTap: () {
-                      setState(() => _showValidationErrors = false);
-                    },
-                    decoration: _buildTextFieldDecoration(
-                      labelText: 'Email',
-                      prefixIcon: Icons.email_outlined,
-                      isFocused: _emailFocus.hasFocus,
-                      hasError:
-                          _showValidationErrors &&
-                          _validateEmail(_emailController.text) != null,
-                      focusNode: _emailFocus,
-                    ),
-                    validator: _validateEmail,
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Password Field
-                  TextFormField(
-                    controller: _passwordController,
-                    focusNode: _passwordFocus,
-                    obscureText: _obscurePassword,
-                    cursorColor: AppTheme.primaryOrange,
-                    onTap: () {
-                      setState(() => _showValidationErrors = false);
-                    },
-                    decoration: _buildTextFieldDecoration(
-                      labelText: 'Password',
-                      prefixIcon: Icons.lock_outline,
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined,
-                          color: Colors.grey,
-                        ),
-                        onPressed: () => setState(
-                          () => _obscurePassword = !_obscurePassword,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: Image.asset(
+                          'assets/images/mysafezone_logo.png',
+                          fit: BoxFit.contain,
                         ),
                       ),
-                      isFocused: _passwordFocus.hasFocus,
-                      hasError:
-                          _showValidationErrors &&
-                          _validatePassword(
-                                _passwordController.text,
-                                isLoginCheck: _isLoginMode,
-                              ) !=
-                              null,
-                      focusNode: _passwordFocus,
                     ),
-                    validator: (v) =>
-                        _validatePassword(v, isLoginCheck: _isLoginMode),
-                  ),
+                    const SizedBox(height: 24),
+                    const Text(
+                      'MYSafeZone',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: 'Goldman',
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: Color.fromARGB(255, 77, 57, 22),
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _isLoginMode
+                          ? 'Welcome Back'
+                          : 'Join MYSafeZone community today',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                    ),
+                    const SizedBox(height: 40),
 
-                  // Confirm Password Field (Sign Up only)
-                  if (!_isLoginMode) ...[
-                    const SizedBox(height: 16),
+                    // Email Field
                     TextFormField(
-                      controller: _confirmPasswordController,
-                      focusNode: _confirmPasswordFocus,
-                      obscureText: _obscureConfirmPassword,
+                      controller: _emailController,
+                      focusNode: _emailFocus,
                       cursorColor: AppTheme.primaryOrange,
+                      keyboardType: TextInputType.emailAddress,
+                      textInputAction: TextInputAction.next,
+                      autofillHints: const [
+                        AutofillHints.email,
+                        AutofillHints.username,
+                      ],
+                      enableSuggestions: true,
                       onTap: () {
                         setState(() => _showValidationErrors = false);
                       },
                       decoration: _buildTextFieldDecoration(
-                        labelText: 'Confirm Password',
+                        labelText: 'Email',
+                        prefixIcon: Icons.email_outlined,
+                        isFocused: _emailFocus.hasFocus,
+                        hasError:
+                            _showValidationErrors &&
+                            _validateEmail(_emailController.text) != null,
+                        focusNode: _emailFocus,
+                      ),
+                      validator: _validateEmail,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Password Field
+                    TextFormField(
+                      controller: _passwordController,
+                      focusNode: _passwordFocus,
+                      obscureText: _obscurePassword,
+                      cursorColor: AppTheme.primaryOrange,
+                      textInputAction: _isLoginMode
+                          ? TextInputAction.done
+                          : TextInputAction.next,
+                      autofillHints: _isLoginMode
+                          ? const [AutofillHints.password]
+                          : const [AutofillHints.newPassword],
+                      enableSuggestions: false,
+                      onTap: () {
+                        setState(() => _showValidationErrors = false);
+                      },
+                      onFieldSubmitted: _isLoginMode
+                          ? (_) => _handleSubmit()
+                          : null,
+                      decoration: _buildTextFieldDecoration(
+                        labelText: 'Password',
                         prefixIcon: Icons.lock_outline,
                         suffixIcon: IconButton(
                           icon: Icon(
-                            _obscureConfirmPassword
+                            _obscurePassword
                                 ? Icons.visibility_outlined
                                 : Icons.visibility_off_outlined,
                             color: Colors.grey,
                           ),
                           onPressed: () => setState(
-                            () => _obscureConfirmPassword =
-                                !_obscureConfirmPassword,
+                            () => _obscurePassword = !_obscurePassword,
                           ),
                         ),
-                        isFocused: _confirmPasswordFocus.hasFocus,
+                        isFocused: _passwordFocus.hasFocus,
                         hasError:
                             _showValidationErrors &&
-                            _validateConfirmPassword(
-                                  _confirmPasswordController.text,
+                            _validatePassword(
+                                  _passwordController.text,
+                                  isLoginCheck: _isLoginMode,
                                 ) !=
                                 null,
+                        focusNode: _passwordFocus,
+                      ),
+                      validator: (v) =>
+                          _validatePassword(v, isLoginCheck: _isLoginMode),
+                    ),
+
+                    // Confirm Password Field (Sign Up only)
+                    if (!_isLoginMode) ...[
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _confirmPasswordController,
                         focusNode: _confirmPasswordFocus,
-                      ),
-                      validator: _validateConfirmPassword,
-                    ),
-                  ],
-                  // Terms and Conditions Checkbox (Sign Up only)
-                  if (!_isLoginMode) ...[
-                    const SizedBox(height: 16),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Checkbox(
-                          value: _acceptTerms,
-                          onChanged: (value) {
-                            setState(() {
-                              _acceptTerms = value ?? false;
-                            });
-                          },
-                          activeColor: AppTheme.primaryOrange,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _acceptTerms = !_acceptTerms;
-                              });
-                            },
-                            child: RichText(
-                              text: TextSpan(
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.black87,
-                                  height: 1.4,
-                                ),
-                                children: [
-                                  const TextSpan(text: 'I agree to the '),
-                                  WidgetSpan(
-                                    child: GestureDetector(
-                                      onTap: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) =>
-                                                const TermsConditionsPage(),
-                                          ),
-                                        );
-                                      },
-                                      child: const Text(
-                                        'Terms and Conditions',
-                                        style: TextStyle(
-                                          color: AppTheme.primaryOrange,
-                                          fontWeight: FontWeight.w600,
-                                          decoration: TextDecoration.underline,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const TextSpan(text: ' and '),
-                                  WidgetSpan(
-                                    child: GestureDetector(
-                                      onTap: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) =>
-                                                const TermsConditionsPage(),
-                                          ),
-                                        );
-                                      },
-                                      child: const Text(
-                                        'Privacy Policy',
-                                        style: TextStyle(
-                                          color: AppTheme.primaryOrange,
-                                          fontWeight: FontWeight.w600,
-                                          decoration: TextDecoration.underline,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                        obscureText: _obscureConfirmPassword,
+                        cursorColor: AppTheme.primaryOrange,
+                        textInputAction: TextInputAction.done,
+                        autofillHints: const [AutofillHints.newPassword],
+                        enableSuggestions: false,
+                        onTap: () {
+                          setState(() => _showValidationErrors = false);
+                        },
+                        onFieldSubmitted: (_) => _handleSubmit(),
+                        decoration: _buildTextFieldDecoration(
+                          labelText: 'Confirm Password',
+                          prefixIcon: Icons.lock_outline,
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscureConfirmPassword
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                              color: Colors.grey,
+                            ),
+                            onPressed: () => setState(
+                              () => _obscureConfirmPassword =
+                                  !_obscureConfirmPassword,
                             ),
                           ),
+                          isFocused: _confirmPasswordFocus.hasFocus,
+                          hasError:
+                              _showValidationErrors &&
+                              _validateConfirmPassword(
+                                    _confirmPasswordController.text,
+                                  ) !=
+                                  null,
+                          focusNode: _confirmPasswordFocus,
                         ),
-                      ],
-                    ),
-                    if (_showValidationErrors && !_acceptTerms)
-                      const Padding(
-                        padding: EdgeInsets.only(left: 48.0, top: 4.0),
-                        child: Text(
-                          'Please accept the Terms and Conditions',
-                          style: TextStyle(color: Colors.red, fontSize: 12),
-                        ),
-                      ),
-                  ],
-
-                  const SizedBox(height: 24),
-
-                  // Submit Button
-                  SizedBox(
-                    height: 50,
-                    child: ElevatedButton(
-                      onPressed: _isLoading ? null : _handleSubmit,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryOrange,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 2,
-                      ),
-                      child: _isLoading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : Text(
-                              _isLoginMode ? 'Login' : 'Sign Up',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Toggle Login/Sign Up
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        _isLoginMode
-                            ? "Don't have an account? "
-                            : 'Already have an account? ',
-                        style: TextStyle(color: Colors.grey[600]),
-                      ),
-                      TextButton(
-                        onPressed: _isLoading ? null : _toggleMode,
-                        child: Text(
-                          _isLoginMode ? 'Sign Up' : 'Login',
-                          style: const TextStyle(
-                            color: AppTheme.primaryOrange,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                        validator: _validateConfirmPassword,
                       ),
                     ],
-                  ),
-
-                  // Forgot Password Button (Login only) - Centered below toggle
-                  if (_isLoginMode)
-                    Center(
-                      child: TextButton(
-                        onPressed: _isLoading
-                            ? null
-                            : _showForgotPasswordDialog,
-                        child: const Text(
-                          'Forgot Password?',
-                          style: TextStyle(
-                            color: AppTheme.primaryOrange,
-                            fontWeight: FontWeight.w600,
+                    // Terms and Conditions Checkbox (Sign Up only)
+                    if (!_isLoginMode) ...[
+                      const SizedBox(height: 16),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Checkbox(
+                            value: _acceptTerms,
+                            onChanged: (value) {
+                              setState(() {
+                                _acceptTerms = value ?? false;
+                              });
+                            },
+                            activeColor: AppTheme.primaryOrange,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(4),
+                            ),
                           ),
-                        ),
-                      ),
-                    ),
-                  // Terms and Conditions Link (Login only)
-                  if (_isLoginMode)
-                    Center(
-                      child: TextButton(
-                        onPressed: _isLoading
-                            ? null
-                            : () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        const TermsConditionsPage(),
-                                  ),
-                                );
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _acceptTerms = !_acceptTerms;
+                                });
                               },
-                        child: const Text(
-                          'Terms & Conditions',
-                          style: TextStyle(
-                            color: Colors.grey,
-                            fontSize: 12,
-                            decoration: TextDecoration.underline,
+                              child: RichText(
+                                text: TextSpan(
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.black87,
+                                    height: 1.4,
+                                  ),
+                                  children: [
+                                    const TextSpan(text: 'I agree to the '),
+                                    WidgetSpan(
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) =>
+                                                  const TermsConditionsPage(),
+                                            ),
+                                          );
+                                        },
+                                        child: const Text(
+                                          'Terms and Conditions',
+                                          style: TextStyle(
+                                            color: AppTheme.primaryOrange,
+                                            fontWeight: FontWeight.w600,
+                                            decoration:
+                                                TextDecoration.underline,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const TextSpan(text: ' and '),
+                                    WidgetSpan(
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) =>
+                                                  const TermsConditionsPage(),
+                                            ),
+                                          );
+                                        },
+                                        child: const Text(
+                                          'Privacy Policy',
+                                          style: TextStyle(
+                                            color: AppTheme.primaryOrange,
+                                            fontWeight: FontWeight.w600,
+                                            decoration:
+                                                TextDecoration.underline,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_showValidationErrors && !_acceptTerms)
+                        const Padding(
+                          padding: EdgeInsets.only(left: 48.0, top: 4.0),
+                          child: Text(
+                            'Please accept the Terms and Conditions',
+                            style: TextStyle(color: Colors.red, fontSize: 12),
                           ),
                         ),
+                    ],
+
+                    const SizedBox(height: 24),
+
+                    // Submit Button
+                    SizedBox(
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _handleSubmit,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryOrange,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 2,
+                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Text(
+                                _isLoginMode ? 'Login' : 'Sign Up',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                       ),
                     ),
+                    const SizedBox(height: 24),
 
-                  const SizedBox(height: 16),
-
-                  // Divider
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8.0),
-                    child: Row(
+                    // Toggle Login/Sign Up
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Expanded(child: Divider()),
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 8.0),
+                        Text(
+                          _isLoginMode
+                              ? "Don't have an account? "
+                              : 'Already have an account? ',
+                          style: TextStyle(color: Colors.grey[600]),
+                        ),
+                        TextButton(
+                          onPressed: _isLoading ? null : _toggleMode,
                           child: Text(
-                            "OR",
-                            style: TextStyle(color: Colors.grey),
+                            _isLoginMode ? 'Sign Up' : 'Login',
+                            style: const TextStyle(
+                              color: AppTheme.primaryOrange,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
-                        Expanded(child: Divider()),
                       ],
                     ),
-                  ),
 
-                  // Huawei ID Button
-                  SizedBox(
-                    height: 50,
-                    child: HuaweiIdAuthButton(
-                      onPressed: _isLoading ? () {} : _handleHuaweiSignIn,
-                      buttonColor: AuthButtonBackground.RED,
-                      borderRadius: AuthButtonRadius.MEDIUM,
+                    // Forgot Password Button (Login only) - Centered below toggle
+                    if (_isLoginMode)
+                      Center(
+                        child: TextButton(
+                          onPressed: _isLoading
+                              ? null
+                              : _showForgotPasswordDialog,
+                          child: const Text(
+                            'Forgot Password?',
+                            style: TextStyle(
+                              color: AppTheme.primaryOrange,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    // Terms and Conditions Link (Login only)
+                    if (_isLoginMode)
+                      Center(
+                        child: TextButton(
+                          onPressed: _isLoading
+                              ? null
+                              : () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const TermsConditionsPage(),
+                                    ),
+                                  );
+                                },
+                          child: const Text(
+                            'Terms & Conditions',
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontSize: 12,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    const SizedBox(height: 16),
+
+                    // Divider
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8.0),
+                      child: Row(
+                        children: [
+                          Expanded(child: Divider()),
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8.0),
+                            child: Text(
+                              "OR",
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                          ),
+                          Expanded(child: Divider()),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+
+                    // Huawei ID Button
+                    SizedBox(
+                      height: 50,
+                      child: HuaweiIdAuthButton(
+                        onPressed: _isLoading ? () {} : _handleHuaweiSignIn,
+                        buttonColor: AuthButtonBackground.RED,
+                        borderRadius: AuthButtonRadius.MEDIUM,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

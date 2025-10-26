@@ -1,5 +1,6 @@
 class Users {
   String? uid;
+  String? email; // Added email field for account linking
   String? district;
   String? postcode;
   String? state;
@@ -15,6 +16,7 @@ class Users {
 
   Users({
     this.uid,
+    this.email,
     this.district,
     this.postcode,
     this.state,
@@ -31,6 +33,7 @@ class Users {
   factory Users.fromMap(Map<String, dynamic> map) {
     return Users(
       uid: map['uid'] as String?,
+      email: map['email'] as String?,
       district: map['district'] as String?,
       postcode: map['postcode'] as String?,
       state: map['state'] as String?,
@@ -51,6 +54,7 @@ class Users {
   Map<String, dynamic> toMap() {
     return {
       'uid': uid,
+      'email': email,
       'district': district,
       'postcode': postcode,
       'state': state,

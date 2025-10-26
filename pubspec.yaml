@@ -18,7 +18,7 @@ dependencies:
   flutter_local_notifications: ^17.2.1
   permission_handler: ^11.3.1
   sensors_plus: ^5.0.1
-  flutter_sound: ^9.2.13
+  # flutter_sound: ^9.2.13  # UNUSED - Commented out for faster builds
   record: ^6.1.2
   uuid: ^4.4.0
   shared_preferences: ^2.2.3
@@ -34,39 +34,41 @@ dependencies:
   audioplayers: ^5.2.1
   intl: ^0.18.0
   flutter_dotenv: ^5.1.0
+  local_auth: ^2.1.8
+  flutter_secure_storage: ^9.0.0
 
 
   #  Huawei/HMS
-  huawei_site: ^6.5.1+303
+  # huawei_site: ^6.5.1+303  # UNUSED - Commented out for faster builds
   huawei_map:
     path: plugins/huawei_map
   huawei_location: 6.11.0+301
-  huawei_ml_text:
-    path: plugins/huawei_ml_text
-  huawei_ml_body:
-    path: plugins/huawei_ml_body
-  huawei_ml_image:
-    path: plugins/huawei_ml_image
-  huawei_ml_language:
-    path: plugins/huawei_ml_language
+  # huawei_ml_text:  # UNUSED - Commented out for faster builds
+  #   path: plugins/huawei_ml_text
+  # huawei_ml_body:  # UNUSED - Commented out for faster builds
+  #   path: plugins/huawei_ml_body
+  # huawei_ml_image:  # UNUSED - Commented out for faster builds
+  #   path: plugins/huawei_ml_image
+  # huawei_ml_language:  # UNUSED - Commented out for faster builds
+  #   path: plugins/huawei_ml_language
   huawei_account:
     path: plugins/huawei_account
-  huawei_push:
-    path: plugins/huawei_push
-  huawei_drive:
-      path: plugins/huawei_drive
+  # huawei_push:  # UNUSED - Commented out for faster builds
+  #   path: plugins/huawei_push
+  # huawei_drive:  # UNUSED - Commented out for faster builds
+  #     path: plugins/huawei_drive
   agconnect_core:
       path: plugins/agconnect_core
   agconnect_auth:
       path: plugins/agconnect_auth
   agconnect_cloudstorage:
       path: plugins/agconnect_cloudstorage
-  agconnect_cloudfunctions:
-      path: plugins/agconnect_cloudfunctions
+  # agconnect_cloudfunctions:  # UNUSED - Commented out for faster builds
+  #     path: plugins/agconnect_cloudfunctions
   agconnect_clouddb:
       path: plugins/agconnect_clouddb
-  agconnect_crash:
-      path: plugins/agconnect_crash
+  # agconnect_crash:  # UNUSED - Commented out for faster builds
+  #     path: plugins/agconnect_crash
 
 dev_dependencies:
   flutter_test:

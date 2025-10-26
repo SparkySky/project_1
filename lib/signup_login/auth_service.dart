@@ -62,7 +62,11 @@ class AuthService {
   }
 
   // --- Sign In with Email and Password ---
-  Future<AGCUser?> signInWithEmail(BuildContext? context, String email, String password) async {
+  Future<AGCUser?> signInWithEmail(
+    BuildContext? context,
+    String email,
+    String password,
+  ) async {
     try {
       final AGCAuthCredential credential =
           EmailAuthProvider.credentialWithPassword(email, password);
@@ -81,6 +85,113 @@ class AuthService {
     } on AGCAuthException catch (e) {
       debugPrint("AuthService SignIn Error: ${e.message}");
       throw _handleAuthException(e);
+    }
+  }
+
+  // --- Link Huawei ID to existing email account ---
+  Future<AGCUser?> linkHuaweiID(BuildContext? context) async {
+    try {
+      debugPrint('[HuaweiLink] Starting Huawei ID linking');
+
+      // Get current user
+      final currentUser = await _auth.currentUser;
+      if (currentUser == null) {
+        throw Exception('No user logged in. Please sign in first.');
+      }
+
+      debugPrint('[HuaweiLink] Current user: ${currentUser.uid}');
+
+      // Step 1: Get Huawei account
+      final helper = AccountAuthParamsHelper();
+      helper.setAuthorizationCode();
+      helper.setAccessToken();
+      helper.setIdToken();
+      helper.setEmail();
+      helper.setProfile();
+      helper.setScopeList([Scope.openId, Scope.email, Scope.profile]);
+
+      final params = helper.createParams();
+      final authService = AccountAuthManager.getService(params);
+
+      // Step 2: Sign in to Huawei Account
+      AuthAccount? authAccount;
+      try {
+        authAccount = await authService.silentSignIn();
+        debugPrint('[HuaweiLink] Silent sign-in successful');
+      } catch (silentError) {
+        debugPrint('[HuaweiLink] Silent sign-in failed, trying interactive');
+        authAccount = await authService.signIn();
+        debugPrint('[HuaweiLink] Interactive sign-in successful');
+      }
+
+      debugPrint('[HuaweiLink] Account email: ${authAccount.email}');
+
+      // Step 3: Get authorization code or access token
+      final String? authCode = authAccount.authorizationCode;
+      final String? accessToken = authAccount.accessToken;
+
+      if ((authCode == null || authCode.isEmpty) &&
+          (accessToken == null || accessToken.isEmpty)) {
+        throw Exception('Failed to get Huawei ID authorization.');
+      }
+
+      // Step 4: Create AGC credential
+      AGCAuthCredential credential;
+      if (accessToken != null && accessToken.isNotEmpty) {
+        credential = HuaweiAuthProvider.credentialWithToken(accessToken);
+      } else {
+        credential = HuaweiAuthProvider.credentialWithToken(authCode!);
+      }
+
+      // Step 5: Link the credential to current user
+      debugPrint('[HuaweiLink] Linking Huawei ID to current account');
+      final SignInResult result = await currentUser.link(credential);
+
+      debugPrint('[HuaweiLink] 🎉 Successfully linked Huawei ID!');
+      debugPrint('[HuaweiLink] Photo URL: ${result.user?.photoUrl}');
+
+      // Update CloudDB with Huawei info
+      await _createOrUpdateUserInCloudDB(
+        result.user!,
+        username: authAccount.displayName,
+        email: authAccount.email,
+      );
+
+      if (context != null && context.mounted) {
+        await context.read<UserProvider>().setUser(result.user!);
+        Snackbar.success('Huawei ID linked! Profile picture updated.');
+      }
+
+      return result.user;
+    } on AGCAuthException catch (e) {
+      debugPrint('[HuaweiLink] AGCAuthException: ${e.code} - ${e.message}');
+
+      // Handle specific linking errors
+      if (e.code.toString().contains('205521') ||
+          e.message?.toLowerCase().contains('already linked') == true) {
+        throw Exception(
+          'This Huawei ID is already linked to another account. '
+          'Please use a different Huawei ID or sign in with that account.',
+        );
+      }
+
+      if (e.code.toString().contains('205522') ||
+          e.message?.toLowerCase().contains('provider user already linked') ==
+              true) {
+        throw Exception(
+          'This Huawei account is already used by another user. '
+          'Each Huawei ID can only be linked to one account.',
+        );
+      }
+
+      throw _handleAuthException(e);
+    } on PlatformException catch (e) {
+      debugPrint('[HuaweiLink] PlatformException: ${e.code} - ${e.message}');
+      throw Exception('Huawei ID linking failed: ${e.message}');
+    } catch (e, stackTrace) {
+      debugPrint('[HuaweiLink] Unexpected error: $e');
+      debugPrint('[HuaweiLink] Stack trace: $stackTrace');
+      throw Exception('Huawei ID linking failed: $e');
     }
   }
 
@@ -218,14 +329,47 @@ class AuthService {
 
       // Check if user already exists
       await _userRepository.openZone();
-      final existingUser = await _userRepository.getUserById(agcUser.uid!);
+
+      // ACCOUNT LINKING: First check if an account with this email already exists
+      Users? existingUser;
+      bool isAccountMigration = false;
+
+      if (email != null && email.isNotEmpty) {
+        final userByEmail = await _userRepository.getUserByEmail(email);
+        if (userByEmail != null && userByEmail.uid != agcUser.uid) {
+          // Found an account with same email but different UID
+          // This happens when user registered with email then logged in with Huawei ID
+          debugPrint('[CloudDB] 🔗 Account linking detected!');
+          debugPrint('[CloudDB] 📧 Email account UID: ${userByEmail.uid}');
+          debugPrint('[CloudDB] 🆔 Current Huawei ID UID: ${agcUser.uid}');
+
+          existingUser = userByEmail;
+          isAccountMigration = true;
+
+          // Delete the old UID entry if it exists
+          try {
+            await _userRepository.deleteUserById(userByEmail.uid!);
+            debugPrint('[CloudDB] ✅ Old account deleted: ${userByEmail.uid}');
+          } catch (e) {
+            debugPrint('[CloudDB] ⚠️  Could not delete old account: $e');
+          }
+        } else {
+          // Check by current UID
+          existingUser = await _userRepository.getUserById(agcUser.uid!);
+        }
+      } else {
+        existingUser = await _userRepository.getUserById(agcUser.uid!);
+      }
 
       if (existingUser != null) {
-        // User exists, update only if new info provided
-        debugPrint('[CloudDB] User exists, updating...');
+        // User exists, update with new UID if migration, otherwise just update info
+        debugPrint(
+          '[CloudDB] ${isAccountMigration ? "Migrating" : "Updating"} user...',
+        );
 
         final updatedUser = Users(
-          uid: agcUser.uid,
+          uid: agcUser.uid, // Use new UID (important for migration)
+          email: email ?? existingUser.email,
           username: username ?? existingUser.username,
           district: district ?? existingUser.district,
           postcode: postcode ?? existingUser.postcode,
@@ -235,16 +379,24 @@ class AuthService {
           longitude: existingUser.longitude,
           allowDiscoverable: existingUser.allowDiscoverable,
           allowEmergencyAlert: existingUser.allowEmergencyAlert,
+          detectionLanguage: existingUser.detectionLanguage,
         );
 
         await _userRepository.upsertUser(updatedUser);
-        debugPrint('[CloudDB] User updated successfully');
+
+        if (isAccountMigration) {
+          debugPrint('[CloudDB] 🎉 Account successfully linked and migrated!');
+          Snackbar.success('Account linked! Your data has been preserved.');
+        } else {
+          debugPrint('[CloudDB] User updated successfully');
+        }
       } else {
         // New user, create record
         debugPrint('[CloudDB] Creating new user...');
 
         final newUser = Users(
           uid: agcUser.uid,
+          email: email,
           username: username ?? email?.split('@').first ?? 'User',
           district: district,
           postcode: postcode,
