@@ -23,6 +23,7 @@ import 'package:provider/provider.dart';
 import '../providers/safety_service_provider.dart';
 import '../bg_services/rapid_location_service.dart';
 import '../widgets/rapid_location_overlay.dart';
+import '../services/push_notification_service.dart';
 
 class LodgeIncidentPage extends StatefulWidget {
   final String? incidentType;
@@ -66,6 +67,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
   final _incidentRepository = IncidentRepository();
   final _mediaRepository = MediaRepository();
   final _uuid = Uuid();
+  final _pushService = PushNotificationService();
   String? _currentUserId;
 
   // Scroll controller for title animation
@@ -762,6 +764,22 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
 
         print('✅ Incident upserted successfully!');
 
+        // Send push notifications to nearby users
+        try {
+          await _pushService.notifyNearbyUsers(
+            incidentLatitude: _selectedPosition!.lat,
+            incidentLongitude: _selectedPosition!.lng,
+            incidentType: _incidentType,
+            incidentDescription: _descriptionController.text.trim(),
+            incidentId: incidentId,
+            radiusKm: 5.0, // 5km radius for prototyping
+          );
+          print('✅ Push notifications sent to nearby users');
+        } catch (e) {
+          print('⚠️ Failed to send push notifications: $e');
+          // Don't fail the entire incident submission if push fails
+        }
+
         await _incidentRepository.closeZone();
         await _mediaRepository.closeZone();
 
@@ -1381,7 +1399,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                               const Text(
                                 'Submit',
                                 style: TextStyle(
-                                  fontSize: 18,
+                                  fontSize: 20,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
                                 ),

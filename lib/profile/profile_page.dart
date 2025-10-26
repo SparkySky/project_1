@@ -58,6 +58,9 @@ class _ProfilePageState extends State<ProfilePage> {
   final TextEditingController _postcodeController = TextEditingController();
   final TextEditingController _stateController = TextEditingController();
 
+  // Track if email has been set before (can only be set once)
+  bool _emailHasBeenSet = false;
+
   File? _profileImage; // Session-only, not saved
   final ImagePicker _picker = ImagePicker();
   final LocalAuthentication _localAuth = LocalAuthentication();
@@ -294,6 +297,7 @@ class _ProfilePageState extends State<ProfilePage> {
     String district,
     String postcode,
     String state,
+    String email,
   ) async {
     if (mounted) {
       setState(() {
@@ -301,6 +305,13 @@ class _ProfilePageState extends State<ProfilePage> {
         _cloudDbUser?.district = district;
         _cloudDbUser?.postcode = postcode;
         _cloudDbUser?.state = state;
+
+        // Only update email if it hasn't been set before
+        if (!_emailHasBeenSet && email.isNotEmpty) {
+          _cloudDbUser?.email = email;
+          _emailHasBeenSet = true;
+        }
+
         _userProvider!.updateCloudDbUser(_cloudDbUser!);
       });
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1072,6 +1083,10 @@ class _ProfilePageState extends State<ProfilePage> {
     _postcodeController.text = _cloudDbUser?.postcode ?? '';
     _stateController.text = _cloudDbUser?.state ?? '';
 
+    // Check if email has been set
+    _emailHasBeenSet =
+        _cloudDbUser?.email != null && _cloudDbUser!.email!.isNotEmpty;
+
     if (isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -1699,6 +1714,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   _districtController.text,
                   _postcodeController.text,
                   _stateController.text,
+                  _emailController.text,
                 );
               },
               icon: const Icon(Icons.save_outlined, size: 20),
@@ -2831,25 +2847,21 @@ class _ProfilePageState extends State<ProfilePage> {
           const SizedBox(height: 20),
           const Divider(height: 1),
           const SizedBox(height: 20),
-
-          // Allow Discoverable Toggle with last update time
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Allow Discoverable Toggle
               _buildInlineToggle(
                 icon: Icons.visibility_outlined,
                 title: 'Allow Discoverable',
                 subtitle: 'Others can find you in the app',
                 value: _allowDiscoverable,
                 onChanged: (value) async {
-                  // Save to SharedPreferences only (local storage)
-                  final prefs = await SharedPreferences.getInstance();
-                  await prefs.setBool('allow_discoverable', value);
-
-                  if (!mounted) return;
                   setState(() {
                     _allowDiscoverable = value;
                   });
+                  _cloudDbUser?.allowDiscoverable = value;
+                  await _userProvider!.updateCloudDbUser(_cloudDbUser!);
 
                   debugPrint(
                     '[ProfilePage] 💾 Saved allow_discoverable: $value',
@@ -2891,14 +2903,13 @@ class _ProfilePageState extends State<ProfilePage> {
             subtitle: 'Receive emergency notifications',
             value: _allowEmergencyAlert,
             onChanged: (value) async {
-              // Save to SharedPreferences only (local storage)
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.setBool('allow_emergency_alert', value);
-
-              if (!mounted) return;
               setState(() {
                 _allowEmergencyAlert = value;
               });
+              _cloudDbUser?.allowEmergencyAlert = value;
+              await _userProvider!.updateCloudDbUser(_cloudDbUser!);
+
+              if (!mounted) return;
 
               debugPrint(
                 '[ProfilePage] 💾 Saved allow_emergency_alert: $value',

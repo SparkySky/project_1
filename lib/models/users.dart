@@ -1,6 +1,5 @@
 class Users {
   String? uid;
-  String? email; // Added email field for account linking
   String? district;
   String? postcode;
   String? state;
@@ -11,6 +10,7 @@ class Users {
   DateTime? locUpdateTime;
   bool? allowDiscoverable;
   bool? allowEmergencyAlert;
+  String? email;
   String?
   detectionLanguage; // 'en' for English, 'zh' for Chinese (Traditional), 'ms' for Malay
 

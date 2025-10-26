@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:project_1/bg_services/clouddb_service.dart';
 import 'package:project_1/providers/safety_service_provider.dart';
 import 'package:project_1/bg_services/rapid_location_service.dart';
+import 'package:project_1/services/push_notification_service.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -11,9 +12,10 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'app_theme.dart';
 import 'splashscreen.dart';
 import 'providers/user_provider.dart';
-// import 'bg_services/safety_service.dart'; // No longer needed globally
 import 'debug_overlay/safety_debug_overlay.dart';
 import 'debug_overlay/debug_state.dart';
+
+import 'bg_services/clouddb_service.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -76,13 +78,14 @@ Future<void> main() async {
     print('[MAIN] Stack trace: $stackTrace');
   }
 
-  // 4. Initialize AGConnect Core & CloudDB in the main isolate
+  // Initialize Push Notification Service
   try {
-    await CloudDbService.initialize();
-    await CloudDbService.createObjectType();
-    print('[MAIN] Cloud DB initialized successfully');
-  } catch (e) {
-    print('[MAIN] Error initializing Cloud DB: $e');
+    print('[MAIN] Step 3: Initializing Push Notification Service...');
+    await PushNotificationService().initialize();
+    print('[MAIN] ✅ Push Notification Service initialized successfully');
+  } catch (e, stackTrace) {
+    print('[MAIN] ❌ Error initializing Push Notification Service: $e');
+    print('[MAIN] Stack trace: $stackTrace');
   }
 
   runApp(

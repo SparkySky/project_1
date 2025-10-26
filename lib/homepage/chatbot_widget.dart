@@ -26,6 +26,7 @@ class _ChatbotWidgetState extends State<ChatbotWidget> {
       top: widget.isCollapsed ? 88 : null, // Below filter button (16 + 56 + 16)
       right: 16,
       child: FloatingActionButton(
+        heroTag: "chatbot_fab",
         onPressed: _openChatbot,
         backgroundColor: AppTheme.primaryOrange,
         child: const Icon(Icons.smart_toy, color: Colors.white, size: 32),

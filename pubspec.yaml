@@ -53,8 +53,8 @@ dependencies:
   #   path: plugins/huawei_ml_language
   huawei_account:
     path: plugins/huawei_account
-  # huawei_push:  # UNUSED - Commented out for faster builds
-  #   path: plugins/huawei_push
+  huawei_push:
+    path: plugins/huawei_push
   # huawei_drive:  # UNUSED - Commented out for faster builds
   #     path: plugins/huawei_drive
   agconnect_core:

@@ -63,6 +63,66 @@ class _MediaOperationsWidgetState extends State<MediaOperationsWidget> {
     widget.onMediaFilesChanged(widget.mediaFiles);
   }
 
+  void _showPermissionError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        duration: const Duration(seconds: 4),
+      ),
+    );
+  }
+
+  void _showSupportedFileTypes() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Supported File Types'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildFileTypeSection('Image', ['JPG', 'JPEG', 'PNG', 'GIF']),
+            const SizedBox(height: 12),
+            _buildFileTypeSection('Video', ['MP4', 'MOV', 'AVI', 'MKV']),
+            const SizedBox(height: 12),
+            _buildFileTypeSection('Audio', [
+              'MP3',
+              'WAV',
+              'AAC',
+              'FLAC',
+              'OGG',
+              'M4A',
+            ]),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              'OK',
+              style: TextStyle(color: AppTheme.primaryOrange),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFileTypeSection(String title, List<String> extensions) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 4),
+        Text(extensions.join(', '), style: TextStyle(color: Colors.grey[600])),
+      ],
+    );
+  }
+
   bool _isVideo(String path) {
     String ext = path.toLowerCase();
     return ext.endsWith('.mp4') ||
@@ -118,11 +178,18 @@ class _MediaOperationsWidgetState extends State<MediaOperationsWidget> {
               subtitle: 'Capture with camera',
               onTap: () async {
                 Navigator.pop(context);
-                final XFile? photo = await _imagePicker.pickImage(
-                  source: ImageSource.camera,
-                );
-                if (photo != null) {
-                  _addMediaFile(File(photo.path));
+                try {
+                  final XFile? photo = await _imagePicker.pickImage(
+                    source: ImageSource.camera,
+                  );
+                  if (photo != null) {
+                    _addMediaFile(File(photo.path));
+                  }
+                } catch (e) {
+                  debugPrint('Error picking photo: $e');
+                  _showPermissionError(
+                    'Camera access denied. Please enable camera permission in settings.',
+                  );
                 }
               },
             ),
@@ -133,11 +200,18 @@ class _MediaOperationsWidgetState extends State<MediaOperationsWidget> {
               subtitle: 'Select from gallery',
               onTap: () async {
                 Navigator.pop(context);
-                final XFile? image = await _imagePicker.pickImage(
-                  source: ImageSource.gallery,
-                );
-                if (image != null) {
-                  _addMediaFile(File(image.path));
+                try {
+                  final XFile? image = await _imagePicker.pickImage(
+                    source: ImageSource.gallery,
+                  );
+                  if (image != null) {
+                    _addMediaFile(File(image.path));
+                  }
+                } catch (e) {
+                  debugPrint('Error picking photo from gallery: $e');
+                  _showPermissionError(
+                    'Unable to access photo gallery. Please check permissions.',
+                  );
                 }
               },
             ),
@@ -148,13 +222,20 @@ class _MediaOperationsWidgetState extends State<MediaOperationsWidget> {
               subtitle: 'Capture video',
               onTap: () async {
                 Navigator.pop(context);
-                final XFile? video = await _imagePicker.pickVideo(
-                  source: ImageSource.camera,
-                );
-                if (video != null) {
-                  final videoFile = File(video.path);
-                  _addMediaFile(videoFile);
-                  await _generateVideoThumbnail(videoFile);
+                try {
+                  final XFile? video = await _imagePicker.pickVideo(
+                    source: ImageSource.camera,
+                  );
+                  if (video != null) {
+                    final videoFile = File(video.path);
+                    _addMediaFile(videoFile);
+                    await _generateVideoThumbnail(videoFile);
+                  }
+                } catch (e) {
+                  debugPrint('Error picking video: $e');
+                  _showPermissionError(
+                    'Camera access denied. Please enable camera permission in settings.',
+                  );
                 }
               },
             ),
@@ -165,13 +246,20 @@ class _MediaOperationsWidgetState extends State<MediaOperationsWidget> {
               subtitle: 'Select from gallery',
               onTap: () async {
                 Navigator.pop(context);
-                final XFile? video = await _imagePicker.pickVideo(
-                  source: ImageSource.gallery,
-                );
-                if (video != null) {
-                  final videoFile = File(video.path);
-                  _addMediaFile(videoFile);
-                  await _generateVideoThumbnail(videoFile);
+                try {
+                  final XFile? video = await _imagePicker.pickVideo(
+                    source: ImageSource.gallery,
+                  );
+                  if (video != null) {
+                    final videoFile = File(video.path);
+                    _addMediaFile(videoFile);
+                    await _generateVideoThumbnail(videoFile);
+                  }
+                } catch (e) {
+                  debugPrint('Error picking video from gallery: $e');
+                  _showPermissionError(
+                    'Unable to access video gallery. Please check permissions.',
+                  );
                 }
               },
             ),
@@ -405,16 +493,9 @@ class _MediaOperationsWidgetState extends State<MediaOperationsWidget> {
         return false;
       }
     } catch (e) {
-      print('Error starting recording: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
+      debugPrint('Error starting recording: $e');
+      _showPermissionError(
+        'Unable to start audio recording. Please check microphone permissions.',
       );
       return false;
     }
@@ -427,7 +508,7 @@ class _MediaOperationsWidgetState extends State<MediaOperationsWidget> {
         _isRecording = false;
       });
     } catch (e) {
-      print('Error stopping recording: $e');
+      debugPrint('Error stopping recording: $e');
     }
   }
 
@@ -454,16 +535,9 @@ class _MediaOperationsWidgetState extends State<MediaOperationsWidget> {
         );
       }
     } catch (e) {
-      print('Error picking audio: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error selecting audio: $e'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
+      debugPrint('Error picking audio file: $e');
+      _showPermissionError(
+        'Unable to access audio files. Please check permissions.',
       );
     }
   }
@@ -618,6 +692,22 @@ class _MediaOperationsWidgetState extends State<MediaOperationsWidget> {
               'Media Evidence',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: _showSupportedFileTypes,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.info_outline,
+                  size: 16,
+                  color: Colors.grey,
+                ),
+              ),
+            ),
             const Spacer(),
             IconButton(
               onPressed: _pickMedia,
@@ -636,36 +726,36 @@ class _MediaOperationsWidgetState extends State<MediaOperationsWidget> {
         ),
         const SizedBox(height: 16),
         if (widget.mediaFiles.isEmpty)
-        SizedBox(
-          width: double.infinity,
-          child: Container(
-            padding: const EdgeInsets.all(30),
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: Colors.grey[300]!,
-                style: BorderStyle.solid,
-                width: 2,
+          SizedBox(
+            width: double.infinity,
+            child: Container(
+              padding: const EdgeInsets.all(30),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.grey[300]!,
+                  style: BorderStyle.solid,
+                  width: 2,
+                ),
+              ),
+              child: Column(
+                children: [
+                  Icon(Icons.photo_camera, size: 48, color: Colors.grey[400]),
+                  const SizedBox(height: 12),
+                  Text(
+                    'No media added yet',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Tap + to add photos, videos or audio',
+                    style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                  ),
+                ],
               ),
             ),
-            child: Column(
-              children: [
-                Icon(Icons.photo_camera, size: 48, color: Colors.grey[400]),
-                const SizedBox(height: 12),
-                Text(
-                  'No media added yet',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 14),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Tap + to add photos, videos or audio',
-                  style: TextStyle(color: Colors.grey[500], fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-        )
+          )
         else
           GridView.builder(
             shrinkWrap: true,
