@@ -28,6 +28,7 @@ import '../tutorial/lodge_tutorial.dart';
 
 class LodgeIncidentPage extends StatefulWidget {
   final String? incidentType;
+  final String? title;
   final String? description;
   final String? district;
   final String? postcode;
@@ -38,6 +39,7 @@ class LodgeIncidentPage extends StatefulWidget {
   const LodgeIncidentPage({
     super.key,
     this.incidentType,
+    this.title,
     this.description,
     this.district,
     this.postcode,
@@ -50,7 +52,8 @@ class LodgeIncidentPage extends StatefulWidget {
   _LodgeIncidentPageState createState() => _LodgeIncidentPageState();
 }
 
-class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
+class _LodgeIncidentPageState extends State<LodgeIncidentPage>
+    with WidgetsBindingObserver {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _addressController;
   late final TextEditingController _descriptionController;
@@ -89,12 +92,18 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this); // Add lifecycle observer
     _addressController = TextEditingController();
 
     // Parse title and description if coming from Gemini (format: "Title\n---\nDescription")
-    String initialTitle = '';
+    // Use provided title if available, otherwise try to parse from description
+    String initialTitle = widget.title ?? '';
     String initialDescription = widget.description ?? '';
-    if (widget.description != null && widget.description!.contains('\n---\n')) {
+
+    // Fallback: Parse title from description if title not provided (legacy support)
+    if (initialTitle.isEmpty &&
+        widget.description != null &&
+        widget.description!.contains('\n---\n')) {
       final parts = widget.description!.split('\n---\n');
       if (parts.length >= 2) {
         initialTitle = parts[0].trim();
@@ -229,7 +238,21 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      // App came back to foreground - reload map if needed
+      debugPrint('[LodgeIncident] App resumed, reloading map location');
+      if (_selectedPosition == null || _mapController == null) {
+        _initializeLocation();
+      }
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this); // Remove lifecycle observer
+
     // Reset to yellow/general when leaving Lodge page
     widget.incidentTypeNotifier?.value = 'general';
 
@@ -760,6 +783,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
             : description;
 
         // 3. Create incident using CloudDB model
+        // desc field is now Text type (supports up to 1MB)
         final incident = incidents(
           iid: incidentId,
           uid: _currentUserId!,
@@ -854,7 +878,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
               context,
               listen: false,
             );
-            await rapidService.startRapidUpdates(incidentMediaId: mediaId);
+            await rapidService.startRapidUpdates(incidentId: incidentId);
 
             // Navigate to overlay screen
             if (mounted) {

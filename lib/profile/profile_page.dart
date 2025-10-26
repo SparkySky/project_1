@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
 import 'package:agconnect_auth/agconnect_auth.dart';
@@ -50,6 +51,9 @@ class _ProfilePageState extends State<ProfilePage> {
   UserProvider? _userProvider;
   AGCUser? _agcUser;
   Users? _cloudDbUser;
+
+  // Timer for refreshing user data (to update location time)
+  Timer? _refreshTimer;
 
   // User information fields
   final TextEditingController _emailController = TextEditingController();
@@ -105,6 +109,18 @@ class _ProfilePageState extends State<ProfilePage> {
               _showCombinedCustomKeywordsDialog();
             },
           );
+        }
+      }
+    });
+
+    // Refresh user data every 30 seconds to update location time
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) async {
+      if (mounted && _userProvider != null) {
+        await _userProvider!.refreshUser();
+        if (mounted) {
+          setState(() {
+            _cloudDbUser = _userProvider!.cloudDbUser;
+          });
         }
       }
     });
@@ -202,6 +218,7 @@ class _ProfilePageState extends State<ProfilePage> {
   void dispose() {
     _debugState.removeListener(_onDebugStateChanged);
     _scrollController.dispose();
+    _refreshTimer?.cancel();
     _emailController.dispose();
     _phoneController.dispose();
     _districtController.dispose();

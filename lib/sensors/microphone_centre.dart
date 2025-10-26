@@ -1,11 +1,15 @@
 import 'package:record/record.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
 
 class MicrophoneService {
   AudioRecorder? _audioRecorder;
+  AudioRecorder?
+  _amplitudeRecorder; // Separate recorder for amplitude monitoring
   SpeechToText? _speechToText;
 
   // Keyword detection
@@ -17,6 +21,11 @@ class MicrophoneService {
   Timer? _monitorTimer;
   StreamController<String>? _transcriptController;
   StreamController<String>? _keywordController;
+  StreamController<double>? _decibelController;
+
+  // Decibel monitoring
+  Timer? _amplitudeTimer;
+  bool _isMonitoringDecibels = false;
 
   // Rolling buffer for pre-trigger context (stores last 10 seconds of transcripts)
   final List<String> _transcriptBuffer = [];
@@ -302,6 +311,13 @@ class MicrophoneService {
       debugPrint(
         "[MicrophoneService] Language changed from $_preferredLanguage to $preferredLanguage, restarting...",
       );
+
+      // Clear transcript buffer when changing language
+      _transcriptBuffer.clear();
+      debugPrint(
+        "[MicrophoneService] 🗑️ Transcript buffer cleared for language change",
+      );
+
       await stopKeywordDetection(); // Stop existing session
       await Future.delayed(
         const Duration(milliseconds: 500),
@@ -532,10 +548,11 @@ class MicrophoneService {
         onDevice:
             false, // Use cloud recognition for better multilingual support
         onSoundLevelChange: (level) {
-          // Only log significant sound
+          // Note: This is SpeechToText's sound level (0-10 scale, NOT actual dB)
+          // Only log significant sound for debugging
           if (level > 5) {
             debugPrint(
-              "[MicrophoneService] 🔊 Sound: ${level.toStringAsFixed(1)} dB",
+              "[MicrophoneService] 🎙️ STT Sound Level: ${level.toStringAsFixed(1)}/10 (not actual dB)",
             );
           }
         },
@@ -638,6 +655,303 @@ class MicrophoneService {
     return _speechToText?.lastRecognizedWords ?? '';
   }
 
+  /// Start monitoring decibel levels using AudioRecorder amplitude
+  Stream<double> startDecibelMonitoring() async* {
+    if (_decibelController == null || _decibelController!.isClosed) {
+      _decibelController = StreamController<double>.broadcast();
+    }
+
+    if (_isMonitoringDecibels) {
+      debugPrint("[MicrophoneService] 📊 Decibel monitoring already active");
+      yield* _decibelController!.stream;
+      return;
+    }
+
+    try {
+      // Initialize separate recorder for amplitude monitoring
+      _amplitudeRecorder = AudioRecorder();
+
+      // Check permission
+      if (await _amplitudeRecorder!.hasPermission()) {
+        debugPrint("[MicrophoneService] 🎤 Starting amplitude recorder...");
+
+        // Create temp file for amplitude monitoring (we won't actually use the file)
+        final tempDir = await getTemporaryDirectory();
+        final tempPath =
+            '${tempDir.path}/amplitude_monitor_${DateTime.now().millisecondsSinceEpoch}.wav';
+
+        debugPrint("[MicrophoneService] 📁 Temp amplitude file: $tempPath");
+
+        // Use WAV/PCM format for reliable amplitude monitoring
+        // AAC encoder doesn't provide accurate real-time amplitude
+        await _amplitudeRecorder!.start(
+          const RecordConfig(
+            encoder: AudioEncoder.wav,
+            sampleRate: 16000,
+            numChannels: 1,
+            bitRate: 128000,
+          ),
+          path: tempPath, // Temporary file for amplitude monitoring
+        );
+
+        // Verify recording started
+        final isRecording = await _amplitudeRecorder!.isRecording();
+        debugPrint(
+          "[MicrophoneService] 📊 Amplitude recorder status: $isRecording",
+        );
+
+        if (!isRecording) {
+          debugPrint(
+            "[MicrophoneService] ❌ Amplitude recorder failed to start",
+          );
+          _isMonitoringDecibels = false;
+          yield* _decibelController!.stream;
+          return;
+        }
+
+        _isMonitoringDecibels = true;
+        debugPrint(
+          "[MicrophoneService] ✅ Amplitude recorder started successfully",
+        );
+
+        // Poll amplitude periodically (every 100ms)
+        _amplitudeTimer = Timer.periodic(const Duration(milliseconds: 100), (
+          timer,
+        ) async {
+          if (!_isMonitoringDecibels || _amplitudeRecorder == null) {
+            timer.cancel();
+            return;
+          }
+
+          try {
+            final amplitude = await _amplitudeRecorder!.getAmplitude();
+
+            // Debug: Log first 100 readings, then every 2 seconds
+            if (timer.tick <= 100 || timer.tick % 20 == 0) {
+              debugPrint(
+                "[MicrophoneService] 🎤 TICK ${timer.tick} | current: ${amplitude.current.toStringAsFixed(1)} dBFS, max: ${amplitude.max.toStringAsFixed(1)} dBFS",
+              );
+            }
+
+            // Use MAX value for peak detection (better for shouting/loud sounds)
+            // Max captures the loudest moment, current is just the latest sample
+            if (amplitude.max > -160.0) {
+              // Convert max amplitude to SPL
+              final db = _amplitudeToDB(amplitude.max);
+
+              // Debug: Log first 100 conversions, then every 2 seconds
+              if (timer.tick <= 100 || timer.tick % 20 == 0) {
+                debugPrint(
+                  "[MicrophoneService] 📊 TICK ${timer.tick} | Using MAX: ${amplitude.max.toStringAsFixed(1)} dBFS → ${db.toStringAsFixed(1)} dB SPL",
+                );
+              }
+
+              if (!_decibelController!.isClosed && db > 0) {
+                _decibelController!.add(db);
+              }
+            } else {
+              if (timer.tick <= 50 || timer.tick % 30 == 0) {
+                debugPrint(
+                  "[MicrophoneService] 🔇 TICK ${timer.tick} | Silence: max=${amplitude.max.toStringAsFixed(1)} dBFS",
+                );
+              }
+            }
+          } catch (e) {
+            debugPrint("[MicrophoneService] ❌ Amplitude read error: $e");
+            if (e.toString().contains('not recording')) {
+              debugPrint(
+                "[MicrophoneService] ⚠️ Recorder stopped unexpectedly, canceling timer",
+              );
+              timer.cancel();
+              _isMonitoringDecibels = false;
+            }
+          }
+        });
+      } else {
+        debugPrint(
+          "[MicrophoneService] ❌ No microphone permission for decibel monitoring",
+        );
+        _isMonitoringDecibels = false;
+      }
+    } catch (e) {
+      debugPrint(
+        "[MicrophoneService] ❌ Failed to start decibel monitoring: $e",
+      );
+      _isMonitoringDecibels = false;
+    }
+
+    yield* _decibelController!.stream;
+  }
+
+  /// Convert amplitude (dBFS) to approximate SPL (Sound Pressure Level in dB)
+  /// Real-world decibel scale:
+  /// 28 dB = leaf falling
+  /// 60-70 dB = talking/conversation
+  /// 91+ dB = shouting (trigger threshold)
+  double _amplitudeToDB(double dbfs) {
+    // AudioRecorder returns dBFS (decibels Full Scale) typically from -120 to 0
+    // Map to real-world SPL values with extended range
+
+    if (dbfs <= -160) return 0; // Silence
+    if (dbfs < -120) dbfs = -120; // Clamp lower bound
+
+    // Formula allows up to ~102 dB at maximum (dBFS = 0)
+    // Normal speech: 60-70 dB, Shouting: 91+ dB
+    final spl = (dbfs + 120) * 0.85 - 10.0; // Adjusted offset for higher max
+
+    return spl.clamp(0, 120); // Clamp to reasonable range
+  }
+
+  /// Pause decibel monitoring temporarily (during capture window)
+  void pauseDecibelMonitoring() {
+    if (_amplitudeTimer != null) {
+      _amplitudeTimer!.cancel();
+      _amplitudeTimer = null;
+      debugPrint("[MicrophoneService] ⏸️ Paused decibel monitoring");
+    }
+  }
+
+  /// Resume decibel monitoring after pause
+  Future<void> resumeDecibelMonitoring() async {
+    if (!_isMonitoringDecibels || _amplitudeRecorder == null) {
+      debugPrint(
+        "[MicrophoneService] ⚠️ Cannot resume - monitoring not active",
+      );
+      return;
+    }
+
+    try {
+      // STOP and RESTART the recorder to reset the max amplitude buffer
+      debugPrint(
+        "[MicrophoneService] 🔄 Restarting recorder to reset amplitude buffer...",
+      );
+
+      if (await _amplitudeRecorder!.isRecording()) {
+        final oldPath = await _amplitudeRecorder!.stop();
+        // Delete old temp file
+        if (oldPath != null) {
+          try {
+            final file = File(oldPath);
+            if (await file.exists()) {
+              await file.delete();
+              debugPrint("[MicrophoneService] 🗑️ Deleted old amplitude file");
+            }
+          } catch (e) {
+            debugPrint("[MicrophoneService] ⚠️ Failed to delete old file: $e");
+          }
+        }
+      }
+
+      // Create new temp file and restart
+      final tempDir = await getTemporaryDirectory();
+      final tempPath =
+          '${tempDir.path}/amplitude_monitor_${DateTime.now().millisecondsSinceEpoch}.wav';
+
+      await _amplitudeRecorder!.start(
+        const RecordConfig(
+          encoder: AudioEncoder.wav,
+          sampleRate: 16000,
+          numChannels: 1,
+          bitRate: 128000,
+        ),
+        path: tempPath,
+      );
+
+      debugPrint("[MicrophoneService] ✅ Recorder restarted with fresh buffer");
+
+      // Restart the timer (recorder is now fresh, no old peak values)
+      _amplitudeTimer = Timer.periodic(const Duration(milliseconds: 100), (
+        timer,
+      ) async {
+        if (!_isMonitoringDecibels || _amplitudeRecorder == null) {
+          timer.cancel();
+          return;
+        }
+
+        try {
+          final amplitude = await _amplitudeRecorder!.getAmplitude();
+
+          // Log first 5 readings to confirm fresh values, then every 2 seconds
+          if (timer.tick <= 5 || timer.tick % 20 == 0) {
+            debugPrint(
+              "[MicrophoneService] 🎤 TICK ${timer.tick} | current: ${amplitude.current.toStringAsFixed(1)} dBFS, max: ${amplitude.max.toStringAsFixed(1)} dBFS",
+            );
+          }
+
+          // Use MAX value for peak detection (now truly fresh!)
+          if (amplitude.max > -160.0) {
+            final db = _amplitudeToDB(amplitude.max);
+
+            if (timer.tick <= 5 || timer.tick % 20 == 0) {
+              debugPrint(
+                "[MicrophoneService] 📊 TICK ${timer.tick} | Using MAX: ${amplitude.max.toStringAsFixed(1)} dBFS → ${db.toStringAsFixed(1)} dB SPL",
+              );
+            }
+
+            if (!_decibelController!.isClosed && db > 0) {
+              _decibelController!.add(db);
+            }
+          }
+        } catch (e) {
+          debugPrint("[MicrophoneService] ❌ Amplitude read error: $e");
+          if (e.toString().contains('not recording')) {
+            debugPrint(
+              "[MicrophoneService] ⚠️ Recorder stopped unexpectedly, canceling timer",
+            );
+            timer.cancel();
+            _isMonitoringDecibels = false;
+          }
+        }
+      });
+
+      debugPrint("[MicrophoneService] ▶️ Resumed decibel monitoring");
+    } catch (e) {
+      debugPrint("[MicrophoneService] ❌ Error resuming decibel monitoring: $e");
+    }
+  }
+
+  /// Stop monitoring decibel levels
+  void stopDecibelMonitoring() async {
+    _amplitudeTimer?.cancel();
+    _amplitudeTimer = null;
+
+    if (_amplitudeRecorder != null) {
+      try {
+        if (await _amplitudeRecorder!.isRecording()) {
+          final filePath = await _amplitudeRecorder!.stop();
+          // Clean up temp file
+          if (filePath != null) {
+            try {
+              final file = File(filePath);
+              if (await file.exists()) {
+                await file.delete();
+                debugPrint(
+                  "[MicrophoneService] 🗑️ Deleted temp amplitude file",
+                );
+              }
+            } catch (e) {
+              debugPrint(
+                "[MicrophoneService] ⚠️ Failed to delete temp file: $e",
+              );
+            }
+          }
+        }
+        _amplitudeRecorder!.dispose();
+      } catch (e) {
+        debugPrint(
+          "[MicrophoneService] ⚠️ Error stopping amplitude recorder: $e",
+        );
+      }
+      _amplitudeRecorder = null;
+    }
+
+    _isMonitoringDecibels = false;
+    debugPrint("[MicrophoneService] 📊 Stopped decibel monitoring");
+  }
+
+  /// Check if decibel monitoring is active
+  bool get isMonitoringDecibels => _isMonitoringDecibels;
+
   void dispose() {
     debugPrint("[MicrophoneService] Disposing AudioRecorder and SpeechToText.");
     _shouldKeepListening = false;
@@ -650,6 +964,11 @@ class MicrophoneService {
 
     _speechToText?.stop();
     _speechToText = null;
+
+    // Clean up decibel monitoring
+    stopDecibelMonitoring();
+    _decibelController?.close();
+    _decibelController = null;
 
     _transcriptController?.close();
     _keywordController?.close();

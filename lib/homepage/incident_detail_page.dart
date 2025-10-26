@@ -8,6 +8,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:project_1/repository/user_repository.dart';
 import 'package:project_1/repository/media_repository.dart';
 import 'package:project_1/models/clouddb_model.dart';
+import 'package:project_1/lodge/network_media_viewer_page.dart';
+import 'package:project_1/homepage/live_location_tracking_page.dart';
 
 class IncidentDetailPage extends StatefulWidget {
   final Map<String, dynamic> incident;
@@ -20,15 +22,11 @@ class IncidentDetailPage extends StatefulWidget {
 }
 
 class _IncidentDetailPageState extends State<IncidentDetailPage> {
+  // ignore: unused_field
   HuaweiMapController? _mapController;
   String _address = 'Loading address...';
   List<media> _mediaList = [];
   bool _isLoadingMedia = true;
-
-  // For real-time victim location (Threat incidents only)
-  Timer? _locationUpdateTimer;
-  Map<String, dynamic>? _victimLocation;
-  bool _isLoadingVictimLocation = false;
 
   final UserRepository _userRepository = UserRepository();
   final MediaRepository _mediaRepository = MediaRepository();
@@ -37,16 +35,10 @@ class _IncidentDetailPageState extends State<IncidentDetailPage> {
   void initState() {
     super.initState();
     _loadIncidentDetails();
-
-    // Start real-time location tracking for Threat incidents
-    if (widget.incident['incidentType'] == 'threat') {
-      _startVictimLocationTracking();
-    }
   }
 
   @override
   void dispose() {
-    _locationUpdateTimer?.cancel();
     _userRepository.closeZone();
     _mediaRepository.closeZone();
     super.dispose();
@@ -183,82 +175,33 @@ class _IncidentDetailPageState extends State<IncidentDetailPage> {
     }
   }
 
-  void _startVictimLocationTracking() {
-    _fetchVictimLocation(); // Initial fetch
+  void _openLiveLocationTracking() {
+    final String? uid = widget.incident['uid'];
+    final String? incidentId = widget.incident['iid'];
+    final double? lat = widget.incident['latitude'];
+    final double? lon = widget.incident['longitude'];
 
-    // Update every 10 seconds
-    _locationUpdateTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
-      _fetchVictimLocation();
-    });
-  }
-
-  Future<void> _fetchVictimLocation() async {
-    if (!mounted) return;
-
-    setState(() {
-      _isLoadingVictimLocation = true;
-    });
-
-    try {
-      final String? uid = widget.incident['uid'];
-
-      if (uid == null || uid.isEmpty) {
-        setState(() {
-          _isLoadingVictimLocation = false;
-        });
-        return;
-      }
-
-      final user = await _userRepository.getUserById(uid);
-
-      if (mounted && user != null) {
-        setState(() {
-          _victimLocation = {
-            'latitude': user.latitude,
-            'longitude': user.longitude,
-            'locUpdateTime': user.locUpdateTime,
-          };
-          _isLoadingVictimLocation = false;
-        });
-
-        // Update map marker if location exists
-        if (user.latitude != null && user.longitude != null) {
-          _updateVictimMarker(user.latitude!, user.longitude!);
-        }
-      } else {
-        if (mounted) {
-          setState(() {
-            _isLoadingVictimLocation = false;
-          });
-        }
-      }
-    } catch (e) {
-      debugPrint('Error fetching victim location: $e');
-      if (mounted) {
-        setState(() {
-          _isLoadingVictimLocation = false;
-        });
-      }
-    }
-  }
-
-  void _updateVictimMarker(double lat, double lon) {
-    // This will trigger a rebuild with updated victim location
-    setState(() {});
-  }
-
-  int _getLocationUpdateElapsedSeconds() {
-    if (_victimLocation?['locUpdateTime'] == null) return 0;
-
-    try {
-      final DateTime updateTime = DateTime.parse(
-        _victimLocation!['locUpdateTime'],
+    if (uid == null || incidentId == null || lat == null || lon == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to load live location - missing data'),
+          backgroundColor: Colors.red,
+        ),
       );
-      final Duration elapsed = DateTime.now().difference(updateTime);
-      return elapsed.inSeconds;
-    } catch (e) {
-      return 0;
+      return;
     }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => LiveLocationTrackingPage(
+          uid: uid,
+          incidentId: incidentId,
+          initialLat: lat,
+          initialLng: lon,
+        ),
+      ),
+    );
   }
 
   String _formatDateTime(String? dateTimeStr) {
@@ -271,102 +214,126 @@ class _IncidentDetailPageState extends State<IncidentDetailPage> {
     }
   }
 
-  String _formatElapsedTime(int seconds) {
-    if (seconds < 60) {
-      return '$seconds seconds ago';
-    } else if (seconds < 3600) {
-      final minutes = (seconds / 60).floor();
-      return '$minutes minute${minutes > 1 ? 's' : ''} ago';
-    } else {
-      final hours = (seconds / 3600).floor();
-      return '$hours hour${hours > 1 ? 's' : ''} ago';
-    }
+  void _openMediaViewer(media mediaItem) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => NetworkMediaViewerPage(
+          mediaUrl: mediaItem.mediaURI,
+          mediaType: mediaItem.mediaType,
+          mediaName: 'Media ${mediaItem.order}',
+        ),
+      ),
+    );
   }
 
   Widget _buildMediaItem(media mediaItem) {
     final mediaType = mediaItem.mediaType.toLowerCase();
 
-    if (mediaType.contains('image') ||
-        mediaType.contains('jpg') ||
-        mediaType.contains('jpeg') ||
-        mediaType.contains('png')) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Image.network(
-          mediaItem.mediaURI,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
-            return Container(
-              color: Colors.grey[300],
-              child: const Center(child: Icon(Icons.broken_image, size: 40)),
-            );
-          },
-        ),
-      );
-    } else if (mediaType.contains('video') || mediaType.contains('mp4')) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          color: Colors.black87,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              const Icon(
-                Icons.play_circle_outline,
-                size: 60,
-                color: Colors.white,
+    return GestureDetector(
+      onTap: () => _openMediaViewer(mediaItem),
+      child: () {
+        if (mediaType.contains('image') ||
+            mediaType.contains('jpg') ||
+            mediaType.contains('jpeg') ||
+            mediaType.contains('png') ||
+            mediaType.contains('webp') ||
+            mediaType.contains('gif')) {
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.network(
+              mediaItem.mediaURI,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  color: Colors.grey[300],
+                  child: const Center(
+                    child: Icon(Icons.broken_image, size: 40),
+                  ),
+                );
+              },
+            ),
+          );
+        } else if (mediaType.contains('video') ||
+            mediaType.contains('mp4') ||
+            mediaType.contains('mov') ||
+            mediaType.contains('avi')) {
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              color: Colors.black87,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  const Icon(
+                    Icons.play_circle_outline,
+                    size: 60,
+                    color: Colors.white,
+                  ),
+                  Positioned(
+                    bottom: 8,
+                    right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text(
+                        'Video',
+                        style: TextStyle(color: Colors.white, fontSize: 12),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              Positioned(
-                bottom: 8,
-                right: 8,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black54,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Text(
-                    'Video',
-                    style: TextStyle(color: Colors.white, fontSize: 12),
-                  ),
+            ),
+          );
+        } else if (mediaType.contains('audio') ||
+            mediaType.contains('mp3') ||
+            mediaType.contains('m4a') ||
+            mediaType.contains('wav') ||
+            mediaType.contains('aac') ||
+            mediaType.contains('ogg')) {
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              color: Colors.blue[50],
+              child: const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.audiotrack, size: 50, color: Colors.blue),
+                    SizedBox(height: 8),
+                    Text('Audio', style: TextStyle(color: Colors.blue)),
+                  ],
                 ),
               ),
-            ],
-          ),
-        ),
-      );
-    } else if (mediaType.contains('audio') ||
-        mediaType.contains('mp3') ||
-        mediaType.contains('m4a') ||
-        mediaType.contains('wav')) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          color: Colors.blue[50],
-          child: const Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.audiotrack, size: 50, color: Colors.blue),
-                SizedBox(height: 8),
-                Text('Audio', style: TextStyle(color: Colors.blue)),
-              ],
             ),
-          ),
-        ),
-      );
-    } else {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          color: Colors.grey[200],
-          child: const Center(child: Icon(Icons.insert_drive_file, size: 50)),
-        ),
-      );
-    }
+          );
+        } else {
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              color: Colors.grey[200],
+              child: const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.insert_drive_file, size: 50),
+                    SizedBox(height: 8),
+                    Text('Unknown file', style: TextStyle(fontSize: 12)),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+      }(),
+    );
   }
 
   @override
@@ -377,6 +344,8 @@ class _IncidentDetailPageState extends State<IncidentDetailPage> {
     final isAIGenerated = widget.incident['isAIGenerated'] == 'true';
     final incidentType = widget.incident['incidentType'] ?? 'general';
     final isThreat = incidentType.toLowerCase() == 'threat';
+    final status = widget.incident['status'] ?? '';
+    final isActive = status.toLowerCase() == 'active';
 
     final double? incidentLat = widget.incident['latitude'];
     final double? incidentLon = widget.incident['longitude'];
@@ -432,35 +401,15 @@ class _IncidentDetailPageState extends State<IncidentDetailPage> {
                   markers: {
                     // Incident marker
                     Marker(
-                      markerId: MarkerId('incident'),
+                      markerId: const MarkerId('incident'),
                       position: LatLng(incidentLat, incidentLon),
                       icon: BitmapDescriptor.defaultMarkerWithHue(
                         isThreat
                             ? BitmapDescriptor.hueRed
                             : BitmapDescriptor.hueOrange,
                       ),
-                      infoWindow: InfoWindow(title: 'Incident Location'),
+                      infoWindow: const InfoWindow(title: 'Incident Location'),
                     ),
-                    // Victim location marker (for Threat incidents only)
-                    if (isThreat &&
-                        _victimLocation?['latitude'] != null &&
-                        _victimLocation?['longitude'] != null)
-                      Marker(
-                        markerId: MarkerId('victim'),
-                        position: LatLng(
-                          _victimLocation!['latitude'],
-                          _victimLocation!['longitude'],
-                        ),
-                        icon: BitmapDescriptor.defaultMarkerWithHue(
-                          BitmapDescriptor.hueBlue,
-                        ),
-                        infoWindow: InfoWindow(
-                          title: 'Victim Location',
-                          snippet: _formatElapsedTime(
-                            _getLocationUpdateElapsedSeconds(),
-                          ),
-                        ),
-                      ),
                   },
                   myLocationEnabled: false,
                   myLocationButtonEnabled: false,
@@ -606,74 +555,32 @@ class _IncidentDetailPageState extends State<IncidentDetailPage> {
               ),
             ),
 
-            // Real-time Victim Location (Threat only)
-            if (isThreat) ...[
+            // View Live Location Button (Active incidents only)
+            if (isActive) ...[
               const SizedBox(height: 8),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                color: Colors.red[50],
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.my_location,
-                          color: Colors.red[700],
-                          size: 24,
-                        ),
-                        const SizedBox(width: 12),
-                        const Text(
-                          'Victim Real-Time Location',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const Spacer(),
-                        if (_isLoadingVictimLocation)
-                          SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.red[700],
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    if (_victimLocation != null &&
-                        _victimLocation!['latitude'] != null &&
-                        _victimLocation!['longitude'] != null)
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Lat: ${_victimLocation!['latitude']?.toStringAsFixed(6)}',
-                            style: TextStyle(color: Colors.grey[800]),
-                          ),
-                          Text(
-                            'Lon: ${_victimLocation!['longitude']?.toStringAsFixed(6)}',
-                            style: TextStyle(color: Colors.grey[800]),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Updated: ${_formatElapsedTime(_getLocationUpdateElapsedSeconds())}',
-                            style: TextStyle(
-                              color: Colors.red[700],
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      )
-                    else
-                      Text(
-                        'Location unavailable',
-                        style: TextStyle(color: Colors.grey[600]),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _openLiveLocationTracking,
+                    icon: const Icon(Icons.my_location, color: Colors.white),
+                    label: const Text(
+                      'View Live Location',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
                       ),
-                  ],
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue[700],
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ],

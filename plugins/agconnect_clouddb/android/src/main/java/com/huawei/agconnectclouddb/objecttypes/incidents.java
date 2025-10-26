@@ -14,7 +14,7 @@ import java.util.Date;
 /**
  * Definition of ObjectType Incidents.
  *
- * @since 2025-10-25
+ * @since 2025-10-26
  */
 @PrimaryKeys({"iid", "uid"})
 @Indexes({"uid:uid", "iid:iid"})
@@ -27,7 +27,7 @@ public final class Incidents extends CloudDBZoneObject {
 
     private String incidentType;
 
-    private String desc;
+    private Text desc;
 
     private String mediaID;
 
@@ -75,11 +75,11 @@ public final class Incidents extends CloudDBZoneObject {
         return incidentType;
     }
 
-    public void setDesc(String desc) {
+    public void setDesc(Text desc) {
         this.desc = desc;
     }
 
-    public String getDesc() {
+    public Text getDesc() {
         return desc;
     }
 

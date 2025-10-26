@@ -68,7 +68,7 @@ CRITICAL INSTRUCTIONS:
 Provide a JSON response with the following structure:
 - "isIncident": boolean (true ONLY if you are confident it is a real incident based on audio + context, false otherwise)
 - "incidentType": string (e.g., "Fall", "Distress Call", "False Positive")
-- "title": string (A SHORT, concise title summarizing the incident in 5-10 words. Examples: "Distress Call Detected", "Fall Incident with Injury", "False Positive - Heavy Lifting")
+- "title": string (A SHORT, concise title summarizing the incident. MUST be under 45 characters. Examples: "Distress Call Detected", "Fall with Injury", "False Positive - Heavy Lifting")
 - "transcript": string (The COMPLETE COMBINED sentence: pre-trigger text + audio transcription. Piece them together into natural, coherent sentences.)
 - "description": string (A detailed summary based on what you HEAR in the audio and see in the data. Be factual, not speculative.)
 - "district": string (Infer if possible, otherwise leave empty)
