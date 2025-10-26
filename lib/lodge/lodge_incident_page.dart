@@ -24,6 +24,7 @@ import '../providers/safety_service_provider.dart';
 import '../bg_services/rapid_location_service.dart';
 import '../widgets/rapid_location_overlay.dart';
 import '../services/push_notification_service.dart';
+import '../tutorial/lodge_tutorial.dart';
 
 class LodgeIncidentPage extends StatefulWidget {
   final String? incidentType;
@@ -137,6 +138,27 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage>
     if (widget.audioRecordingPath != null) {
       _startAutoSubmitTimer();
     }
+
+    // Show tutorial on first app use (continuous flow from homepage)
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (mounted) {
+        // Check if this is first app use - homepage not completed yet
+        final prefs = await SharedPreferences.getInstance();
+        final homepageCompleted =
+            prefs.getBool('homepage_tutorial_completed') ?? false;
+        final lodgeCompleted =
+            prefs.getBool('lodge_tutorial_completed') ?? false;
+
+        // Show if homepage completed (user came from homepage tutorial) and lodge not completed
+        if (homepageCompleted && !lodgeCompleted) {
+          LodgeTutorialManager.showTutorial(
+            context,
+            pageScrollController: _scrollController,
+          );
+        }
+      }
+    });
   }
 
   void _startAutoSubmitTimer() {

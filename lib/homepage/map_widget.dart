@@ -56,7 +56,7 @@ class _MapWidgetState extends State<MapWidget>
 
   static const CameraPosition _kFallbackPosition = CameraPosition(
     target: LatLng(5.3644, 100.4660),
-    zoom: 11.0,
+    zoom: 9.0, // Zoomed out 2 levels from 11.0
   );
 
   @override
@@ -424,7 +424,7 @@ class _MapWidgetState extends State<MapWidget>
 
     print("=== Fetching initial location using LocationServiceHelper ===");
     print(
-      "=== Current zoom level will be: 17.5 (optimized for fast loading) ===",
+      "=== Current zoom level will be: 15.5 (zoomed out to show wider area) ===",
     );
     hwLocation.Location? location = await _locationHelper.getCurrentLocation();
 
@@ -435,10 +435,10 @@ class _MapWidgetState extends State<MapWidget>
             location.latitude != null &&
             location.longitude != null) {
           // Calculate offset to center user in visible area (between app bar and incident box)
-          // At zoom 17.5 (balanced zoom), use minimal offset to keep user centered
+          // At zoom 15.5 (zoomed out view), use minimal offset to keep user centered
           // Smaller offset needed for higher zoom levels
           final double latitudeOffset =
-              0.0003; // Small offset for zoom 17.5 to keep user visible
+              0.0003; // Small offset for zoom 15.5 to keep user visible
 
           _initialPosition = CameraPosition(
             target: LatLng(
@@ -446,13 +446,13 @@ class _MapWidgetState extends State<MapWidget>
                   latitudeOffset, // Shift camera south slightly
               location.longitude!,
             ),
-            zoom: 17.5, // Optimized zoom for fast initial load
+            zoom: 15.5, // Zoomed out 2 levels from 17.5 to show wider area
           );
           print(
             "SUCCESS! Got location: ${location.latitude}, ${location.longitude}",
           );
           print(
-            "Camera centered at: ${location.latitude! - latitudeOffset} (small offset for zoom 17.5)",
+            "Camera centered at: ${location.latitude! - latitudeOffset} (small offset for zoom 15.5)",
           );
           print(
             "✅ Initial camera position set: zoom=${_initialPosition!.zoom}, target=(${_initialPosition!.target.lat}, ${_initialPosition!.target.lng})",

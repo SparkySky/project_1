@@ -1,30 +1,122 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-//   Tutorial Overlay Widget
-class HomePageTutorial extends StatefulWidget {
+// Profile Tutorial Overlay Widget
+class ProfileTutorial extends StatefulWidget {
   final VoidCallback onComplete;
-  final VoidCallback? onFilterButtonTap;
-  final VoidCallback? onChatbotButtonTap;
-  final VoidCallback? onNavigateToLodge;
+  final ScrollController? pageScrollController;
+  final VoidCallback? onCustomKeywordsTap;
 
-  const HomePageTutorial({
+  const ProfileTutorial({
     super.key,
     required this.onComplete,
-    this.onFilterButtonTap,
-    this.onChatbotButtonTap,
-    this.onNavigateToLodge,
+    this.pageScrollController,
+    this.onCustomKeywordsTap,
   });
 
   @override
-  State<HomePageTutorial> createState() => _HomePageTutorialState();
+  State<ProfileTutorial> createState() => _ProfileTutorialState();
 }
 
-class _HomePageTutorialState extends State<HomePageTutorial>
+class _ProfileTutorialState extends State<ProfileTutorial>
     with SingleTickerProviderStateMixin {
   int _currentStep = 0;
-  bool _isHidden = false; // To hide tutorial temporarily
+  bool _isHidden = false;
   late AnimationController _arrowAnimationController;
+
+  List<TutorialStep> get _steps {
+    final appBarHeight = AppBar().preferredSize.height;
+    final statusBarHeight = MediaQuery.of(context).padding.top;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    return [
+      TutorialStep(
+        title: "This is Your Profile Page",
+        description:
+            "Let's explore your profile settings and learn how to customize your account.",
+        highlightArea: null,
+        position: TutorialPosition.center,
+        scrollToPosition: 0,
+      ),
+      TutorialStep(
+        title: "User Information",
+        description:
+            "Fill in your information including phone number and address. This information helps with location-based features.",
+        highlightArea: HighlightArea(
+          top: appBarHeight + statusBarHeight + 300,
+          height: 400,
+        ),
+        position: TutorialPosition.top,
+        scrollToPosition: 300,
+      ),
+      TutorialStep(
+        title: "Voice Detection Language",
+        description:
+            "Select your preferred language for voice detection. This helps our AI better detect emergency sounds in your language.",
+        highlightArea: HighlightArea(
+          top: appBarHeight + statusBarHeight + 170,
+          height: 420,
+        ),
+        position: TutorialPosition.bottom,
+        scrollToPosition: 1000,
+      ),
+      TutorialStep(
+        title: "Custom Emergency Keywords",
+        description:
+            "Tap 'Edit All Custom Keywords' to customize words that trigger the AI to detect emergency situations. This personalizes the safety detection for your needs.",
+        highlightArea: HighlightArea(
+          top: appBarHeight + statusBarHeight + 500,
+          height: 80,
+        ),
+        position: TutorialPosition.top,
+        scrollToPosition: 1080,
+        requireUserTap: true,
+        interactionType: InteractionType.customKeywords,
+      ),
+      TutorialStep(
+        title: "Privacy & Alert Preferences",
+        description:
+            "Enable 'Allow Discoverable' to let other users find you in the app, and 'Allow Emergency Alerts' to receive notifications about nearby incidents.",
+        highlightArea: HighlightArea(
+          top: appBarHeight + statusBarHeight + 160,
+          height: 200,
+        ),
+        position: TutorialPosition.bottom,
+        scrollToPosition: 1500,
+      ),
+      TutorialStep(
+        title: "Tutorial Replays",
+        description:
+            "Need to review the tutorials? Tap here to replay the tutorials anytime.",
+        highlightArea: HighlightArea(
+          top: appBarHeight + statusBarHeight + 280,
+          height: 180,
+        ),
+        position: TutorialPosition.bottom,
+        scrollToPosition: 2200,
+      ),
+      TutorialStep(
+        title: "Legal Section",
+        description:
+            "Access Terms & Conditions and Privacy Policy. These are important for your account security.",
+        highlightArea: HighlightArea(
+          top: appBarHeight + statusBarHeight + 150,
+          height: 300,
+        ),
+        position: TutorialPosition.bottom,
+        scrollToPosition: 2500,
+      ),
+      TutorialStep(
+        title: "Tutorial Complete! 🎉",
+        description:
+            "Congratulations! You've completed all the tutorials. You now know how to use MYSafeZone. \n\nRemember, you can always replay these tutorials from your profile. Stay safe!",
+        highlightArea: null,
+        position: TutorialPosition.center,
+        scrollToPosition: 0,
+      ),
+    ];
+  }
 
   @override
   void initState() {
@@ -33,6 +125,11 @@ class _HomePageTutorialState extends State<HomePageTutorial>
       vsync: this,
       duration: const Duration(milliseconds: 600),
     )..repeat(reverse: true);
+
+    // Auto-scroll to current step's position
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _animateToCurrentStep();
+    });
   }
 
   @override
@@ -41,138 +138,24 @@ class _HomePageTutorialState extends State<HomePageTutorial>
     super.dispose();
   }
 
-  List<TutorialStep> get _steps {
-    final appBarHeight = AppBar().preferredSize.height;
-    final statusBarHeight = MediaQuery.of(context).padding.top;
-    final screenHeight = MediaQuery.of(context).size.height;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final bottomNavHeight = 56.0;
+  void _animateToCurrentStep() {
+    // Scroll to the current step's position
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToCurrentStep();
+    });
+  }
 
-    // Calculate layout dimensions based on actual HomePage layout
-    final mapHeight = screenHeight * 0.41;
-    final dragHandleHeight = 30.0;
-    final safetyTriggerHeight = 100.0;
-
-    return [
-      TutorialStep(
-        title: "Welcome to MYSafeZone!",
-        description:
-            "Let's take a quick tour to help you get started with our app.",
-        highlightArea: null,
-        position: TutorialPosition.center,
-      ),
-      TutorialStep(
-        title: "Important!!!\nPermissions Required",
-        description:
-            "To ensure MYSafeZone works properly, please grant the following permissions:\n\n"
-            "📍 Location (Always): To get your current location to notify others if you face an emergency, and to show you nearby incidents.\n\n"
-            "🎤 Microphone (Always): To detect and analyze sounds around you for identifying potential threats.\n\n"
-            "🔔 Notifications: To receive instant alerts about nearby incidents.\n\n"
-            "⚡ Disable Battery Saving (Always): Battery optimization can stop background monitoring. Please disable it for MYSafeZone to ensure reliable 24/7 protection.\n\n"
-            "Your privacy is our priority - all your data is kept secure and confidential.",
-        highlightArea: null,
-        position: TutorialPosition.center,
-        isPermissionDialog: true,
-      ),
-      TutorialStep(
-        title: "This is MYSafeZone Homepage",
-        description:
-            "Here is the main hub for monitoring safety in your area. You can view the live map, nearby incidents, and activate / deactivate the safety trigger.",
-        highlightArea: null,
-        position: TutorialPosition.center,
-      ),
-      TutorialStep(
-        title: "Live Safety Map",
-        description:
-            "This map shows your current location (blue marker) and nearby incidents (red markers).",
-        highlightArea: HighlightArea(
-          top: appBarHeight + statusBarHeight,
-          height: mapHeight,
-        ),
-        position: TutorialPosition.bottom,
-      ),
-      TutorialStep(
-        title: "Safety Trigger",
-        description:
-            "Click to ACTIVATE to actively monitor sounds and motions around you. Our app uses AI to detect potential threats like screams, breaking glass or sudden phone collisions, and sends alerts to people nearby.",
-        highlightArea: HighlightArea(
-          top: appBarHeight + statusBarHeight + mapHeight + dragHandleHeight,
-          height: safetyTriggerHeight,
-        ),
-        position: TutorialPosition.top,
-      ),
-      TutorialStep(
-        title: "Nearby Incidents List",
-        description:
-            "Scroll through recent incidents reported in your postcode area. You can click on any incident to view more details.",
-        highlightArea: HighlightArea(
-          top:
-              appBarHeight +
-              statusBarHeight +
-              mapHeight +
-              dragHandleHeight +
-              safetyTriggerHeight,
-          height:
-              screenHeight -
-              (appBarHeight + statusBarHeight) -
-              mapHeight -
-              dragHandleHeight -
-              safetyTriggerHeight -
-              bottomNavHeight -
-              40,
-        ),
-        position: TutorialPosition.center,
-      ),
-      // Explain filter BEFORE asking user to tap
-      TutorialStep(
-        title: "Filter Nearby Incidents",
-        description:
-            "You can filter nearby incidents by distance. Tap the filter button to choose 800m, 900m, or 1000m radius from your location.",
-        highlightArea: HighlightArea(
-          top: screenHeight - bottomNavHeight - 190,
-          height: 56,
-          left: screenWidth - 72,
-          width: 56,
-        ),
-        position: TutorialPosition.top,
-        requireUserTap: true,
-        interactionType: InteractionType.filter,
-      ),
-      // Explain chatbot and ask user to tap chatbot button
-      TutorialStep(
-        title: "AI Chatbot Assistant",
-        description:
-            "Tap the chatbot button to chat with MYSafeZone Assistant.",
-        highlightArea: HighlightArea(
-          top: screenHeight - bottomNavHeight - 118,
-          height: 56,
-          left: screenWidth - 72,
-          width: 56,
-        ),
-        position: TutorialPosition.top,
-        requireUserTap: true,
-        interactionType: InteractionType.chatbot,
-      ),
-      // Final step - guide to Lodge page
-      TutorialStep(
-        title: "Homepage Tutorial Complete!",
-        description:
-            "Now let's learn how to lodge an incident report. Please tap 'Lodge' in the bottom navigation bar to continue the tutorial.",
-        highlightArea: HighlightArea(
-          top:
-              screenHeight -
-              bottomNavHeight -
-              40, // Start 40px above bottom nav
-          height: bottomNavHeight + 10, // Include full height with more padding
-          left:
-              screenWidth / 4 * 2 + 10, // Third button (index 2) - moved right
-          width: screenWidth / 4,
-        ),
-        position: TutorialPosition.top,
-        requireUserTap: true,
-        interactionType: InteractionType.navigateToLodge,
-      ),
-    ];
+  void _scrollToCurrentStep() {
+    if (widget.pageScrollController != null && _currentStep < _steps.length) {
+      final step = _steps[_currentStep];
+      if (step.scrollToPosition > 0) {
+        widget.pageScrollController!.animateTo(
+          step.scrollToPosition,
+          duration: const Duration(milliseconds: 800),
+          curve: Curves.easeInOut,
+        );
+      }
+    }
   }
 
   void _nextStep() {
@@ -180,6 +163,7 @@ class _HomePageTutorialState extends State<HomePageTutorial>
       setState(() {
         _currentStep++;
       });
+      _animateToCurrentStep();
     } else {
       _completeTutorial();
     }
@@ -190,6 +174,7 @@ class _HomePageTutorialState extends State<HomePageTutorial>
       setState(() {
         _currentStep--;
       });
+      _animateToCurrentStep();
     }
   }
 
@@ -198,7 +183,7 @@ class _HomePageTutorialState extends State<HomePageTutorial>
   }
 
   void _handleInteraction(InteractionType? type) {
-    print('[Tutorial] _handleInteraction called with type: $type');
+    print('[ProfileTutorial] _handleInteraction called with type: $type');
     if (type == null) return;
 
     // Hide tutorial temporarily
@@ -207,65 +192,37 @@ class _HomePageTutorialState extends State<HomePageTutorial>
     });
 
     // Wait a moment then trigger the actual feature
-    Future.delayed(const Duration(milliseconds: 100), () async {
-      switch (type) {
-        case InteractionType.filter:
-          widget.onFilterButtonTap?.call();
-          // Move to next step IMMEDIATELY - explanation will show with dialog open
-          Future.delayed(const Duration(milliseconds: 200), () {
-            if (mounted) {
-              setState(() {
-                _isHidden = false;
-              });
-              _nextStep();
-            }
-          });
-          break;
-        case InteractionType.chatbot:
-          widget.onChatbotButtonTap?.call();
-          // Complete step immediately - tutorial will show in chatbot page
-          Future.delayed(const Duration(milliseconds: 500), () {
-            if (mounted) {
-              setState(() {
-                _isHidden = false;
-              });
-              _nextStep();
-            }
-          });
-          break;
-        case InteractionType.navigateToLodge:
-          // Complete tutorial - the onTutorialComplete callback will handle navigation
-          print('[Tutorial] Lodge button tapped, completing tutorial');
-          _completeTutorial();
-          break;
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (type == InteractionType.customKeywords) {
+        print('[ProfileTutorial] Calling onCustomKeywordsTap callback');
+        widget.onCustomKeywordsTap?.call();
       }
+
+      // Move to next step after opening the dialog
+      Future.delayed(const Duration(milliseconds: 200), () {
+        if (mounted) {
+          setState(() {
+            _isHidden = false;
+          });
+          _nextStep();
+        }
+      });
     });
   }
 
   Future<void> _completeTutorial() async {
-    print('[Tutorial] _completeTutorial called');
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      print('[Tutorial] Got SharedPreferences instance');
-      await prefs.setBool('homepage_tutorial_completed', true);
-      print('[Tutorial] Saved to SharedPreferences');
-      print('[Tutorial] About to call widget.onComplete()');
-      widget.onComplete();
-      print('[Tutorial] widget.onComplete() called');
-    } catch (e) {
-      print('[Tutorial] Error in _completeTutorial: $e');
-    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('profile_tutorial_completed', true);
+    widget.onComplete();
   }
 
   @override
   Widget build(BuildContext context) {
-    // Don't render anything when hidden
     if (_isHidden) {
       return const SizedBox.shrink();
     }
 
     final currentStep = _steps[_currentStep];
-    final screenHeight = MediaQuery.of(context).size.height;
 
     return Material(
       color: Colors.transparent,
@@ -288,56 +245,26 @@ class _HomePageTutorialState extends State<HomePageTutorial>
           else
             Container(color: Colors.black54),
 
-          // Animated arrow outside the button (not blocking it)
+          // Animated arrow for interactive steps
           if (currentStep.requireUserTap && currentStep.highlightArea != null)
             Positioned(
-              left: currentStep.interactionType == InteractionType.chatbot
-                  ? (currentStep.highlightArea!.left ?? 0) -
-                        100 // Position left of chatbot button
-                  : currentStep.interactionType == InteractionType.filter
-                  ? (currentStep.highlightArea!.left ?? 0) -
-                        10 // Position left of filter button
-                  : (currentStep.highlightArea!.left ?? 0) +
-                        20, // Position more right for lodge button
-              top: currentStep.interactionType == InteractionType.chatbot
-                  ? currentStep.highlightArea!.top -
-                        20 // Position higher for chatbot
-                  : currentStep.interactionType == InteractionType.filter
-                  ? currentStep.highlightArea!.top -
-                        80 // Position higher above filter button
-                  : currentStep.highlightArea!.top -
-                        80, // Position above lodge button
+              left:
+                  (currentStep.highlightArea!.left ?? 0) +
+                  (MediaQuery.of(context).size.width / 2 - 60),
+              top: currentStep.highlightArea!.top - 80,
               child: IgnorePointer(
-                ignoring: true, // Arrow should never block pointer events
+                ignoring: true,
                 child: AnimatedBuilder(
                   animation: _arrowAnimationController,
                   builder: (context, child) {
-                    // Determine arrow direction and animation based on button type
-                    bool isChatbotButton =
-                        currentStep.interactionType == InteractionType.chatbot;
-                    bool isFilterButton =
-                        currentStep.interactionType == InteractionType.filter;
-                    bool isNavigateButton =
-                        currentStep.interactionType ==
-                        InteractionType.navigateToLodge;
-
-                    // Calculate animation offset
                     double animationOffset =
                         _arrowAnimationController.value * 10;
 
                     return Transform.translate(
-                      offset: Offset(
-                        isChatbotButton ? animationOffset : 0,
-                        isFilterButton
-                            ? -animationOffset // Move up for filter
-                            : isNavigateButton
-                            ? -animationOffset // Move down for navigate button
-                            : 0,
-                      ),
+                      offset: Offset(0, animationOffset),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // Tap here text with orange text color
                           Text(
                             'Tap here',
                             style: TextStyle(
@@ -354,11 +281,8 @@ class _HomePageTutorialState extends State<HomePageTutorial>
                             ),
                           ),
                           const SizedBox(height: 8),
-                          // Animated arrow - all point down to buttons
-                          Icon(
-                            isChatbotButton
-                                ? Icons.arrow_forward
-                                : Icons.arrow_downward,
+                          const Icon(
+                            Icons.arrow_downward,
                             color: Colors.orange,
                             size: 40,
                           ),
@@ -370,7 +294,7 @@ class _HomePageTutorialState extends State<HomePageTutorial>
               ),
             ),
 
-          // Transparent tap detector for interactive steps (on the actual button)
+          // Transparent tap detector for interactive steps
           if (currentStep.requireUserTap && currentStep.highlightArea != null)
             Positioned(
               left: currentStep.highlightArea!.left ?? 0,
@@ -381,7 +305,10 @@ class _HomePageTutorialState extends State<HomePageTutorial>
               height: currentStep.highlightArea!.height,
               child: GestureDetector(
                 onTap: () {
-                  // User tapped the highlighted area, trigger real interaction
+                  print('[ProfileTutorial] Tap detected on highlighted area');
+                  print(
+                    '[ProfileTutorial] Callback is null: ${widget.onCustomKeywordsTap == null}',
+                  );
                   _handleInteraction(currentStep.interactionType);
                 },
                 behavior: HitTestBehavior.translucent,
@@ -390,13 +317,13 @@ class _HomePageTutorialState extends State<HomePageTutorial>
             ),
 
           // Tutorial card
-          _buildTutorialCard(currentStep, screenHeight),
+          _buildTutorialCard(currentStep),
         ],
       ),
     );
   }
 
-  Widget _buildTutorialCard(TutorialStep step, double screenHeight) {
+  Widget _buildTutorialCard(TutorialStep step) {
     Widget card = Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.all(20),
@@ -454,9 +381,7 @@ class _HomePageTutorialState extends State<HomePageTutorial>
               color: Colors.grey[700],
               height: 1.5,
             ),
-            textAlign: step.isPermissionDialog
-                ? TextAlign.left
-                : TextAlign.center,
+            textAlign: TextAlign.center,
           ),
 
           // Special instruction for interactive steps
@@ -497,17 +422,15 @@ class _HomePageTutorialState extends State<HomePageTutorial>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Skip button (hide on welcome step and permission dialog)
-              if (_currentStep > 0 && !step.isPermissionDialog)
-                TextButton(
-                  onPressed: _skipTutorial,
-                  child: Text(
-                    'Skip',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 14),
-                  ),
-                )
-              else
-                const SizedBox(width: 70), // Placeholder for alignment
+              // Skip button
+              TextButton(
+                onPressed: _skipTutorial,
+                child: Text(
+                  'Skip',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                ),
+              ),
+
               // Back button (hide for interactive steps)
               if (_currentStep > 0 && !step.requireUserTap)
                 OutlinedButton(
@@ -608,29 +531,24 @@ class SpotlightPainter extends CustomPainter {
   }
 }
 
-// Interaction types
-enum InteractionType { filter, chatbot, navigateToLodge }
-
 // Tutorial step model
 class TutorialStep {
   final String title;
   final String description;
   final HighlightArea? highlightArea;
   final TutorialPosition position;
+  final double scrollToPosition;
   final bool requireUserTap;
   final InteractionType? interactionType;
-  final bool showAfterDialog;
-  final bool isPermissionDialog;
 
   TutorialStep({
     required this.title,
     required this.description,
     this.highlightArea,
     required this.position,
+    this.scrollToPosition = 0,
     this.requireUserTap = false,
     this.interactionType,
-    this.showAfterDialog = false,
-    this.isPermissionDialog = false,
   });
 }
 
@@ -650,9 +568,12 @@ class HighlightArea {
 
 enum TutorialPosition { top, bottom, center }
 
-// Tutorial Manager for HomePage
-class HomePageTutorialManager {
-  static const String _tutorialKey = 'homepage_tutorial_completed';
+// Interaction types
+enum InteractionType { customKeywords }
+
+// Tutorial Manager for Profile Page
+class ProfileTutorialManager {
+  static const String _tutorialKey = 'profile_tutorial_completed';
 
   // Check if user has completed tutorial
   static Future<bool> hasCompletedTutorial() async {
@@ -660,91 +581,129 @@ class HomePageTutorialManager {
     return prefs.getBool(_tutorialKey) ?? false;
   }
 
-  // Reset tutorial (for replay from profile)
+  // Reset tutorial (for replay)
   static Future<void> resetTutorial() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_tutorialKey, false);
   }
 
   // Show tutorial if not completed
-  static Future<void> showTutorialIfNeeded(
-    BuildContext context, {
-    VoidCallback? onFilterTap,
-    VoidCallback? onChatbotTap,
-    VoidCallback? onNavigateToLodge,
-    VoidCallback? onTutorialComplete,
-  }) async {
+  static Future<void> showTutorialIfNeeded(BuildContext context) async {
     final completed = await hasCompletedTutorial();
     if (!completed && context.mounted) {
-      showTutorial(
-        context,
-        onFilterTap: onFilterTap,
-        onChatbotTap: onChatbotTap,
-        onNavigateToLodge: onNavigateToLodge,
-        onTutorialComplete: onTutorialComplete,
-      );
+      showTutorial(context);
     }
   }
 
   // Force show tutorial (for replay)
   static void showTutorial(
     BuildContext context, {
-    VoidCallback? onFilterTap,
-    VoidCallback? onChatbotTap,
-    VoidCallback? onNavigateToLodge,
+    ScrollController? pageScrollController,
+    VoidCallback? onCustomKeywordsTap,
     VoidCallback? onTutorialComplete,
   }) {
     showDialog(
       context: context,
       barrierDismissible: false,
       barrierColor: Colors.transparent,
-      builder: (context) => HomePageTutorial(
+      builder: (context) => ProfileTutorial(
         onComplete: () {
-          print('[Tutorial] onComplete called, closing dialog');
           Navigator.of(context).pop();
-          // Call the tutorial complete callback
-          print('[Tutorial] Calling onTutorialComplete callback');
           onTutorialComplete?.call();
         },
-        onFilterButtonTap: onFilterTap,
-        onChatbotButtonTap: onChatbotTap,
-        onNavigateToLodge: onNavigateToLodge,
+        pageScrollController: pageScrollController,
+        onCustomKeywordsTap: onCustomKeywordsTap,
       ),
     );
   }
-}
 
-// Add this widget to ProfilePage for tutorial replay
-class TutorialReplayButton extends StatelessWidget {
-  const TutorialReplayButton({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: ListTile(
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.orange.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
+  // Show reminder to fill in user information
+  static void showFillInfoReminder(
+    BuildContext context, {
+    ScrollController? scrollController,
+  }) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.info_outline, color: Colors.orange, size: 28),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Complete Your Profile',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Please go to the Profile page and fill in your information in the User Information section.',
+              style: TextStyle(fontSize: 15, height: 1.5),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.lightbulb_outline, color: Colors.orange, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'This helps with location-based features and emergency contacts.',
+                      style: TextStyle(fontSize: 13, color: Colors.orange[800]),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('Later', style: TextStyle(color: Colors.grey[600])),
           ),
-          child: const Icon(Icons.help_outline, color: Colors.orange),
-        ),
-        title: const Text(
-          'View Tutorial',
-          style: TextStyle(fontWeight: FontWeight.w600),
-        ),
-        subtitle: const Text('Replay the home page walkthrough'),
-        trailing: const Icon(Icons.play_circle_outline, color: Colors.orange),
-        onTap: () async {
-          await HomePageTutorialManager.resetTutorial();
-          if (context.mounted) {
-            // Navigate to home first if not already there
-            Navigator.of(context).popUntil((route) => route.isFirst);
-            // Tutorial will be shown automatically on HomePage
-          }
-        },
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // Scroll to user information section
+              if (scrollController != null) {
+                Future.delayed(const Duration(milliseconds: 300), () {
+                  scrollController.animateTo(
+                    200.0,
+                    duration: const Duration(milliseconds: 500),
+                    curve: Curves.easeInOut,
+                  );
+                });
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text(
+              'Got it!',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
