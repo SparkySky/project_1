@@ -127,7 +127,7 @@ class _HomePageTutorialState extends State<HomePageTutorial>
       TutorialStep(
         title: "Filter Nearby Incidents",
         description:
-            "You can filter nearby incidents by distance. Tap the filter button to choose 800m, 900m, or 1000m radius from your location.",
+            "You can filter nearby incidents by status, distance or type, or sort by time or distance.",
         highlightArea: HighlightArea(
           top: screenHeight - bottomNavHeight - 190,
           height: 56,
@@ -166,7 +166,7 @@ class _HomePageTutorialState extends State<HomePageTutorial>
           height: bottomNavHeight + 10, // Include full height with more padding
           left:
               screenWidth / 4 * 2 + 10, // Third button (index 2) - moved right
-          width: screenWidth / 4,
+          width: screenWidth / 4 - 15,
         ),
         position: TutorialPosition.top,
         requireUserTap: true,
@@ -298,7 +298,7 @@ class _HomePageTutorialState extends State<HomePageTutorial>
                   ? (currentStep.highlightArea!.left ?? 0) -
                         10 // Position left of filter button
                   : (currentStep.highlightArea!.left ?? 0) +
-                        20, // Position more right for lodge button
+                        10, // Position left for lodge button
               top: currentStep.interactionType == InteractionType.chatbot
                   ? currentStep.highlightArea!.top -
                         20 // Position higher for chatbot

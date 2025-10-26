@@ -54,12 +54,6 @@ class _ProfilePageState extends State<ProfilePage> {
   AGCUser? _agcUser;
   Users? _cloudDbUser;
 
-  // Timer for refreshing user data (to update location time)
-  Timer? _refreshTimer;
-
-  // Flag to pause refresh during tutorial
-  bool _isTutorialActive = false;
-
   // User information fields
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
@@ -106,10 +100,6 @@ class _ProfilePageState extends State<ProfilePage> {
 
         // Show if lodge completed (user came from lodge tutorial) and profile not completed
         if (lodgeCompleted && !profileCompleted) {
-          setState(() {
-            _isTutorialActive = true; // Pause refresh during tutorial
-          });
-
           ProfileTutorialManager.showTutorial(
             context,
             pageScrollController: _scrollController,
@@ -117,30 +107,7 @@ class _ProfilePageState extends State<ProfilePage> {
               print('[ProfilePage] onCustomKeywordsTap callback triggered');
               _showCombinedCustomKeywordsDialog();
             },
-            onTutorialComplete: () {
-              // Resume refresh after tutorial completes
-              if (mounted) {
-                setState(() {
-                  _isTutorialActive = false;
-                });
-              }
-            },
           );
-        }
-      }
-    });
-
-    // Refresh user data every 30 seconds to update location time
-    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) async {
-      // Skip refresh if tutorial is active
-      if (_isTutorialActive) return;
-
-      if (mounted && _userProvider != null) {
-        await _userProvider!.refreshUser();
-        if (mounted) {
-          setState(() {
-            _cloudDbUser = _userProvider!.cloudDbUser;
-          });
         }
       }
     });
@@ -238,7 +205,6 @@ class _ProfilePageState extends State<ProfilePage> {
   void dispose() {
     _debugState.removeListener(_onDebugStateChanged);
     _scrollController.dispose();
-    _refreshTimer?.cancel();
     _emailController.dispose();
     _phoneController.dispose();
     _districtController.dispose();

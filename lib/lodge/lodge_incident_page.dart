@@ -1186,9 +1186,9 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      body: SingleChildScrollView(
+    return Container(
+      color: Colors.grey[50],
+      child: SingleChildScrollView(
         controller: _scrollController,
         child: Padding(
           padding: const EdgeInsets.all(20),

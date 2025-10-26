@@ -128,7 +128,7 @@ class _LodgeTutorialState extends State<LodgeTutorial>
           top: screenHeight - 95, // Start 30px above bottom nav
           height: 60, // Include full height with more padding
           left: screenWidth / 4 * 3 + 10, // Fourth button (index 3)
-          width: screenWidth / 4 - 10,
+          width: screenWidth / 4 - 15,
         ),
         position: TutorialPosition.top,
         scrollToPosition: 0,

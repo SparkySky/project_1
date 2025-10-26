@@ -7,9 +7,8 @@ import '../demo/push_notification_demo.dart';
 import 'map_widget.dart';
 import '../app_theme.dart';
 import 'chatbot_widget.dart';
-import '../community/community_page.dart';
 import '../lodge/lodge_incident_page.dart';
-import '../lodge/incident_history_page.dart';
+import '../history/incident_history_page.dart';
 import '../profile/profile_page.dart';
 import '../user_management.dart';
 import 'package:provider/provider.dart';
@@ -583,54 +582,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   // Show filters and sorting dialog (compact version)
   // Simple radius filter dialog for tutorial
   void _showRadiusFilterDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: true, // Can dismiss by tapping outside
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Filter by Distance'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Choose distance radius:'),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildRadiusButton('800m', 800.0),
-                  _buildRadiusButton('900m', 900.0),
-                  _buildRadiusButton('1km', 1000.0),
-                ],
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildRadiusButton(String label, double radius) {
-    final isSelected = _radiusFilter == radius;
-    return ElevatedButton(
-      onPressed: () {
-        setState(() {
-          _radiusFilter = radius;
-        });
-        _loadIncidents(); // Reload incidents with new radius
-        Navigator.of(context).pop(); // Close dialog
-      },
-      style: ElevatedButton.styleFrom(
-        backgroundColor: isSelected ? AppTheme.primaryOrange : Colors.grey[300],
-        foregroundColor: isSelected ? Colors.white : Colors.black87,
-      ),
-      child: Text(label),
-    );
+    // Use the same comprehensive filter dialog for consistency
+    _showFiltersDialog();
   }
 
   void _showFiltersDialog() {
@@ -640,12 +593,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: const Text('Filters & Sorting'),
+              title: const Center(child: Text('Filters & Sorting')),
               contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     // Status Toggle Buttons Section
                     const Text(
@@ -877,7 +830,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   onPressed: () {
                     Navigator.pop(context);
                   },
-                  child: const Text('Cancel'),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(color: Colors.black),
+                  ),
                 ),
                 ElevatedButton(
                   onPressed: () {
@@ -889,6 +845,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryOrange,
+                    foregroundColor: Colors.white,
                   ),
                   child: const Text('Apply'),
                 ),
@@ -990,7 +947,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       case 0:
         return _buildHomePage();
       case 1:
-        return const CommunityPage();
+        return const IncidentHistoryPage();
       case 2:
         return LodgeIncidentPage(incidentTypeNotifier: _incidentTypeNotifier);
       case 3:
@@ -1032,8 +989,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             : AppTheme.primaryOrange;
 
         return Scaffold(
-          resizeToAvoidBottomInset:
-              false, // Prevent keyboard from affecting map
+          resizeToAvoidBottomInset: _selectedIndex == 0
+              ? false
+              : true, // Only prevent resize on homepage (map)
           appBar: PreferredSize(
             preferredSize: const Size.fromHeight(kToolbarHeight),
             child: AnimatedContainer(
@@ -1068,27 +1026,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           tooltip: 'Refresh location and incidents',
                         ),
                       ]
-                    : _selectedIndex == 2
-                    ? [
-                        // History button for Profile page
-                        IconButton(
-                          icon: const Icon(
-                            Icons.history,
-                            size: 28,
-                            color: Colors.white,
-                          ),
-                          padding: const EdgeInsets.only(right: 24),
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    const IncidentHistoryPage(),
-                              ),
-                            );
-                          },
-                        ),
-                      ]
                     : null,
               ),
             ),
@@ -1102,7 +1039,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildNavItem(0, Icons.home, 'Home', appBarColor),
-                _buildNavItem(1, Icons.group, 'Community', appBarColor),
+                _buildNavItem(1, Icons.history, 'History', appBarColor),
                 _buildNavItem(2, Icons.add_box, 'Lodge', appBarColor),
                 _buildNavItem(3, Icons.person, 'Profile', appBarColor),
                 // _buildNavItem(4, Icons.person, 'Debug', appBarColor),
