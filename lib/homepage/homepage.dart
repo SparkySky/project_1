@@ -581,6 +581,58 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   // Show filters and sorting dialog (compact version)
+  // Simple radius filter dialog for tutorial
+  void _showRadiusFilterDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: true, // Can dismiss by tapping outside
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Filter by Distance'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Choose distance radius:'),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildRadiusButton('800m', 800.0),
+                  _buildRadiusButton('900m', 900.0),
+                  _buildRadiusButton('1km', 1000.0),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildRadiusButton(String label, double radius) {
+    final isSelected = _radiusFilter == radius;
+    return ElevatedButton(
+      onPressed: () {
+        setState(() {
+          _radiusFilter = radius;
+        });
+        _loadIncidents(); // Reload incidents with new radius
+        Navigator.of(context).pop(); // Close dialog
+      },
+      style: ElevatedButton.styleFrom(
+        backgroundColor: isSelected ? AppTheme.primaryOrange : Colors.grey[300],
+        foregroundColor: isSelected ? Colors.white : Colors.black87,
+      ),
+      child: Text(label),
+    );
+  }
+
   void _showFiltersDialog() {
     showDialog(
       context: context,

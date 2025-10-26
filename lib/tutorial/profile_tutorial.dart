@@ -79,8 +79,8 @@ class _ProfileTutorialState extends State<ProfileTutorial>
         description:
             "Enable 'Allow Discoverable' to let other users find you in the app, and 'Allow Emergency Alerts' to receive notifications about nearby incidents.",
         highlightArea: HighlightArea(
-          top: appBarHeight + statusBarHeight + 150,
-          height: 180,
+          top: appBarHeight + statusBarHeight + 160,
+          height: 200,
         ),
         position: TutorialPosition.bottom,
         scrollToPosition: 1500,
@@ -90,7 +90,7 @@ class _ProfileTutorialState extends State<ProfileTutorial>
         description:
             "Need to review the tutorials? Tap here to replay the tutorials anytime.",
         highlightArea: HighlightArea(
-          top: appBarHeight + statusBarHeight + 250,
+          top: appBarHeight + statusBarHeight + 280,
           height: 180,
         ),
         position: TutorialPosition.bottom,
@@ -101,7 +101,7 @@ class _ProfileTutorialState extends State<ProfileTutorial>
         description:
             "Access Terms & Conditions and Privacy Policy. These are important for your account security.",
         highlightArea: HighlightArea(
-          top: appBarHeight + statusBarHeight + 120,
+          top: appBarHeight + statusBarHeight + 150,
           height: 300,
         ),
         position: TutorialPosition.bottom,
