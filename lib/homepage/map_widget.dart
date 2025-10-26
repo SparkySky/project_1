@@ -2,10 +2,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:huawei_map/huawei_map.dart';
 import 'package:huawei_location/huawei_location.dart' as hwLocation;
+import 'package:url_launcher/url_launcher.dart';
 import '../sensors/location_centre.dart';
+import '../data/emergency_services.dart';
 
 class MapWidget extends StatefulWidget {
   final List<Map<String, dynamic>> incidents;
+  final List<EmergencyService>? emergencyServices; // Emergency services markers
   final double? userLatitude;
   final double? userLongitude;
   final double radiusMeters;
@@ -15,6 +18,7 @@ class MapWidget extends StatefulWidget {
   const MapWidget({
     super.key,
     required this.incidents,
+    this.emergencyServices,
     this.userLatitude,
     this.userLongitude,
     this.radiusMeters = 800.0,
@@ -40,6 +44,12 @@ class _MapWidgetState extends State<MapWidget>
   bool _isLoadingLocation = true;
   bool _isDisposed = false;
   CameraPosition? _initialPosition;
+
+  // For marker flashing animation
+  String? _selectedMarkerId;
+  Timer? _flashTimer;
+  int _flashCount = 0;
+  bool _isFlashVisible = true;
 
   @override
   bool get wantKeepAlive => true; // Keep map alive to prevent disposal issues
@@ -72,9 +82,26 @@ class _MapWidgetState extends State<MapWidget>
   @override
   void didUpdateWidget(covariant MapWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.incidents != oldWidget.incidents) {
+
+    // Check if incidents changed
+    final bool incidentsChanged =
+        widget.incidents.length != oldWidget.incidents.length ||
+        widget.incidents != oldWidget.incidents;
+    final bool servicesChanged =
+        (widget.emergencyServices?.length ?? 0) !=
+            (oldWidget.emergencyServices?.length ?? 0) ||
+        widget.emergencyServices != oldWidget.emergencyServices;
+
+    if (incidentsChanged || servicesChanged) {
+      debugPrint(
+        '[MapWidget] 🔄 Incidents or services changed, rebuilding markers',
+      );
+      debugPrint(
+        '[MapWidget]   Old incidents: ${oldWidget.incidents.length}, New: ${widget.incidents.length}',
+      );
       _buildMarkersFromIncidents();
     }
+
     if (widget.radiusMeters != oldWidget.radiusMeters ||
         widget.userLatitude != oldWidget.userLatitude ||
         widget.userLongitude != oldWidget.userLongitude) {
@@ -84,15 +111,32 @@ class _MapWidgetState extends State<MapWidget>
   }
 
   @override
+  void activate() {
+    super.activate();
+    // Re-activate map when coming back from background
+    _isDisposed = false;
+    debugPrint('[MapWidget] 🔄 Widget activated, reinitializing map');
+
+    // Reinitialize map to prevent blank screen
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_isDisposed) {
+        _initializeMap();
+      }
+    });
+  }
+
+  @override
   void deactivate() {
     // Mark as disposed early to prevent operations during navigation
     _isDisposed = true;
+    debugPrint('[MapWidget] ⏸️ Widget deactivated');
     super.deactivate();
   }
 
   @override
   void dispose() {
     _isDisposed = true;
+    _flashTimer?.cancel(); // Cancel any active flash animation
     // Clear all map state before disposal
     _incidentMarkers.clear();
     _radiusCircles.clear();
@@ -102,14 +146,103 @@ class _MapWidgetState extends State<MapWidget>
     super.dispose();
   }
 
+  // Start flashing animation for selected marker
+  void _startMarkerFlash(String markerId) {
+    // Cancel any existing flash
+    _flashTimer?.cancel();
+
+    setState(() {
+      _selectedMarkerId = markerId;
+      _flashCount = 0;
+      _isFlashVisible = true;
+    });
+
+    debugPrint('[MapWidget] ✨ Starting flash animation for: $markerId');
+
+    // Flash 2 times with longer intervals to reduce GPU load
+    // 800ms per flash instead of 500ms
+    _flashTimer = Timer.periodic(const Duration(milliseconds: 800), (timer) {
+      if (!mounted || _isDisposed) {
+        timer.cancel();
+        return;
+      }
+
+      setState(() {
+        _isFlashVisible = !_isFlashVisible;
+        if (!_isFlashVisible) {
+          _flashCount++;
+        }
+      });
+
+      // Stop after 2 complete flashes
+      if (_flashCount >= 2) {
+        timer.cancel();
+        debugPrint('[MapWidget] ✅ Flash animation completed');
+        // Reset to normal
+        Future.delayed(const Duration(milliseconds: 800), () {
+          if (mounted && !_isDisposed) {
+            setState(() {
+              _selectedMarkerId = null;
+              _isFlashVisible = true;
+            });
+            // Only rebuild markers once at the end
+            _buildMarkersFromIncidents();
+          }
+        });
+      } else {
+        // Only rebuild markers during flash, not after completion
+        _buildMarkersFromIncidents();
+      }
+    });
+  }
+
+  DateTime? _lastMarkerRebuild;
+  bool _isFirstLoad = true;
+
   void _buildMarkersFromIncidents() {
     if (!mounted || _isDisposed) return;
 
-    setState(() => _isLoadingMarkers = true);
+    // Skip throttling on first load or when transitioning from empty to having incidents
+    final bool hasIncidentsNow = widget.incidents.isNotEmpty;
+    final bool hadNoMarkersBefore = _incidentMarkers.isEmpty;
+
+    if (!_isFirstLoad && !(hadNoMarkersBefore && hasIncidentsNow)) {
+      // Throttle marker rebuilds to prevent GPU overload
+      final now = DateTime.now();
+      if (_lastMarkerRebuild != null &&
+          now.difference(_lastMarkerRebuild!).inMilliseconds < 300) {
+        debugPrint('[MapWidget] ⏸️ Throttling marker rebuild (too frequent)');
+        return;
+      }
+      _lastMarkerRebuild = now;
+      // Show loading indicator on subsequent rebuilds
+      setState(() => _isLoadingMarkers = true);
+    } else {
+      if (_isFirstLoad) {
+        _isFirstLoad = false;
+        debugPrint('[MapWidget] 🚀 First load - building initial markers');
+      } else {
+        debugPrint(
+          '[MapWidget] 🆕 Incidents just loaded - building markers immediately',
+        );
+      }
+      // Show loading indicator on first load or when incidents just arrived
+      setState(() => _isLoadingMarkers = true);
+    }
 
     final Set<Marker> markers = {};
     final Map<String, Map<String, dynamic>> incidentMap = {};
 
+    // Only log on first load or when debugging
+    if (_isFirstLoad || widget.incidents.isEmpty) {
+      print('[MapWidget] Building markers...');
+      print('[MapWidget] Incidents count: ${widget.incidents.length}');
+      print(
+        '[MapWidget] Emergency services count: ${widget.emergencyServices?.length ?? 0}',
+      );
+    }
+
+    // Add incident markers
     for (final incident in widget.incidents) {
       final double? lat = incident['latitude'];
       final double? lon = incident['longitude'];
@@ -121,18 +254,29 @@ class _MapWidgetState extends State<MapWidget>
         final markerId = 'incident_${incident['id']}';
 
         double markerHue;
-        switch (incident['severity']?.toLowerCase()) {
-          case 'high':
-            markerHue = BitmapDescriptor.hueRed;
-            break;
-          case 'medium':
-            markerHue = BitmapDescriptor.hueOrange;
-            break;
-          case 'low':
-            markerHue = BitmapDescriptor.hueYellow;
-            break;
-          default:
-            markerHue = BitmapDescriptor.hueAzure;
+
+        // Check if this is the selected marker and apply flash effect
+        final bool isSelected = _selectedMarkerId == markerId;
+        final bool shouldFlash = isSelected && !_isFlashVisible;
+
+        if (shouldFlash) {
+          // Light orange for flash effect (30 = between red and yellow)
+          markerHue = 30.0; // Light orange hue for flashing
+        } else {
+          // Normal color based on severity
+          switch (incident['severity']?.toLowerCase()) {
+            case 'high':
+              markerHue = BitmapDescriptor.hueRed;
+              break;
+            case 'medium':
+              markerHue = BitmapDescriptor.hueOrange;
+              break;
+            case 'low':
+              markerHue = BitmapDescriptor.hueYellow;
+              break;
+            default:
+              markerHue = BitmapDescriptor.hueAzure;
+          }
         }
 
         markers.add(
@@ -142,11 +286,104 @@ class _MapWidgetState extends State<MapWidget>
             icon: BitmapDescriptor.defaultMarkerWithHue(markerHue),
             infoWindow: InfoWindow(title: title, snippet: address),
             clickable: true,
+            alpha: isSelected && !_isFlashVisible
+                ? 0.5
+                : 1.0, // Semi-transparent when flashing
+            zIndex: isSelected ? 999.0 : 1.0, // Selected marker on top
+            onClick: () {
+              print('[MapWidget] Incident marker clicked: $markerId');
+              // Start flash animation for clicked marker
+              _startMarkerFlash(markerId);
+              // Notify parent widget
+              if (widget.onMarkerTap != null) {
+                widget.onMarkerTap!(incident);
+              }
+            },
           ),
         );
 
         // Store incident data for marker tap handling
         incidentMap[markerId] = incident;
+      }
+    }
+
+    // Add emergency service markers
+    if (widget.emergencyServices != null &&
+        widget.emergencyServices!.isNotEmpty) {
+      // Only log on first load
+      if (_isFirstLoad || widget.emergencyServices!.isEmpty) {
+        print(
+          '[MapWidget] 🚨 Processing ${widget.emergencyServices!.length} emergency services',
+        );
+      }
+
+      int addedCount = 0;
+      for (final service in widget.emergencyServices!) {
+        try {
+          // Remove verbose per-marker logging for performance
+
+          final LatLng position = LatLng(service.lat, service.lng);
+          final markerId =
+              '${service.type}_${service.name}_${service.lat}_${service.lng}';
+
+          double markerHue;
+          switch (service.type) {
+            case 'police':
+              markerHue = BitmapDescriptor.hueBlue;
+              break;
+            case 'hospital':
+              markerHue = BitmapDescriptor.hueGreen;
+              break;
+            case 'fire':
+              markerHue = BitmapDescriptor.hueRose;
+              break;
+            default:
+              markerHue = BitmapDescriptor.hueViolet;
+          }
+
+          final marker = Marker(
+            markerId: MarkerId(markerId),
+            position: position,
+            icon: BitmapDescriptor.defaultMarkerWithHue(markerHue),
+            infoWindow: InfoWindow(
+              title: '${service.emoji} ${service.name}',
+              snippet: '📞 ${service.phone}',
+            ),
+            clickable: true,
+            visible: true,
+            alpha: 1.0,
+            zIndex: 10.0, // Higher z-index to ensure visibility
+            onClick: () {
+              print(
+                '[MapWidget] 🎯 Emergency service marker clicked: $markerId',
+              );
+              _showEmergencyServiceDialog(service);
+            },
+          );
+
+          markers.add(marker);
+          addedCount++;
+
+          // Store service data as incident map (for compatibility)
+          incidentMap[markerId] = {
+            'id': markerId,
+            'title': '${service.emoji} ${service.name}',
+            'location': service.phone,
+            'type': service.type,
+            'latitude': service.lat,
+            'longitude': service.lng,
+            'phone': service.phone,
+          };
+        } catch (e) {
+          print('[MapWidget] ❌ Error adding service ${service.name}: $e');
+        }
+      }
+      // Only log summary on first load
+      if (_isFirstLoad || addedCount == 0) {
+        print(
+          '[MapWidget] ✅ Successfully added $addedCount/${widget.emergencyServices!.length} emergency service markers',
+        );
+        print('[MapWidget] 📊 Total markers on map: ${markers.length}');
       }
     }
 
@@ -186,6 +423,9 @@ class _MapWidgetState extends State<MapWidget>
     if (_isDisposed) return;
 
     print("=== Fetching initial location using LocationServiceHelper ===");
+    print(
+      "=== Current zoom level will be: 17.5 (optimized for fast loading) ===",
+    );
     hwLocation.Location? location = await _locationHelper.getCurrentLocation();
 
     if (mounted && !_isDisposed) {
@@ -195,23 +435,27 @@ class _MapWidgetState extends State<MapWidget>
             location.latitude != null &&
             location.longitude != null) {
           // Calculate offset to center user in visible area (between app bar and incident box)
-          // At zoom 15, approximately 0.003 degrees latitude = ~330 meters
-          // Offset camera target south so user marker appears in upper visible area
+          // At zoom 17.5 (balanced zoom), use minimal offset to keep user centered
+          // Smaller offset needed for higher zoom levels
           final double latitudeOffset =
-              0.0025; // Offset south to center user in visible area
+              0.0003; // Small offset for zoom 17.5 to keep user visible
 
           _initialPosition = CameraPosition(
             target: LatLng(
-              location.latitude! - latitudeOffset, // Shift camera south
+              location.latitude! -
+                  latitudeOffset, // Shift camera south slightly
               location.longitude!,
             ),
-            zoom: 15.0,
+            zoom: 17.5, // Optimized zoom for fast initial load
           );
           print(
             "SUCCESS! Got location: ${location.latitude}, ${location.longitude}",
           );
           print(
-            "Camera centered at: ${location.latitude! - latitudeOffset} (offset applied for visible centering)",
+            "Camera centered at: ${location.latitude! - latitudeOffset} (small offset for zoom 17.5)",
+          );
+          print(
+            "✅ Initial camera position set: zoom=${_initialPosition!.zoom}, target=(${_initialPosition!.target.lat}, ${_initialPosition!.target.lng})",
           );
         } else {
           _initialPosition = _kFallbackPosition;
@@ -248,19 +492,20 @@ class _MapWidgetState extends State<MapWidget>
 
     final double? lat = incident['latitude'];
     final double? lon = incident['longitude'];
+    final String markerId = 'incident_${incident['id']}';
 
     debugPrint('[MapWidget] Incident location: lat=$lat, lon=$lon');
 
     if (lat != null && lon != null) {
       try {
         // Apply offset to position incident in visible area
-        // Adding offset moves camera north, making marker appear lower on screen
-        final double latitudeOffset =
-            0.001; // Adjust to center marker between app bar and incident box
-        final targetLat = lat + latitudeOffset; // Add to move camera north
+        // At zoom 19.0 (high zoom), use very small offset to keep marker centered
+        final double latitudeOffset = 0.0001; // Minimal offset for zoom 19.0
+        final targetLat =
+            lat + latitudeOffset; // Add to move camera north slightly
 
         debugPrint(
-          '[MapWidget] 📍 Animating camera to: lat=$targetLat, lon=$lon, zoom=17.0',
+          '[MapWidget] 📍 Animating camera to: lat=$targetLat, lon=$lon, zoom=19.0',
         );
 
         _mapController!.animateCamera(
@@ -269,9 +514,16 @@ class _MapWidgetState extends State<MapWidget>
               targetLat,
               lon,
             ), // Shift camera south to position marker in upper visible area
-            17.0,
+            19.0, // High zoom - balanced for performance and visibility
           ),
         );
+
+        // Start flash animation after camera animation completes
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted && !_isDisposed) {
+            _startMarkerFlash(markerId);
+          }
+        });
 
         debugPrint('[MapWidget] ✅ Camera animation started');
       } catch (e) {
@@ -334,6 +586,8 @@ class _MapWidgetState extends State<MapWidget>
               zoomControlsEnabled: true,
               myLocationEnabled: true,
               myLocationButtonEnabled: true,
+              buildingsEnabled: false, // Disable 3D buildings to reduce clutter
+              trafficEnabled: false, // Disable traffic layer
               markers: _incidentMarkers,
               circles: _radiusCircles,
               padding: EdgeInsets.only(
@@ -343,15 +597,118 @@ class _MapWidgetState extends State<MapWidget>
                     bottomPadding, // Dynamic bottom padding based on map height
                 left: 16,
               ),
-              // Note: Marker click will be handled by tapping the marker info window
-              // which triggers the onMarkerTap callback set in _buildMarkersFromIncidents
             ),
           ),
-        if (_isLoadingMarkers)
-          const Positioned.fill(
-            child: Center(child: CircularProgressIndicator()),
+        // Loading indicator when markers are not placed yet
+        // Show if: loading AND (no markers OR expecting incidents but have none)
+        if (_isLoadingMarkers ||
+            (_incidentMarkers.isEmpty && widget.incidents.isNotEmpty))
+          Positioned.fill(
+            child: Container(
+              color: Colors.black.withOpacity(0.3),
+              child: const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      strokeWidth: 3,
+                    ),
+                    SizedBox(height: 16),
+                    Text(
+                      'Loading markers...',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
       ],
     );
+  }
+
+  // Show dialog for emergency service markers
+  void _showEmergencyServiceDialog(EmergencyService service) {
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('${service.emoji} ${service.name}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.phone, size: 20, color: Colors.blue),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      service.phone,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  const Icon(Icons.location_on, size: 20, color: Colors.red),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      service.state,
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _makePhoneCall(service.phone);
+              },
+              icon: const Icon(Icons.phone),
+              label: const Text('Call'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Make a phone call
+  Future<void> _makePhoneCall(String phoneNumber) async {
+    final Uri phoneUri = Uri(scheme: 'tel', path: phoneNumber);
+    try {
+      if (await canLaunchUrl(phoneUri)) {
+        await launchUrl(phoneUri);
+      } else {
+        print('[MapWidget] Could not launch phone app for $phoneNumber');
+      }
+    } catch (e) {
+      print('[MapWidget] Error launching phone app: $e');
+    }
   }
 }

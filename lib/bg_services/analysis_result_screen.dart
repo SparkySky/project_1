@@ -7,6 +7,7 @@ class AnalysisResultScreen extends StatefulWidget {
   final String description;
   final String triggerSource;
   final String transcript;
+  final VoidCallback? onDismiss; // Called when user dismisses the screen
 
   const AnalysisResultScreen({
     super.key,
@@ -14,6 +15,7 @@ class AnalysisResultScreen extends StatefulWidget {
     required this.description,
     required this.triggerSource,
     this.transcript = '',
+    this.onDismiss,
   });
 
   @override
@@ -228,6 +230,7 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
                   child: ElevatedButton(
                     onPressed: () {
                       Navigator.of(context).pop();
+                      widget.onDismiss?.call();
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,

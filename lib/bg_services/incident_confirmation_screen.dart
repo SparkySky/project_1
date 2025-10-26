@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:async';
 import '../app_theme.dart';
 
@@ -27,6 +28,7 @@ class _IncidentConfirmationScreenState extends State<IncidentConfirmationScreen>
   late AnimationController _animationController;
   late Animation<double> _progressAnimation;
   Timer? _countdownTimer;
+  Timer? _vibrationTimer;
   int _secondsRemaining = 15;
 
   @override
@@ -44,6 +46,24 @@ class _IncidentConfirmationScreenState extends State<IncidentConfirmationScreen>
     // Start countdown
     _animationController.forward();
     _startCountdown();
+    
+    // Start continuous vibration
+    _startVibration();
+  }
+
+  void _startVibration() {
+    // Vibrate immediately
+    HapticFeedback.vibrate();
+    
+    // Continue vibrating every 500ms
+    _vibrationTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
+      HapticFeedback.vibrate();
+    });
+  }
+
+  void _stopVibration() {
+    _vibrationTimer?.cancel();
+    _vibrationTimer = null;
   }
 
   void _startCountdown() {
@@ -54,6 +74,7 @@ class _IncidentConfirmationScreenState extends State<IncidentConfirmationScreen>
 
       if (_secondsRemaining <= 0) {
         timer.cancel();
+        _stopVibration(); // Stop vibration when countdown completes
         // Auto-confirm and navigate to lodge page
         widget.onConfirm();
       }
@@ -63,6 +84,7 @@ class _IncidentConfirmationScreenState extends State<IncidentConfirmationScreen>
   @override
   void dispose() {
     _countdownTimer?.cancel();
+    _stopVibration(); // Stop vibration when widget is disposed
     _animationController.dispose();
     super.dispose();
   }
@@ -233,6 +255,7 @@ class _IncidentConfirmationScreenState extends State<IncidentConfirmationScreen>
                     child: ElevatedButton(
                       onPressed: () {
                         _countdownTimer?.cancel();
+                        _stopVibration(); // Stop vibration when user cancels
                         _animationController.stop();
                         widget.onCancel();
                       },

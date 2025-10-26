@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
 import 'package:agconnect_auth/agconnect_auth.dart';
@@ -25,10 +26,7 @@ import '../providers/user_provider.dart';
 class ProfilePage extends StatefulWidget {
   final VoidCallback? onNavigateToHomeWithTutorial;
 
-  const ProfilePage({
-    super.key,
-    this.onNavigateToHomeWithTutorial
-  });
+  const ProfilePage({super.key, this.onNavigateToHomeWithTutorial});
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -50,6 +48,9 @@ class _ProfilePageState extends State<ProfilePage> {
   UserProvider? _userProvider;
   AGCUser? _agcUser;
   Users? _cloudDbUser;
+
+  // Timer for refreshing user data (to update location time)
+  Timer? _refreshTimer;
 
   // User information fields
   final TextEditingController _emailController = TextEditingController();
@@ -80,6 +81,18 @@ class _ProfilePageState extends State<ProfilePage> {
     _loadLocalPreferences();
     _loadDeveloperSettings();
     _debugState.addListener(_onDebugStateChanged);
+
+    // Refresh user data every 30 seconds to update location time
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) async {
+      if (mounted && _userProvider != null) {
+        await _userProvider!.refreshUser();
+        if (mounted) {
+          setState(() {
+            _cloudDbUser = _userProvider!.cloudDbUser;
+          });
+        }
+      }
+    });
   }
 
   /// Load developer settings (API key status)
@@ -173,6 +186,7 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void dispose() {
     _debugState.removeListener(_onDebugStateChanged);
+    _refreshTimer?.cancel();
     _emailController.dispose();
     _phoneController.dispose();
     _districtController.dispose();
@@ -1542,7 +1556,8 @@ class _ProfilePageState extends State<ProfilePage> {
                     color: Colors.blue,
                     onTap: () async {
                       await HomePageTutorialManager.resetTutorial();
-                      if (mounted && widget.onNavigateToHomeWithTutorial != null) {
+                      if (mounted &&
+                          widget.onNavigateToHomeWithTutorial != null) {
                         widget.onNavigateToHomeWithTutorial!();
                       }
                     },

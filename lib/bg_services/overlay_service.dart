@@ -163,6 +163,7 @@ class OverlayService {
     required String description,
     required String triggerSource,
     String transcript = '',
+    VoidCallback? onDismiss,
   }) {
     hideCurrentOverlay();
 
@@ -184,6 +185,7 @@ class OverlayService {
           description: description,
           triggerSource: triggerSource,
           transcript: transcript,
+          onDismiss: onDismiss,
         ),
         fullscreenDialog: true,
       ),

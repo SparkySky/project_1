@@ -80,6 +80,7 @@ class incidents {
   }
 
   Map<String, dynamic> getObjectData() {
+    // desc field is now Text type (supports up to 1MB)
     return {
       'iid': iid,
       'uid': uid,

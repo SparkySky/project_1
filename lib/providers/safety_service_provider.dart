@@ -65,13 +65,14 @@ class SafetyServiceProvider extends ChangeNotifier {
       overlayService.showAnalyzingScreen();
     };
 
-    _service.onAnalysisResult = (isIncident, description, transcript) {
+    _service.onAnalysisResult = (isIncident, title, description, transcript) {
       _lastAnalysisResult = isIncident;
       notifyListeners();
 
       debugPrint(
         '[SafetyProvider] 📊 Analysis result: ${isIncident ? "THREAT" : "SAFE"}',
       );
+      debugPrint('[SafetyProvider] 📝 Title: $title');
       debugPrint('[SafetyProvider] 📝 Transcript: $transcript');
 
       if (isIncident) {
@@ -82,6 +83,7 @@ class SafetyServiceProvider extends ChangeNotifier {
 
         // Store data for later use
         _pendingLodgeData = {
+          'title': title,
           'description': description,
           'transcript': transcript,
           'triggerSource': _lastTrigger ?? 'Unknown',
@@ -97,18 +99,18 @@ class SafetyServiceProvider extends ChangeNotifier {
             );
             overlayService.hideCurrentOverlay();
             _triggerLodgeNavigation();
+            // Monitoring will resume after lodge page is submitted or closed
           },
           onCancel: () {
-            // User clicked FALSE ALARM - restart monitoring
+            // User clicked FALSE ALARM - restart monitoring immediately
             debugPrint('[SafetyProvider] ❌ User cancelled - False alarm');
             overlayService.hideCurrentOverlay();
             _pendingLodgeData = null;
-            // Restart monitoring
-            Future.delayed(const Duration(seconds: 2), () {
-              debugPrint(
-                '[SafetyProvider] 🔄 Restarting monitoring after false alarm',
-              );
-            });
+            // Resume monitoring immediately
+            _service.resumeMonitoring();
+            debugPrint(
+              '[SafetyProvider] 🔄 Monitoring resumed after false alarm',
+            );
           },
         );
       } else {
@@ -118,6 +120,13 @@ class SafetyServiceProvider extends ChangeNotifier {
           description: description,
           triggerSource: _lastTrigger ?? 'Unknown',
           transcript: transcript,
+          onDismiss: () {
+            // Resume monitoring when user dismisses false positive
+            debugPrint(
+              '[SafetyProvider] Resuming monitoring after false positive dismissal',
+            );
+            _service.resumeMonitoring();
+          },
         );
       }
     };
@@ -155,9 +164,12 @@ class SafetyServiceProvider extends ChangeNotifier {
       return;
     }
 
-    // Format the description with transcript and AI analysis
+    // Extract data from pending lodge data
+    final title = _pendingLodgeData!['title'] as String? ?? '';
     final transcript = _pendingLodgeData!['transcript'] as String? ?? '';
     final aiDescription = _pendingLodgeData!['description'] as String? ?? '';
+
+    // Format the description with transcript and AI analysis
     final formattedDescription =
         'Transcript: "$transcript"\n\nAI Description: $aiDescription';
 
@@ -165,19 +177,30 @@ class SafetyServiceProvider extends ChangeNotifier {
     final audioPath = _pendingLodgeData!['mediaID'] as String? ?? '';
 
     debugPrint('[SafetyProvider] 📝 Navigating to lodge page');
+    debugPrint('[SafetyProvider] Title: $title');
     debugPrint('[SafetyProvider] Description: $formattedDescription');
     debugPrint('[SafetyProvider] Audio path: $audioPath');
 
-    navigator.push(
-      MaterialPageRoute(
-        builder: (context) => LodgeIncidentPage(
-          incidentType: 'threat', // Always "threat" for AI-detected incidents
-          description: formattedDescription,
-          audioRecordingPath: audioPath, // Pass the 8-second audio file
-          // Lodge page will handle district, postcode, state from coordinates internally
-        ),
-      ),
-    );
+    navigator
+        .push(
+          MaterialPageRoute(
+            builder: (context) => LodgeIncidentPage(
+              incidentType:
+                  'threat', // Always "threat" for AI-detected incidents
+              title: title, // Pass the AI-generated title
+              description: formattedDescription,
+              audioRecordingPath: audioPath, // Pass the 8-second audio file
+              // Lodge page will handle district, postcode, state from coordinates internally
+            ),
+          ),
+        )
+        .then((_) {
+          // Resume monitoring when user returns from lodge page (submitted or cancelled)
+          debugPrint(
+            '[SafetyProvider] Returned from lodge page, resuming monitoring',
+          );
+          _service.resumeMonitoring();
+        });
 
     // Clear pending data
     _pendingLodgeData = null;

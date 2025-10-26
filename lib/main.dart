@@ -15,8 +15,6 @@ import 'providers/user_provider.dart';
 import 'debug_overlay/safety_debug_overlay.dart';
 import 'debug_overlay/debug_state.dart';
 
-import 'bg_services/clouddb_service.dart';
-
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
@@ -48,7 +46,9 @@ Future<void> main() async {
         'mysafezone_foreground',
         'MYSafeZone Monitoring',
         description: 'Background service for safety monitoring.',
-        importance: Importance.low,
+        importance: Importance.high, // HIGH to keep app alive in background
+        playSound: false,
+        enableVibration: false,
       );
 
   const AndroidNotificationChannel safetyTriggerChannel =
@@ -64,6 +64,12 @@ Future<void> main() async {
         AndroidFlutterLocalNotificationsPlugin
       >()
       ?.createNotificationChannel(foregroundChannel);
+
+  await flutterLocalNotificationsPlugin
+      .resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin
+      >()
+      ?.createNotificationChannel(safetyTriggerChannel);
 
   // Initialize Cloud DB
   try {

@@ -47,6 +47,7 @@ class SafetyTriggerService {
   StreamSubscription<double>? _magnitudeSubscription;
   StreamSubscription<String>? _keywordSubscription;
   StreamSubscription<String>? _transcriptSubscription;
+  // StreamSubscription<double>? _decibelSubscription; // No longer used - conflicts with speech-to-text
 
   // Data collection for 8-second window
   final List<IMUReading> _imuReadings = [];
@@ -57,6 +58,8 @@ class SafetyTriggerService {
   // Thresholds
   static const double IMU_MAGNITUDE_THRESHOLD =
       12.0; // Lowered for better sensitivity
+  static const double DECIBEL_THRESHOLD =
+      90.0; // Shouting detection threshold (triggers at 90-92 dB range)
 
   // Keywords with phonetic variations for multilingual support
   static const List<String> KEYWORDS = [
@@ -81,8 +84,8 @@ class SafetyTriggerService {
   // Callbacks for UI updates
   Function(String)? onTriggerDetectedCallback;
   Function()? onStartAnalyzing; // Show "Analyzing..." screen
-  Function(bool, String, String)?
-  onAnalysisResult; // (isIncident, description, transcript)
+  Function(bool, String, String, String)?
+  onAnalysisResult; // (isIncident, title, description, transcript)
   Function(Map<String, dynamic>)?
   onNavigateToLodge; // Navigate to lodge screen with pre-filled data
   Function(List<IMUReading>, String)? onCaptureWindowData; // For debug overlay
@@ -316,6 +319,10 @@ class SafetyTriggerService {
     // Start keyword detection
     await _startKeywordDetection();
 
+    // NOTE: Decibel monitoring disabled - conflicts with speech-to-text
+    // Word trigger is more reliable and doesn't require separate microphone access
+    // await _startDecibelMonitoring();
+
     // Start location updates if user is signed in
     if (_currentUserId != null) {
       await _locationService.startLocationUpdates(_currentUserId!);
@@ -336,10 +343,12 @@ class SafetyTriggerService {
     await _accelSubscription?.cancel();
     await _gyroSubscription?.cancel();
     await _magnitudeSubscription?.cancel();
+    // await _decibelSubscription?.cancel(); // No longer used
 
     // Stop sensors
     _imuCentre.stopIMUUpdates();
     await _stopKeywordDetection();
+    // _microphoneService.stopDecibelMonitoring(); // No longer needed
 
     // Stop location updates
     _locationService.stopLocationUpdates();
@@ -374,6 +383,16 @@ class SafetyTriggerService {
       debugPrint('[SafetyTrigger] Audio recording stopped');
     }
 
+    // Resume monitoring
+    await resumeMonitoring();
+  }
+
+  /// Resume monitoring after incident is resolved (user confirmed, cancelled, or dismissed)
+  Future<void> resumeMonitoring() async {
+    debugPrint(
+      '[SafetyTrigger] 🔄 Resuming monitoring after incident handling',
+    );
+
     // Resume speech-to-text listening
     await _microphoneService.resumeListening();
     debugPrint('[SafetyTrigger] Speech recognition resumed');
@@ -383,12 +402,10 @@ class SafetyTriggerService {
     _audioFilePath = null;
     _triggerSource = '';
 
-    // Mark capture as inactive
+    // Mark capture as inactive - ready for next trigger
     _isCaptureWindowActive = false;
 
-    debugPrint(
-      '[SafetyTrigger] ✅ Capture cancelled, system ready for next trigger',
-    );
+    debugPrint('[SafetyTrigger] ✅ System ready for next trigger');
   }
 
   /// Check if IMU magnitude exceeds threshold
@@ -410,6 +427,83 @@ class SafetyTriggerService {
         '[SafetyTrigger] 🚨 IMU TRIGGER DETECTED! Magnitude: ${magnitude.toStringAsFixed(2)}',
       );
       onTriggerDetected('IMU - Magnitude: ${magnitude.toStringAsFixed(2)}');
+    }
+  }
+
+  /// Start monitoring decibel levels for shouting detection
+  /// DISABLED: Decibel monitoring conflicts with speech-to-text (both need microphone access)
+  /// Word trigger is more reliable and doesn't require separate microphone access
+  // ignore: unused_element
+  Future<void> _startDecibelMonitoring() async {
+    debugPrint(
+      '[SafetyTrigger] ⚠️ Decibel monitoring DISABLED - conflicts with speech-to-text',
+    );
+    return; // Exit early - function disabled
+
+    // Code below is kept for reference but not executed
+    // ignore: dead_code
+    try {
+      debugPrint(
+        '[SafetyTrigger] 📊 Starting decibel monitoring (threshold: ${DECIBEL_THRESHOLD}dB)',
+      );
+
+      // Get the stream from microphone service
+      final decibelStream = _microphoneService.startDecibelMonitoring();
+
+      int readingCount = 0;
+      // _decibelSubscription = decibelStream.listen(
+      decibelStream.listen(
+        (db) {
+          readingCount++;
+          // Log first few readings to confirm stream is working
+          if (readingCount <= 5 || readingCount % 50 == 0) {
+            debugPrint(
+              '[SafetyTrigger] 📡 Received decibel reading #$readingCount: ${db.toStringAsFixed(1)} dB',
+            );
+          }
+          _checkDecibelTrigger(db);
+        },
+        onError: (error) {
+          debugPrint('[SafetyTrigger] ❌ Decibel monitoring error: $error');
+        },
+        onDone: () {
+          debugPrint('[SafetyTrigger] ⚠️ Decibel stream closed unexpectedly');
+        },
+      );
+
+      debugPrint('[SafetyTrigger] ✅ Decibel monitoring subscription active');
+    } catch (e) {
+      debugPrint('[SafetyTrigger] ❌ Failed to start decibel monitoring: $e');
+    }
+  }
+
+  /// Check if decibel level exceeds threshold (shouting/screaming)
+  // ignore: unused_element
+  void _checkDecibelTrigger(double decibels) {
+    // Debug: Log state check for high decibel levels
+    if (decibels > 70.0) {
+      debugPrint(
+        '[SafetyTrigger] 📊 Decibel: ${decibels.toStringAsFixed(1)} dB | isRunning: $_isRunning | captureActive: $_isCaptureWindowActive',
+      );
+    }
+
+    if (!_isRunning || _isCaptureWindowActive) {
+      if (decibels > 70.0) {
+        debugPrint(
+          '[SafetyTrigger] ⚠️ Trigger blocked: isRunning=$_isRunning, captureActive=$_isCaptureWindowActive',
+        );
+      }
+      return;
+    }
+
+    if (decibels >= DECIBEL_THRESHOLD) {
+      debugPrint(
+        '[SafetyTrigger] 🚨 DECIBEL TRIGGER DETECTED! Level: ${decibels.toStringAsFixed(1)} dB (Threshold: $DECIBEL_THRESHOLD)',
+      );
+      debugPrint(
+        '[SafetyTrigger] ✅ Conditions met - calling onTriggerDetected()',
+      );
+      onTriggerDetected('Loud Sound - ${decibels.toStringAsFixed(1)} dB');
     }
   }
 
@@ -496,11 +590,11 @@ class SafetyTriggerService {
   Future<void> _startCaptureWindow() async {
     debugPrint('[SafetyTrigger] 📊 Starting 8-second data collection');
 
-    // PAUSE speech-to-text and start audio recording for Gemini analysis
-    debugPrint(
-      '[SafetyTrigger] Pausing speech recognition, starting audio recording',
-    );
+    // PAUSE speech-to-text, then start audio recording
+    debugPrint('[SafetyTrigger] Pausing speech recognition');
     await _microphoneService.pauseListening();
+
+    debugPrint('[SafetyTrigger] Starting audio recording for Gemini analysis');
     _audioFilePath = await _startAudioRecording();
     debugPrint('[SafetyTrigger] Audio recording started: $_audioFilePath');
 
@@ -590,9 +684,8 @@ class SafetyTriggerService {
       debugPrint('[SafetyTrigger] Audio recording stopped: $_audioFilePath');
     }
 
-    // Resume speech-to-text listening
-    await _microphoneService.resumeListening();
-    debugPrint('[SafetyTrigger] Speech recognition resumed');
+    // DON'T resume speech recognition yet - keep it paused during analysis and result screens
+    // Speech recognition will resume only when user takes action (confirm/cancel/dismiss)
 
     // Get pre-trigger context (what was said BEFORE the keyword)
     final preTriggerContext = _microphoneService.getPreTriggerContext();
@@ -639,36 +732,29 @@ class SafetyTriggerService {
 
     if (result != null) {
       final isIncident = result['isIncident'] as bool;
+      final title = result['title'] as String? ?? '';
       final description = result['description'] as String? ?? '';
       final geminiTranscript = result['transcript'] as String? ?? '';
       debugPrint(
         '[SafetyTrigger] Gemini verdict: ${isIncident ? "TRUE POSITIVE" : "FALSE POSITIVE"}',
       );
+      debugPrint('[SafetyTrigger] Gemini title: $title');
       debugPrint('[SafetyTrigger] Gemini transcript: $geminiTranscript');
 
       // Show result screen with Gemini's transcript
-      onAnalysisResult?.call(isIncident, description, geminiTranscript);
+      // The provider will handle resuming monitoring based on user actions
+      onAnalysisResult?.call(isIncident, title, description, geminiTranscript);
 
       if (isIncident) {
         // Wait a bit, then navigate to lodge screen with pre-filled data
         await Future.delayed(const Duration(seconds: 3));
         await _navigateToLodgeScreen(result, geminiTranscript);
-      } else {
-        // For false positive: restart monitoring after 10 seconds
-        // (User can still see the screen and click OK button)
-        debugPrint(
-          '[SafetyTrigger] False positive - will restart monitoring in 10 seconds',
-        );
-        Future.delayed(const Duration(seconds: 10), () {
-          _isCaptureWindowActive = false;
-          debugPrint(
-            '[SafetyTrigger] Monitoring restarted after false positive',
-          );
-        });
       }
+      // For false positive: Provider will resume monitoring when user dismisses the screen
     } else {
       debugPrint('[SafetyTrigger] Gemini analysis failed');
-      _isCaptureWindowActive = false;
+      // Resume monitoring immediately on failure
+      await resumeMonitoring();
     }
   }
 
@@ -751,10 +837,12 @@ class SafetyTriggerService {
       // Call the callback to navigate
       onNavigateToLodge?.call(lodgeData);
 
-      _isCaptureWindowActive = false;
+      // DON'T set _isCaptureWindowActive to false here
+      // It will be set by resumeMonitoring() when user returns from lodge page
     } catch (e) {
       debugPrint('[SafetyTrigger] Error preparing lodge data: $e');
-      _isCaptureWindowActive = false;
+      // On error, resume monitoring immediately
+      await resumeMonitoring();
     }
   }
 
