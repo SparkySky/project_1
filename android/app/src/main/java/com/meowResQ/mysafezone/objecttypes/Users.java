@@ -14,7 +14,7 @@ import java.util.Date;
 /**
  * Definition of ObjectType Users.
  *
- * @since 2025-10-24
+ * @since 2025-10-27
  */
 @PrimaryKeys({"uid"})
 @Indexes({"uid:uid", "postcode:postcode"})
@@ -37,9 +37,13 @@ public final class Users extends CloudDBZoneObject {
 
     private Double latitude;
 
-    private Double longtitude;
+    private Date locUpdateTime;
+
+    private Double longitude;
 
     private String email;
+
+    private String profileURL;
 
     public Users() {
         super(Users.class);
@@ -117,12 +121,20 @@ public final class Users extends CloudDBZoneObject {
         return latitude;
     }
 
-    public void setLongtitude(Double longtitude) {
-        this.longtitude = longtitude;
+    public void setLocUpdateTime(Date locUpdateTime) {
+        this.locUpdateTime = locUpdateTime;
     }
 
-    public Double getLongtitude() {
-        return longtitude;
+    public Date getLocUpdateTime() {
+        return locUpdateTime;
+    }
+
+    public void setLongitude(Double longitude) {
+        this.longitude = longitude;
+    }
+
+    public Double getLongitude() {
+        return longitude;
     }
 
     public void setEmail(String email) {
@@ -131,6 +143,14 @@ public final class Users extends CloudDBZoneObject {
 
     public String getEmail() {
         return email;
+    }
+
+    public void setProfileURL(String profileURL) {
+        this.profileURL = profileURL;
+    }
+
+    public String getProfileURL() {
+        return profileURL;
     }
 
 }

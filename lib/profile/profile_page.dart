@@ -3,12 +3,14 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:agconnect_auth/agconnect_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:local_auth/local_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../util/snackbar_helper.dart';
 import '../app_theme.dart';
 import '../models/users.dart';
 import '../repository/incident_repository.dart';
@@ -62,7 +64,7 @@ class _ProfilePageState extends State<ProfilePage> {
   // Track if email has been set before (can only be set once)
   bool _emailHasBeenSet = false;
 
-  File? _profileImage; // Session-only, not saved
+  File? _profileImage;
   final ImagePicker _picker = ImagePicker();
   final LocalAuthentication _localAuth = LocalAuthentication();
 
@@ -276,6 +278,48 @@ class _ProfilePageState extends State<ProfilePage> {
           _profileImage = File(pickedFile.path);
         });
 
+        final bytes = await pickedFile.readAsBytes();
+        final base64Content = base64Encode(bytes);
+
+        final fileName = pickedFile.path.split('/').last;
+
+        // Load environment variable
+        final awsApiUrl = dotenv.env['AWS_API_URL'];
+        if (awsApiUrl == null || awsApiUrl.isEmpty) {
+          throw Exception('Missing environment variable: AWS_API_URL');
+        }
+
+        // Upload to AWS S3
+        final response = await http.post(
+          Uri.parse('$awsApiUrl/media'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'file_name': fileName,
+            'file_content': base64Content,
+          }),
+        );
+
+        if (response.statusCode != 200) {
+          Snackbar.error(
+            'Failed to upload media $fileName to AWS S3: ${response.body}',
+          );
+          return;
+        }
+
+        // Parse response to get file URL
+        final responseData = jsonDecode(response.body);
+        final mediaURL = responseData['file_url'];
+
+        if (mediaURL == null || mediaURL.isEmpty) {
+          Snackbar.error(
+            'Failed to get media URL from AWS S3 for file $fileName',
+          );
+          return;
+        }
+
+        // Optionally handle success
+        print('Uploaded successfully: $mediaURL');
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -287,6 +331,9 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ),
           );
+          debugPrint('Media URL: $mediaURL');
+          _cloudDbUser!.profileURL = mediaURL;
+          _userProvider!.updateCloudDbUser(_cloudDbUser!);
         }
       }
     } catch (e) {
@@ -1150,6 +1197,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         radius: 50,
                         backgroundColor: Colors.white,
                         child: _profileImage != null
+                            // default avatar
                             ? ClipOval(
                                 child: Image.file(
                                   _profileImage!,
@@ -1158,11 +1206,12 @@ class _ProfilePageState extends State<ProfilePage> {
                                   fit: BoxFit.cover,
                                 ),
                               )
-                            : (_agcUser!.photoUrl != null &&
-                                      _agcUser!.photoUrl!.isNotEmpty
+                            // user avatar
+                            : (_cloudDbUser!.profileURL != null &&
+                                      _cloudDbUser!.profileURL!.isNotEmpty
                                   ? ClipOval(
                                       child: Image.network(
-                                        _agcUser!.photoUrl!,
+                                        _cloudDbUser!.profileURL!,
                                         width: 100,
                                         height: 100,
                                         fit: BoxFit.cover,
