@@ -24,6 +24,7 @@ import '../providers/safety_service_provider.dart';
 import '../bg_services/rapid_location_service.dart';
 import '../widgets/rapid_location_overlay.dart';
 import '../services/push_notification_service.dart';
+import '../tutorial/lodge_tutorial.dart';
 
 class LodgeIncidentPage extends StatefulWidget {
   final String? incidentType;
@@ -128,6 +129,27 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
     if (widget.audioRecordingPath != null) {
       _startAutoSubmitTimer();
     }
+
+    // Show tutorial on first app use (continuous flow from homepage)
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (mounted) {
+        // Check if this is first app use - homepage not completed yet
+        final prefs = await SharedPreferences.getInstance();
+        final homepageCompleted =
+            prefs.getBool('homepage_tutorial_completed') ?? false;
+        final lodgeCompleted =
+            prefs.getBool('lodge_tutorial_completed') ?? false;
+
+        // Show if homepage completed (user came from homepage tutorial) and lodge not completed
+        if (homepageCompleted && !lodgeCompleted) {
+          LodgeTutorialManager.showTutorial(
+            context,
+            pageScrollController: _scrollController,
+          );
+        }
+      }
+    });
   }
 
   void _startAutoSubmitTimer() {
@@ -505,30 +527,34 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
           setState(() {
             // Combine everything into one address field
             String fullAddress = site['formatAddress'] ?? '';
-            
+
             if (fullAddress.isEmpty) {
               // Fallback: build address from components
               List<String> addressParts = [];
-              
-              if (address['subLocality'] != null && address['subLocality'].isNotEmpty) {
+
+              if (address['subLocality'] != null &&
+                  address['subLocality'].isNotEmpty) {
                 addressParts.add(address['subLocality']);
               }
-              if (address['locality'] != null && address['locality'].isNotEmpty) {
+              if (address['locality'] != null &&
+                  address['locality'].isNotEmpty) {
                 addressParts.add(address['locality']);
               }
-              if (address['postalCode'] != null && address['postalCode'].isNotEmpty) {
+              if (address['postalCode'] != null &&
+                  address['postalCode'].isNotEmpty) {
                 addressParts.add(address['postalCode']);
               }
-              if (address['adminArea'] != null && address['adminArea'].isNotEmpty) {
+              if (address['adminArea'] != null &&
+                  address['adminArea'].isNotEmpty) {
                 addressParts.add(address['adminArea']);
               }
               if (address['country'] != null && address['country'].isNotEmpty) {
                 addressParts.add(address['country']);
               }
-              
+
               fullAddress = addressParts.join(', ');
             }
-            
+
             _addressController.text = fullAddress;
           });
 
@@ -1020,7 +1046,9 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
               labelText: 'Address',
               labelStyle: TextStyle(
                 color: _addressFocusNode.hasFocus
-                    ? (_incidentType == 'threat' ? Colors.red[700] : AppTheme.primaryOrange)
+                    ? (_incidentType == 'threat'
+                          ? Colors.red[700]
+                          : AppTheme.primaryOrange)
                     : Colors.grey[600],
               ),
               hintText: 'Full address will auto-fill or enter manually',
@@ -1034,7 +1062,9 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide(
-                  color: _incidentType == 'threat' ? Colors.red : AppTheme.primaryOrange,
+                  color: _incidentType == 'threat'
+                      ? Colors.red
+                      : AppTheme.primaryOrange,
                   width: 2,
                 ),
               ),
@@ -1042,7 +1072,9 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
               fillColor: Colors.white,
             ),
             maxLines: 3,
-            cursorColor: _incidentType == 'threat' ? Colors.red : AppTheme.primaryOrange,
+            cursorColor: _incidentType == 'threat'
+                ? Colors.red
+                : AppTheme.primaryOrange,
           ),
         ),
       ],
@@ -1263,7 +1295,9 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide(
-                                 color: _incidentType == 'threat' ? Colors.red : AppTheme.primaryOrange,
+                                  color: _incidentType == 'threat'
+                                      ? Colors.red
+                                      : AppTheme.primaryOrange,
                                   width: 2,
                                 ),
                               ),
@@ -1271,7 +1305,9 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                               fillColor: Colors.white,
                             ),
                             maxLines: 6,
-                            cursorColor: _incidentType == 'threat' ? Colors.red : AppTheme.primaryOrange,
+                            cursorColor: _incidentType == 'threat'
+                                ? Colors.red
+                                : AppTheme.primaryOrange,
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return 'Please enter a description';
@@ -1331,7 +1367,9 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide(
-                                  color: _incidentType == 'threat' ? Colors.red : AppTheme.primaryOrange,
+                                  color: _incidentType == 'threat'
+                                      ? Colors.red
+                                      : AppTheme.primaryOrange,
                                   width: 2,
                                 ),
                               ),
@@ -1344,7 +1382,9 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                             ),
                             maxLines: 1,
                             maxLength: 45,
-                            cursorColor: _incidentType == 'threat' ? Colors.red : AppTheme.primaryOrange,
+                            cursorColor: _incidentType == 'threat'
+                                ? Colors.red
+                                : AppTheme.primaryOrange,
                             textCapitalization: TextCapitalization.sentences,
                             validator: (value) {
                               if (value == null || value.trim().isEmpty) {

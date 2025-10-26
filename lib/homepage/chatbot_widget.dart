@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../app_theme.dart';
+import '../tutorial/chatbot_tutorial.dart';
 
 class ChatbotWidget extends StatefulWidget {
   final bool isCollapsed;
@@ -57,10 +58,64 @@ class _ChatbotPageState extends State<ChatbotPage> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    // Show tutorial after page loads
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (mounted) {
+        await ChatbotTutorialManager.showTutorialIfNeeded(
+          context,
+          pageScrollController: _scrollController,
+          onSendMessage: _sendTutorialMessage,
+        );
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  // Helper method to send messages from tutorial
+  void _sendTutorialMessage(String message) async {
+    setState(() {
+      messages.add(
+        ChatMessage(text: message, isUser: true, timestamp: DateTime.now()),
+      );
+      _isLoading = true;
+    });
+
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+
+    final aiResponse = await _getAIResponseFromAPI(message);
+
+    setState(() {
+      messages.add(
+        ChatMessage(text: aiResponse, isUser: false, timestamp: DateTime.now()),
+      );
+      _isLoading = false;
+    });
+
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   Future<String> _getAIResponseFromAPI(String userMessage) async {

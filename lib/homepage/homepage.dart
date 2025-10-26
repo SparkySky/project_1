@@ -15,6 +15,7 @@ import '../user_management.dart';
 import 'package:provider/provider.dart';
 import '../providers/safety_service_provider.dart';
 import '../tutorial/homepage_tutorial.dart';
+import '../tutorial/profile_tutorial.dart';
 import '../repository/incident_repository.dart';
 import '../repository/user_repository.dart';
 import '../models/clouddb_model.dart';
@@ -91,7 +92,25 @@ class _HomePageState extends State<HomePage> {
       // Show tutorial after small delay
       await Future.delayed(const Duration(milliseconds: 500));
       if (mounted) {
-        HomePageTutorialManager.showTutorialIfNeeded(context);
+        HomePageTutorialManager.showTutorialIfNeeded(
+          context,
+          onFilterTap: _showRadiusFilterDialog,
+          onChatbotTap: _navigateToChatbot,
+          onNavigateToLodge: _navigateToLodge,
+          onTutorialComplete: () {
+            print('[Homepage] onTutorialComplete called');
+            // After tutorial completes, automatically navigate to Lodge
+            Future.delayed(const Duration(milliseconds: 500), () {
+              print('[Homepage] Navigating to Lodge page');
+              if (mounted) {
+                _navigateToLodge();
+              }
+            });
+          },
+        );
+
+        // Show profile info reminder if all tutorials completed but info not filled
+        _showProfileInfoReminderIfNeeded();
       }
     });
   }
@@ -128,6 +147,49 @@ class _HomePageState extends State<HomePage> {
       }
     } catch (e) {
       print('[Homepage] Error loading user settings: $e');
+    }
+  }
+
+  // Show profile info reminder if all tutorials completed but info not filled
+  Future<void> _showProfileInfoReminderIfNeeded() async {
+    try {
+      // Check if profile tutorial is completed
+      final profileCompleted =
+          await ProfileTutorialManager.hasCompletedTutorial();
+
+      if (!profileCompleted) return; // Don't show if tutorial not completed yet
+
+      // Check if user has filled in their information
+      await _userRepository.openZone();
+      final user = await AGCAuth.instance.currentUser;
+      if (user != null && user.uid != null) {
+        final userData = await _userRepository.getUserById(user.uid!);
+        await _userRepository.closeZone();
+
+        if (userData != null) {
+          // Check if any user info is filled
+          final hasFilledInfo =
+              (userData.phoneNo != null && userData.phoneNo!.isNotEmpty) ||
+              (userData.district != null && userData.district!.isNotEmpty) ||
+              (userData.postcode != null && userData.postcode!.isNotEmpty) ||
+              (userData.state != null && userData.state!.isNotEmpty);
+
+          // Show reminder if info not filled
+          if (!hasFilledInfo && mounted) {
+            await Future.delayed(const Duration(milliseconds: 1000));
+            if (mounted) {
+              ProfileTutorialManager.showFillInfoReminder(context);
+            }
+          }
+        }
+      } else {
+        await _userRepository.closeZone();
+      }
+    } catch (e) {
+      print('[Homepage] Error checking profile info: $e');
+      try {
+        await _userRepository.closeZone();
+      } catch (_) {}
     }
   }
 
@@ -417,6 +479,20 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  void _navigateToChatbot() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const ChatbotPage()),
+    );
+  }
+
+  void _navigateToLodge() {
+    print('[Homepage] _navigateToLodge called, setting _selectedIndex to 2');
+    setState(() {
+      _selectedIndex = 2; // Navigate to Lodge tab (index 2)
+    });
+  }
+
   void _showTooltipOverlay() {
     _removeTooltip();
 
@@ -503,13 +579,17 @@ class _HomePageState extends State<HomePage> {
             setState(() {
               _selectedIndex = 0;
             });
-            
+
             // Wait for the UI to update
             await Future.delayed(const Duration(milliseconds: 500));
-            
+
             // Show tutorial
             if (mounted) {
-              HomePageTutorialManager.showTutorial(context);
+              HomePageTutorialManager.showTutorial(
+                context,
+                onFilterTap: _showRadiusFilterDialog,
+                onChatbotTap: _navigateToChatbot,
+              );
             }
           },
         );

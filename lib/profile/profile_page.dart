@@ -17,6 +17,9 @@ import '../signup_login/auth_service.dart';
 import '../signup_login/terms_conditions_page.dart';
 import '../signup_login/privacy_policy_page.dart';
 import '../tutorial/homepage_tutorial.dart';
+import '../tutorial/lodge_tutorial.dart';
+import '../tutorial/profile_tutorial.dart';
+import '../tutorial/chatbot_tutorial.dart';
 import '../../constants/provider_types.dart';
 import '../debug_overlay/debug_state.dart';
 import '../providers/safety_service_provider.dart';
@@ -25,10 +28,7 @@ import '../providers/user_provider.dart';
 class ProfilePage extends StatefulWidget {
   final VoidCallback? onNavigateToHomeWithTutorial;
 
-  const ProfilePage({
-    super.key,
-    this.onNavigateToHomeWithTutorial
-  });
+  const ProfilePage({super.key, this.onNavigateToHomeWithTutorial});
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -65,6 +65,9 @@ class _ProfilePageState extends State<ProfilePage> {
   final ImagePicker _picker = ImagePicker();
   final LocalAuthentication _localAuth = LocalAuthentication();
 
+  // Scroll controller for profile page (for tutorial scrolling)
+  final ScrollController _scrollController = ScrollController();
+
   // Secure storage with AES-256-GCM encryption and hardware-backed keys
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage(
     aOptions: AndroidOptions(
@@ -80,6 +83,31 @@ class _ProfilePageState extends State<ProfilePage> {
     _loadLocalPreferences();
     _loadDeveloperSettings();
     _debugState.addListener(_onDebugStateChanged);
+
+    // Show tutorial on first app use (continuous flow from lodge)
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (mounted) {
+        // Check if this is first app use - lodge completed but profile not completed
+        final prefs = await SharedPreferences.getInstance();
+        final lodgeCompleted =
+            prefs.getBool('lodge_tutorial_completed') ?? false;
+        final profileCompleted =
+            prefs.getBool('profile_tutorial_completed') ?? false;
+
+        // Show if lodge completed (user came from lodge tutorial) and profile not completed
+        if (lodgeCompleted && !profileCompleted) {
+          ProfileTutorialManager.showTutorial(
+            context,
+            pageScrollController: _scrollController,
+            onCustomKeywordsTap: () {
+              print('[ProfilePage] onCustomKeywordsTap callback triggered');
+              _showCombinedCustomKeywordsDialog();
+            },
+          );
+        }
+      }
+    });
   }
 
   /// Load developer settings (API key status)
@@ -173,6 +201,7 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void dispose() {
     _debugState.removeListener(_onDebugStateChanged);
+    _scrollController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
     _districtController.dispose();
@@ -1121,6 +1150,7 @@ class _ProfilePageState extends State<ProfilePage> {
     return Scaffold(
       backgroundColor: AppTheme.primaryOrange.withOpacity(0.1),
       body: SingleChildScrollView(
+        controller: _scrollController,
         child: Column(
           children: [
             // Profile header
@@ -1541,8 +1571,14 @@ class _ProfilePageState extends State<ProfilePage> {
                     subtitle: 'Replay the interactive walkthrough',
                     color: Colors.blue,
                     onTap: () async {
+                      // Reset all tutorials for complete replay
                       await HomePageTutorialManager.resetTutorial();
-                      if (mounted && widget.onNavigateToHomeWithTutorial != null) {
+                      await LodgeTutorialManager.resetTutorial();
+                      await ProfileTutorialManager.resetTutorial();
+                      await ChatbotTutorialManager.resetTutorial();
+
+                      if (mounted &&
+                          widget.onNavigateToHomeWithTutorial != null) {
                         widget.onNavigateToHomeWithTutorial!();
                       }
                     },
