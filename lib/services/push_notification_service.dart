@@ -1,6 +1,7 @@
 import 'package:huawei_push/huawei_push.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../models/users.dart';
 import '../providers/user_provider.dart';
 import '../repository/user_repository.dart';
@@ -29,6 +30,23 @@ class PushNotificationService {
     }
 
     try {
+      // Check and request notification permission if needed
+      final hasPermission = await Permission.notification.isGranted;
+      if (!hasPermission) {
+        debugPrint(
+          '[PushService] Notification permission not granted, requesting...',
+        );
+        final status = await Permission.notification.request();
+        if (status.isGranted) {
+          debugPrint('[PushService] ✅ Notification permission granted');
+        } else {
+          debugPrint('[PushService] ❌ Notification permission denied');
+          // Don't return - still try to get token as it might work on some devices
+        }
+      } else {
+        debugPrint('[PushService] ✅ Notification permission already granted');
+      }
+
       // Request push token
       Push.getToken('HCM');
 
@@ -289,37 +307,8 @@ class PushNotificationService {
       debugPrint('[PushService] ❌ Error sending via backend: $e');
     }
 
-    // log to console for debugging
+    // Log notification details for debugging
     for (final user in users) {
-      await _sendNotificationToUser(user, data);
-    }
-  }
-
-  /// Send notification to a specific user
-  Future<void> _sendNotificationToUser(
-    Users user,
-    Map<String, String> data,
-  ) async {
-    try {
-      // Check if user has a push token
-      if (user.pushToken == null || user.pushToken!.isEmpty) {
-        debugPrint(
-          '[PushService] ⚠️ User ${user.uid} has no push token, skipping',
-        );
-        return;
-      }
-
-      BackendNotificationService().sendNotificationsToNearbyUsers(
-        pushTokens: [user.pushToken!],
-        title: data['incidentTitle']!,
-        incidentId: data['incidentId']!,
-        incidentType: data['incidentType']!,
-        description: data['incidentDescription']!,
-        latitude: data['latitude']!,
-        longitude: data['longitude']!,
-      );
-
-      // Log the notification details for debugging
       debugPrint('[PushService] 🚨 Emergency Alert for ${user.username}');
       debugPrint('[PushService] Incident Type: ${data['incidentType']}');
       debugPrint('[PushService] Description: ${data['incidentDescription']}');
@@ -327,8 +316,6 @@ class PushNotificationService {
         '[PushService] Location: ${data['latitude']}, ${data['longitude']}',
       );
       debugPrint('[PushService] Push Token: ${user.pushToken}');
-    } catch (e) {
-      debugPrint('[PushService] Error sending notification: $e');
     }
   }
 
