@@ -7,6 +7,7 @@ import '../repository/user_repository.dart';
 import '../util/snackbar_helper.dart';
 import '../models/users.dart';
 import '../providers/user_provider.dart';
+import '../sensors/location_centre.dart';
 
 class AuthService {
   final AGCAuth _auth = AGCAuth.instance;
@@ -62,7 +63,11 @@ class AuthService {
   }
 
   // --- Sign In with Email and Password ---
-  Future<AGCUser?> signInWithEmail(BuildContext? context, String email, String password) async {
+  Future<AGCUser?> signInWithEmail(
+    BuildContext? context,
+    String email,
+    String password,
+  ) async {
     try {
       final AGCAuthCredential credential =
           EmailAuthProvider.credentialWithPassword(email, password);
@@ -216,6 +221,20 @@ class AuthService {
     try {
       debugPrint('[CloudDB] Creating/updating user: ${agcUser.uid}');
 
+      // Get current location
+      final locationService = LocationServiceHelper();
+      final location = await locationService.getCurrentLocation(fastMode: true);
+      double? latitude;
+      double? longitude;
+
+      if (location != null) {
+        latitude = location.latitude;
+        longitude = location.longitude;
+        debugPrint('[CloudDB] Got location: $latitude, $longitude');
+      } else {
+        debugPrint('[CloudDB] Could not get current location');
+      }
+
       // Check if user already exists
       await _userRepository.openZone();
       final existingUser = await _userRepository.getUserById(agcUser.uid!);
@@ -231,10 +250,11 @@ class AuthService {
           postcode: postcode ?? existingUser.postcode,
           state: state ?? existingUser.state,
           phoneNo: phoneNo ?? existingUser.phoneNo,
-          latitude: existingUser.latitude,
-          longitude: existingUser.longitude,
+          latitude: latitude ?? existingUser.latitude,
+          longitude: longitude ?? existingUser.longitude,
           allowDiscoverable: existingUser.allowDiscoverable,
           allowEmergencyAlert: existingUser.allowEmergencyAlert,
+          locUpdateTime: DateTime.now(),
         );
 
         await _userRepository.upsertUser(updatedUser);
@@ -250,8 +270,8 @@ class AuthService {
           postcode: postcode,
           state: state,
           phoneNo: phoneNo,
-          latitude: null,
-          longitude: null,
+          latitude: latitude,
+          longitude: longitude,
           allowDiscoverable: true,
           allowEmergencyAlert: true,
         );
