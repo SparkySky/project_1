@@ -374,18 +374,9 @@ class _IncidentDetailPageState extends State<IncidentDetailPage> {
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
         backgroundColor: isThreat ? Colors.red[700] : Colors.orange[700],
-        elevation: 0,
-        title: Text(
-          isThreat ? 'Threat Incident' : 'General Incident',
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
+        automaticallyImplyLeading: false,
+        title: const Text(
+          'MYSafeZone',
         ),
       ),
       body: SingleChildScrollView(

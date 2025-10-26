@@ -22,10 +22,12 @@ dependencies:
   flutter_background_service: ^5.0.0
   flutter_local_notifications: ^17.2.1
   permission_handler: ^11.3.1
+
   
   # ========================================
   # ACTIVELY USED - Sensors & Audio
   # ========================================
+  android_intent_plus: ^5.1.0
   sensors_plus: ^5.0.1
   record: ^6.1.2
   speech_to_text: ^7.3.0
@@ -127,6 +129,10 @@ flutter:
   assets:
     - .env
     - assets/images/mysafezone_logo.png
+    - assets/images/AI_lodge1.jpg
+    - assets/images/AI_lodge2.jpg
+    - assets/images/AI_lodge3.jpg
+    - assets/images/AI_lodge4.jpg
   fonts:
   - family: Goldman
     fonts:

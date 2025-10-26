@@ -7,6 +7,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../app_theme.dart';
+import '../tutorial/chatbot_tutorial.dart';
 import '../repository/incident_repository.dart';
 
 class ChatbotWidget extends StatefulWidget {
@@ -69,6 +70,17 @@ class _ChatbotPageState extends State<ChatbotPage> {
   void initState() {
     super.initState();
     _initializeChatbot();
+
+    // Show tutorial after page loads
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (mounted) {
+        await ChatbotTutorialManager.showTutorialIfNeeded(
+          context,
+          pageScrollController: _scrollController,
+          onSendMessage: _sendTutorialMessage,
+        );
+      }
+    });
   }
 
   @override
@@ -80,6 +92,45 @@ class _ChatbotPageState extends State<ChatbotPage> {
     _chatHistory.clear();
     debugPrint('[Chatbot] Chat history cleared on dispose');
     super.dispose();
+  }
+
+  // Helper method to send messages from tutorial
+  void _sendTutorialMessage(String message) async {
+    setState(() {
+      messages.add(
+        ChatMessage(text: message, isUser: true, timestamp: DateTime.now()),
+      );
+      _isLoading = true;
+    });
+
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+
+    final aiResponse = await _getAIResponseFromAPI(message);
+
+    setState(() {
+      messages.add(
+        ChatMessage(text: aiResponse, isUser: false, timestamp: DateTime.now()),
+      );
+      _isLoading = false;
+    });
+
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   Future<void> _initializeChatbot() async {

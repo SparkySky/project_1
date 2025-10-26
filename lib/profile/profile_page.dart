@@ -3,12 +3,14 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:agconnect_auth/agconnect_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:local_auth/local_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../util/snackbar_helper.dart';
 import '../app_theme.dart';
 import '../models/users.dart';
 import '../repository/incident_repository.dart';
@@ -18,6 +20,9 @@ import '../signup_login/auth_service.dart';
 import '../signup_login/terms_conditions_page.dart';
 import '../signup_login/privacy_policy_page.dart';
 import '../tutorial/homepage_tutorial.dart';
+import '../tutorial/lodge_tutorial.dart';
+import '../tutorial/profile_tutorial.dart';
+import '../tutorial/chatbot_tutorial.dart';
 import '../../constants/provider_types.dart';
 import '../debug_overlay/debug_state.dart';
 import '../providers/safety_service_provider.dart';
@@ -52,6 +57,9 @@ class _ProfilePageState extends State<ProfilePage> {
   // Timer for refreshing user data (to update location time)
   Timer? _refreshTimer;
 
+  // Flag to pause refresh during tutorial
+  bool _isTutorialActive = false;
+
   // User information fields
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
@@ -62,9 +70,12 @@ class _ProfilePageState extends State<ProfilePage> {
   // Track if email has been set before (can only be set once)
   bool _emailHasBeenSet = false;
 
-  File? _profileImage; // Session-only, not saved
+  File? _profileImage;
   final ImagePicker _picker = ImagePicker();
   final LocalAuthentication _localAuth = LocalAuthentication();
+
+  // Scroll controller for profile page (for tutorial scrolling)
+  final ScrollController _scrollController = ScrollController();
 
   // Secure storage with AES-256-GCM encryption and hardware-backed keys
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage(
@@ -82,8 +93,48 @@ class _ProfilePageState extends State<ProfilePage> {
     _loadDeveloperSettings();
     _debugState.addListener(_onDebugStateChanged);
 
+    // Show tutorial on first app use (continuous flow from lodge)
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (mounted) {
+        // Check if this is first app use - lodge completed but profile not completed
+        final prefs = await SharedPreferences.getInstance();
+        final lodgeCompleted =
+            prefs.getBool('lodge_tutorial_completed') ?? false;
+        final profileCompleted =
+            prefs.getBool('profile_tutorial_completed') ?? false;
+
+        // Show if lodge completed (user came from lodge tutorial) and profile not completed
+        if (lodgeCompleted && !profileCompleted) {
+          setState(() {
+            _isTutorialActive = true; // Pause refresh during tutorial
+          });
+
+          ProfileTutorialManager.showTutorial(
+            context,
+            pageScrollController: _scrollController,
+            onCustomKeywordsTap: () {
+              print('[ProfilePage] onCustomKeywordsTap callback triggered');
+              _showCombinedCustomKeywordsDialog();
+            },
+            onTutorialComplete: () {
+              // Resume refresh after tutorial completes
+              if (mounted) {
+                setState(() {
+                  _isTutorialActive = false;
+                });
+              }
+            },
+          );
+        }
+      }
+    });
+
     // Refresh user data every 30 seconds to update location time
     _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) async {
+      // Skip refresh if tutorial is active
+      if (_isTutorialActive) return;
+
       if (mounted && _userProvider != null) {
         await _userProvider!.refreshUser();
         if (mounted) {
@@ -186,6 +237,7 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void dispose() {
     _debugState.removeListener(_onDebugStateChanged);
+    _scrollController.dispose();
     _refreshTimer?.cancel();
     _emailController.dispose();
     _phoneController.dispose();
@@ -276,6 +328,48 @@ class _ProfilePageState extends State<ProfilePage> {
           _profileImage = File(pickedFile.path);
         });
 
+        final bytes = await pickedFile.readAsBytes();
+        final base64Content = base64Encode(bytes);
+
+        final fileName = pickedFile.path.split('/').last;
+
+        // Load environment variable
+        final awsApiUrl = dotenv.env['AWS_API_URL'];
+        if (awsApiUrl == null || awsApiUrl.isEmpty) {
+          throw Exception('Missing environment variable: AWS_API_URL');
+        }
+
+        // Upload to AWS S3
+        final response = await http.post(
+          Uri.parse('$awsApiUrl/media'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'file_name': fileName,
+            'file_content': base64Content,
+          }),
+        );
+
+        if (response.statusCode != 200) {
+          Snackbar.error(
+            'Failed to upload media $fileName to AWS S3: ${response.body}',
+          );
+          return;
+        }
+
+        // Parse response to get file URL
+        final responseData = jsonDecode(response.body);
+        final mediaURL = responseData['file_url'];
+
+        if (mediaURL == null || mediaURL.isEmpty) {
+          Snackbar.error(
+            'Failed to get media URL from AWS S3 for file $fileName',
+          );
+          return;
+        }
+
+        // Optionally handle success
+        print('Uploaded successfully: $mediaURL');
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -287,6 +381,9 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ),
           );
+          debugPrint('Media URL: $mediaURL');
+          _cloudDbUser!.profileURL = mediaURL;
+          _userProvider!.updateCloudDbUser(_cloudDbUser!);
         }
       }
     } catch (e) {
@@ -1135,6 +1232,7 @@ class _ProfilePageState extends State<ProfilePage> {
     return Scaffold(
       backgroundColor: AppTheme.primaryOrange.withOpacity(0.1),
       body: SingleChildScrollView(
+        controller: _scrollController,
         child: Column(
           children: [
             // Profile header
@@ -1150,6 +1248,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         radius: 50,
                         backgroundColor: Colors.white,
                         child: _profileImage != null
+                            // default avatar
                             ? ClipOval(
                                 child: Image.file(
                                   _profileImage!,
@@ -1158,11 +1257,12 @@ class _ProfilePageState extends State<ProfilePage> {
                                   fit: BoxFit.cover,
                                 ),
                               )
-                            : (_agcUser!.photoUrl != null &&
-                                      _agcUser!.photoUrl!.isNotEmpty
+                            // user avatar
+                            : (_cloudDbUser!.profileURL != null &&
+                                      _cloudDbUser!.profileURL!.isNotEmpty
                                   ? ClipOval(
                                       child: Image.network(
-                                        _agcUser!.photoUrl!,
+                                        _cloudDbUser!.profileURL!,
                                         width: 100,
                                         height: 100,
                                         fit: BoxFit.cover,
@@ -1555,7 +1655,12 @@ class _ProfilePageState extends State<ProfilePage> {
                     subtitle: 'Replay the interactive walkthrough',
                     color: Colors.blue,
                     onTap: () async {
+                      // Reset all tutorials for complete replay
                       await HomePageTutorialManager.resetTutorial();
+                      await LodgeTutorialManager.resetTutorial();
+                      await ProfileTutorialManager.resetTutorial();
+                      await ChatbotTutorialManager.resetTutorial();
+
                       if (mounted &&
                           widget.onNavigateToHomeWithTutorial != null) {
                         widget.onNavigateToHomeWithTutorial!();

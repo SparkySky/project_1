@@ -15,6 +15,7 @@ import '../user_management.dart';
 import 'package:provider/provider.dart';
 import '../providers/safety_service_provider.dart';
 import '../tutorial/homepage_tutorial.dart';
+import '../tutorial/profile_tutorial.dart';
 import '../repository/incident_repository.dart';
 import '../repository/user_repository.dart';
 import '../models/clouddb_model.dart';
@@ -107,7 +108,25 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       // Show tutorial after small delay
       await Future.delayed(const Duration(milliseconds: 500));
       if (mounted) {
-        HomePageTutorialManager.showTutorialIfNeeded(context);
+        HomePageTutorialManager.showTutorialIfNeeded(
+          context,
+          onFilterTap: _showRadiusFilterDialog,
+          onChatbotTap: _navigateToChatbot,
+          onNavigateToLodge: _navigateToLodge,
+          onTutorialComplete: () {
+            print('[Homepage] onTutorialComplete called');
+            // After tutorial completes, automatically navigate to Lodge
+            Future.delayed(const Duration(milliseconds: 500), () {
+              print('[Homepage] Navigating to Lodge page');
+              if (mounted) {
+                _navigateToLodge();
+              }
+            });
+          },
+        );
+
+        // Show profile info reminder if all tutorials completed but info not filled
+        _showProfileInfoReminderIfNeeded();
       }
     });
   }
@@ -144,6 +163,49 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       }
     } catch (e) {
       print('[Homepage] Error loading user settings: $e');
+    }
+  }
+
+  // Show profile info reminder if all tutorials completed but info not filled
+  Future<void> _showProfileInfoReminderIfNeeded() async {
+    try {
+      // Check if profile tutorial is completed
+      final profileCompleted =
+          await ProfileTutorialManager.hasCompletedTutorial();
+
+      if (!profileCompleted) return; // Don't show if tutorial not completed yet
+
+      // Check if user has filled in their information
+      await _userRepository.openZone();
+      final user = await AGCAuth.instance.currentUser;
+      if (user != null && user.uid != null) {
+        final userData = await _userRepository.getUserById(user.uid!);
+        await _userRepository.closeZone();
+
+        if (userData != null) {
+          // Check if any user info is filled
+          final hasFilledInfo =
+              (userData.phoneNo != null && userData.phoneNo!.isNotEmpty) ||
+              (userData.district != null && userData.district!.isNotEmpty) ||
+              (userData.postcode != null && userData.postcode!.isNotEmpty) ||
+              (userData.state != null && userData.state!.isNotEmpty);
+
+          // Show reminder if info not filled
+          if (!hasFilledInfo && mounted) {
+            await Future.delayed(const Duration(milliseconds: 1000));
+            if (mounted) {
+              ProfileTutorialManager.showFillInfoReminder(context);
+            }
+          }
+        }
+      } else {
+        await _userRepository.closeZone();
+      }
+    } catch (e) {
+      print('[Homepage] Error checking profile info: $e');
+      try {
+        await _userRepository.closeZone();
+      } catch (_) {}
     }
   }
 
@@ -519,6 +581,58 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   // Show filters and sorting dialog (compact version)
+  // Simple radius filter dialog for tutorial
+  void _showRadiusFilterDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: true, // Can dismiss by tapping outside
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Filter by Distance'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Choose distance radius:'),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildRadiusButton('800m', 800.0),
+                  _buildRadiusButton('900m', 900.0),
+                  _buildRadiusButton('1km', 1000.0),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildRadiusButton(String label, double radius) {
+    final isSelected = _radiusFilter == radius;
+    return ElevatedButton(
+      onPressed: () {
+        setState(() {
+          _radiusFilter = radius;
+        });
+        _loadIncidents(); // Reload incidents with new radius
+        Navigator.of(context).pop(); // Close dialog
+      },
+      style: ElevatedButton.styleFrom(
+        backgroundColor: isSelected ? AppTheme.primaryOrange : Colors.grey[300],
+        foregroundColor: isSelected ? Colors.white : Colors.black87,
+      ),
+      child: Text(label),
+    );
+  }
+
   void _showFiltersDialog() {
     showDialog(
       context: context,
@@ -786,6 +900,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
+  void _navigateToChatbot() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const ChatbotPage()),
+    );
+  }
+
+  void _navigateToLodge() {
+    print('[Homepage] _navigateToLodge called, setting _selectedIndex to 2');
+    setState(() {
+      _selectedIndex = 2; // Navigate to Lodge tab (index 2)
+    });
+  }
+
   void _showTooltipOverlay() {
     _removeTooltip();
 
@@ -878,13 +1006,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
             // Show tutorial
             if (mounted) {
-              HomePageTutorialManager.showTutorial(context);
+              HomePageTutorialManager.showTutorial(
+                context,
+                onFilterTap: _showRadiusFilterDialog,
+                onChatbotTap: _navigateToChatbot,
+              );
             }
           },
         );
-      case 4:
-        // TODO: Remove this page after testing
-        return PushNotificationDemo();
       default:
         return _buildHomePage();
     }
