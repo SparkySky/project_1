@@ -31,13 +31,13 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       username: 'New User',
       district: 'Downtown',
     );
-    
+
     final success = await userRepo.upsertUser(newUser);
     if (success) {
       _loadUsers();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('User added successfully')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('User added successfully')));
     }
   }
 
@@ -45,9 +45,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     final success = await userRepo.deleteUser(user);
     if (success) {
       _loadUsers();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('User deleted successfully')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('User deleted successfully')));
     }
   }
 
@@ -70,6 +70,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: "add_user_fab",
         onPressed: _addUser,
         child: Icon(Icons.add),
       ),

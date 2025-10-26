@@ -506,6 +506,13 @@ packages:
       relative: true
     source: path
     version: "6.11.2+305"
+  huawei_push:
+    dependency: "direct main"
+    description:
+      path: "plugins/huawei_push"
+      relative: true
+    source: path
+    version: "6.13.0+300"
   image:
     dependency: transitive
     description:
