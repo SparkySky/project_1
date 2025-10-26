@@ -121,7 +121,7 @@ class RapidLocationOverlay extends StatelessWidget {
 
                     // Info text
                     Text(
-                      'Your location is being updated every 10 seconds.\nVideo evidence is being recorded every 2 minutes.',
+                      'Your location is being updated every 10 seconds.',
                       style: TextStyle(
                         fontSize: 14,
                         color: Colors.grey[600],
