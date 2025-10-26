@@ -3,11 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:agconnect_auth/agconnect_auth.dart';
 import 'package:huawei_account/huawei_account.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../repository/user_repository.dart';
 import '../util/snackbar_helper.dart';
 import '../models/users.dart';
 import '../providers/user_provider.dart';
 import '../sensors/location_centre.dart';
+import '../services/push_notification_service.dart';
 
 class AuthService {
   final AGCAuth _auth = AGCAuth.instance;
@@ -344,6 +346,20 @@ class AuthService {
         debugPrint('[CloudDB] Could not get current location');
       }
 
+      // Get push token from PushNotificationService or SharedPreferences
+      String? pushToken;
+      try {
+        pushToken = PushNotificationService().currentToken;
+        if (pushToken == null || pushToken.isEmpty) {
+          // Try to get from SharedPreferences as fallback
+          final prefs = await SharedPreferences.getInstance();
+          pushToken = prefs.getString('pending_push_token');
+        }
+      } catch (e) {
+        debugPrint('[CloudDB] Error getting push token: $e');
+      }
+      debugPrint('[CloudDB] Push token: $pushToken');
+
       // Check if user already exists
       await _userRepository.openZone();
 
@@ -399,6 +415,7 @@ class AuthService {
           locUpdateTime: DateTime.now(),
           detectionLanguage: existingUser.detectionLanguage,
           profileURL: profileURL ?? existingUser.profileURL,
+          pushToken: pushToken, // Add push token to update
         );
 
         await _userRepository.upsertUser(updatedUser);
@@ -426,6 +443,7 @@ class AuthService {
           allowDiscoverable: true,
           allowEmergencyAlert: true,
           profileURL: profileURL,
+          pushToken: pushToken, // Add push token to new user
         );
 
         await _userRepository.upsertUser(newUser);

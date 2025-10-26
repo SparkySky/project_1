@@ -45,6 +45,8 @@ public final class Users extends CloudDBZoneObject {
 
     private String profileURL;
 
+    private String pushToken;
+
     public Users() {
         super(Users.class);
     }
@@ -151,6 +153,14 @@ public final class Users extends CloudDBZoneObject {
 
     public String getProfileURL() {
         return profileURL;
+    }
+
+    public void setPushToken(String pushToken) {
+        this.pushToken = pushToken;
+    }
+
+    public String getPushToken() {
+        return pushToken;
     }
 
 }

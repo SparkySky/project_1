@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:agconnect_auth/agconnect_auth.dart';
-import '../util/snackbar_helper.dart';
 import '../models/users.dart';
 import '../repository/user_repository.dart';
+import '../services/push_notification_service.dart';
 import '../signup_login/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -44,19 +44,15 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
-  // Load CloudDB user data
   Future<void> _loadCloudDbUser() async {
     if (_agcUser == null) return;
 
     try {
       await _userRepository.openZone();
       debugPrint('Loading CloudDB user: ${_agcUser!.uid}');
-      // Snackbar.success("Logged in success!");
       _cloudDbUser = await _userRepository.getUserById(_agcUser!.uid!);
-
-      // Immediately sync language preference from SharedPreferences
-      // SharedPreferences is the single source of truth for language
       await _syncLanguageFromPreferences();
+      debugPrint('✅ Pending push token applied: ${_cloudDbUser!.pushToken}');
 
       notifyListeners();
     } catch (e) {
@@ -149,7 +145,6 @@ class UserProvider extends ChangeNotifier {
     notifyListeners();
 
     await _loadCloudDbUser();
-
     _isLoading = false;
     notifyListeners();
   }
@@ -211,5 +206,17 @@ class UserProvider extends ChangeNotifier {
   void dispose() {
     _userRepository.closeZone();
     super.dispose();
+  }
+
+  Future<void> updateUserPushToken(String token) async {
+    try {
+      _cloudDbUser?.pushToken = token;
+      await updateCloudDbUser(_cloudDbUser!);
+      debugPrint('✅ Local state updated: ${_cloudDbUser!.pushToken}');
+      debugPrint('✅ Push token updated: ${_cloudDbUser!.pushToken}');
+      notifyListeners();
+    } catch (e) {
+      debugPrint('❌ Error updating push token: $e');
+    }
   }
 }
