@@ -334,9 +334,9 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
   Color _getStatusColor(String status) {
     switch (status) {
       case 'active':
-        return Colors.orange;
+        return Colors.red;
       case 'endedByBtn':
-        return Colors.yellow[700]!;
+        return Colors.green;
       case 'resolved':
         return Colors.green;
       case 'fPositive':
