@@ -14,7 +14,7 @@ import java.util.Date;
 /**
  * Definition of ObjectType Users.
  *
- * @since 2025-10-25
+ * @since 2025-10-27
  */
 @PrimaryKeys({"uid"})
 @Indexes({"uid:uid", "postcode:postcode"})
@@ -42,6 +42,8 @@ public final class Users extends CloudDBZoneObject {
     private Double longitude;
 
     private String email;
+
+    private String profileURL;
 
     public Users() {
         super(Users.class);
@@ -141,6 +143,14 @@ public final class Users extends CloudDBZoneObject {
 
     public String getEmail() {
         return email;
+    }
+
+    public void setProfileURL(String profileURL) {
+        this.profileURL = profileURL;
+    }
+
+    public String getProfileURL() {
+        return profileURL;
     }
 
 }

@@ -1014,9 +1014,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             }
           },
         );
-      case 4:
-        // TODO: Remove this page after testing
-        return PushNotificationDemo();
       default:
         return _buildHomePage();
     }

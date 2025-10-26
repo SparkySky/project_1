@@ -15,11 +15,11 @@ import java.util.List;
 /**
  * Definition of ObjectType Helper.
  *
- * @since 2025-10-24
+ * @since 2025-10-27
  */
 public final class ObjectTypeInfoHelper {
     private static final int FORMAT_VERSION = 2;
-    private static final int OBJECT_TYPE_VERSION = 36;
+    private static final int OBJECT_TYPE_VERSION = 47;
 
     public static ObjectTypeInfo getObjectTypeInfo() {
         ObjectTypeInfo objectTypeInfo = new ObjectTypeInfo();

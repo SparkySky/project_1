@@ -156,6 +156,7 @@ class AuthService {
         result.user!,
         username: authAccount.displayName,
         email: authAccount.email,
+        profileURL: authAccount.avatarUri,
       );
 
       if (context != null && context.mounted) {
@@ -324,6 +325,7 @@ class AuthService {
     String? district,
     String? postcode,
     String? state,
+    String? profileURL,
   }) async {
     try {
       debugPrint('[CloudDB] Creating/updating user: ${agcUser.uid}');
@@ -396,6 +398,7 @@ class AuthService {
           allowEmergencyAlert: existingUser.allowEmergencyAlert,
           locUpdateTime: DateTime.now(),
           detectionLanguage: existingUser.detectionLanguage,
+          profileURL: profileURL ?? existingUser.profileURL,
         );
 
         await _userRepository.upsertUser(updatedUser);
@@ -422,6 +425,7 @@ class AuthService {
           longitude: longitude,
           allowDiscoverable: true,
           allowEmergencyAlert: true,
+          profileURL: profileURL,
         );
 
         await _userRepository.upsertUser(newUser);
