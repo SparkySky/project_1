@@ -1,3 +1,5 @@
+import '../bg_services/firebase_service.dart';
+
 import '../models/users.dart';
 import '../bg_services/clouddb_service.dart';
 import 'package:agconnect_clouddb/agconnect_clouddb.dart';
@@ -5,6 +7,7 @@ import 'package:agconnect_clouddb/agconnect_clouddb.dart';
 class UserRepository {
   final _dbService = CloudDbService("dev");
   static const String _objectTypeName = 'Users';
+  final firebase = FirebaseService();
 
   /// Get all users
   Future<List<Users>> getAllUsers() async {

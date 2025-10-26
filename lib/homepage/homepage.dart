@@ -3,7 +3,6 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:geocoding/geocoding.dart';
 import 'dart:async';
 import 'dart:math' show cos, sqrt, asin;
-import '../demo/push_notification_demo.dart';
 import 'map_widget.dart';
 import '../app_theme.dart';
 import 'chatbot_widget.dart';
@@ -11,7 +10,6 @@ import '../community/community_page.dart';
 import '../lodge/lodge_incident_page.dart';
 import '../lodge/incident_history_page.dart';
 import '../profile/profile_page.dart';
-import '../user_management.dart';
 import 'package:provider/provider.dart';
 import '../providers/safety_service_provider.dart';
 import '../tutorial/homepage_tutorial.dart';
@@ -498,9 +496,6 @@ class _HomePageState extends State<HomePage> {
         return LodgeIncidentPage(incidentTypeNotifier: _incidentTypeNotifier);
       case 3:
         return ProfilePage();
-      case 4:
-        // TODO: Remove this page after testing
-        return PushNotificationDemo();
       default:
         return _buildHomePage();
     }
@@ -566,7 +561,6 @@ class _HomePageState extends State<HomePage> {
                 _buildNavItem(1, Icons.group, 'Community', appBarColor),
                 _buildNavItem(2, Icons.add_box, 'Lodge', appBarColor),
                 _buildNavItem(3, Icons.person, 'Profile', appBarColor),
-                // _buildNavItem(4, Icons.person, 'Debug', appBarColor),
               ],
             ),
           ),

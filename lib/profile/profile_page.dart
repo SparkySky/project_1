@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:local_auth/local_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/users.dart';
+import '../bg_services/firebase_service.dart';
 import '../repository/incident_repository.dart';
 import '../repository/media_repository.dart';
 import '../../signup_login/auth_page.dart';
@@ -58,6 +59,7 @@ class _ProfilePageState extends State<ProfilePage> {
   File? _profileImage; // Session-only, not saved
   final ImagePicker _picker = ImagePicker();
   final LocalAuthentication _localAuth = LocalAuthentication();
+  String? _pushToken;
 
   // Secure storage with AES-256-GCM encryption and hardware-backed keys
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage(
@@ -74,6 +76,22 @@ class _ProfilePageState extends State<ProfilePage> {
     _loadLocalPreferences();
     _loadDeveloperSettings();
     _debugState.addListener(_onDebugStateChanged);
+    _loadPushToken();
+  }
+
+  Future<void> _loadPushToken() async {
+    try {
+      final uid = Provider.of<UserProvider>(context, listen: false).uid;
+      if (uid != null) {
+        final firebase = FirebaseService();
+        final userData = await firebase.getData('users/$uid');
+        setState(() {
+          _pushToken = userData?['pushToken'] as String?;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading push token: $e');
+    }
   }
 
   /// Load developer settings (API key status)
@@ -1314,6 +1332,11 @@ class _ProfilePageState extends State<ProfilePage> {
                     icon: Icons.fingerprint,
                     title: 'User ID',
                     value: _agcUser!.uid!,
+                  ),
+                  _buildInfoCard(
+                    icon: Icons.fingerprint,
+                    title: 'Push Token',
+                    value: _pushToken ?? 'Not set',
                   ),
                   _buildInfoCard(
                     icon: Icons.login,

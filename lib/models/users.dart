@@ -13,6 +13,7 @@ class Users {
   String? email;
   String?
   detectionLanguage; // 'en' for English, 'zh' for Chinese (Traditional), 'ms' for Malay
+  String? pushToken;
 
   Users({
     this.uid,
@@ -28,6 +29,7 @@ class Users {
     this.allowDiscoverable,
     this.allowEmergencyAlert,
     this.detectionLanguage,
+    this.pushToken,
   });
 
   factory Users.fromMap(Map<String, dynamic> map) {
@@ -40,13 +42,14 @@ class Users {
       username: map['username'] as String?,
       phoneNo: map['phoneNo'] as String?,
       latitude: map['latitude'] as double?,
-      longitude: map['longtitutde'] as double?,
+      longitude: map['longitude'] as double?,
       locUpdateTime: map['locUpdateTime'] != null
           ? DateTime.fromMillisecondsSinceEpoch(map['locUpdateTime'])
           : null,
       allowDiscoverable: map['allowDiscoverable'] as bool?,
       allowEmergencyAlert: map['allowEmergencyAlert'] as bool?,
       detectionLanguage: map['detectionLanguage'] ?? 'en', // Default to English
+      pushToken: map['pushToken'] as String?,
     );
   }
 
@@ -66,6 +69,7 @@ class Users {
       'allowDiscoverable': allowDiscoverable,
       'allowEmergencyAlert': allowEmergencyAlert,
       'detectionLanguage': detectionLanguage ?? 'en',
+      'pushToken': pushToken,
     };
   }
 }
