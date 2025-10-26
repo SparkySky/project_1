@@ -32,7 +32,7 @@ class _ProfileTutorialState extends State<ProfileTutorial>
 
     return [
       TutorialStep(
-        title: "Welcome to Your Profile!",
+        title: "This is Your Profile Page",
         description:
             "Let's explore your profile settings and learn how to customize your account.",
         highlightArea: null,

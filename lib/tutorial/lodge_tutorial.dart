@@ -49,7 +49,7 @@ class _LodgeTutorialState extends State<LodgeTutorial>
         scrollToPosition: 50, // Scroll down a bit to show the full area
       ),
       TutorialStep(
-        title: "Incident Type Selection",
+        title: "Choose Incident Type",
         description:
             "Choose between General for routine incidents or Threat for emergency situations.",
         highlightArea: HighlightArea(
@@ -60,7 +60,7 @@ class _LodgeTutorialState extends State<LodgeTutorial>
         scrollToPosition: 290,
       ),
       TutorialStep(
-        title: "Description Field",
+        title: "Fill In Description",
         description:
             "Write a detailed description of the incident. Be as specific as possible to help others understand what happened.",
         highlightArea: HighlightArea(
@@ -71,7 +71,7 @@ class _LodgeTutorialState extends State<LodgeTutorial>
         scrollToPosition: 320,
       ),
       TutorialStep(
-        title: "AI Title Generator",
+        title: "Generate Incident Title",
         description:
             "Enter a description first, then click the sparkle button to automatically generate a concise title using AI.",
         highlightArea: HighlightArea(
@@ -82,7 +82,7 @@ class _LodgeTutorialState extends State<LodgeTutorial>
         scrollToPosition: 450,
       ),
       TutorialStep(
-        title: "Media Attachments",
+        title: "Attach Media Files",
         description:
             "Add photos, videos, or audio recordings to support your incident report.",
         highlightArea: HighlightArea(
@@ -93,7 +93,7 @@ class _LodgeTutorialState extends State<LodgeTutorial>
         scrollToPosition: 750,
       ),
       TutorialStep(
-        title: "Submit Button",
+        title: "Submit",
         description:
             "Once you've filled in all the details, tap the Submit button to lodge your incident. It will appear on the nearby incidents list on the Homepage.",
         highlightArea: HighlightArea(
@@ -102,6 +102,22 @@ class _LodgeTutorialState extends State<LodgeTutorial>
         ),
         position: TutorialPosition.center,
         scrollToPosition: 850,
+      ),
+      // Auto-lodge explanation
+      TutorialStep(
+        title: "AI Auto-Lodge",
+        description:
+            "If our AI detects emergency sounds like screams or breaking glass, or sudden motion like phone collision, we will automatically lodge an incident.\n\n"
+            "Here's what happens:",
+        highlightArea: null,
+        position: TutorialPosition.center,
+        scrollToPosition: 0,
+        screenshots: [
+          'assets/images/AI_lodge1.jpg',
+          'assets/images/AI_lodge2.jpg',
+          'assets/images/AI_lodge3.jpg',
+          'assets/images/AI_lodge4.jpg',
+        ],
       ),
       // Guide to Profile page
       TutorialStep(
@@ -299,10 +315,80 @@ class _LodgeTutorialState extends State<LodgeTutorial>
     );
   }
 
+  // Helper method to build individual screenshot
+  Widget _buildScreenshot(
+    String imagePath,
+    int stepNumber,
+    String description,
+  ) {
+    return Column(
+      children: [
+        Container(
+          width: 160,
+          height: 280,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey[300]!, width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.asset(imagePath, fit: BoxFit.cover),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.orange.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.orange.withOpacity(0.3)),
+          ),
+          child: Text(
+            'Step $stepNumber',
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.orange[800],
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        SizedBox(
+          width: 160,
+          child: Text(
+            description,
+            style: TextStyle(
+              fontSize: 10,
+              color: Colors.grey[700],
+              height: 1.3,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildTutorialCard(TutorialStep step) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final screenWidth = MediaQuery.of(context).size.width;
+
     Widget card = Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.all(16),
+      constraints: BoxConstraints(
+        maxHeight: screenHeight * 0.85, // Use 85% of screen height
+        maxWidth: screenWidth * 0.95, // Use 95% of screen width
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -317,80 +403,143 @@ class _LodgeTutorialState extends State<LodgeTutorial>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Progress indicator
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(
-              _steps.length,
-              (index) => Container(
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: index == _currentStep
-                      ? Colors.orange
-                      : Colors.grey[300],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Title
-          Text(
-            step.title,
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 12),
-
-          // Description
-          Text(
-            step.description,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[700],
-              height: 1.5,
-            ),
-            textAlign: TextAlign.center,
-          ),
-
-          // Special instruction for interactive steps
-          if (step.requireUserTap)
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.orange.withOpacity(0.3)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.touch_app, color: Colors.orange, size: 20),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Tap the highlighted button to continue',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.orange[800],
-                        fontWeight: FontWeight.w600,
+          // Scrollable content area
+          Flexible(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Progress indicator
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(
+                      _steps.length,
+                      (index) => Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: index == _currentStep
+                              ? Colors.orange
+                              : Colors.grey[300],
+                        ),
                       ),
                     ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Title
+                  Text(
+                    step.title,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Description
+                  Text(
+                    step.description,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[700],
+                      height: 1.5,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+
+                  // Screenshots (if any) - 2x2 Grid
+                  if (step.screenshots != null &&
+                      step.screenshots!.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    // Top row
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Image 1 - Top Left
+                        _buildScreenshot(
+                          step.screenshots![0],
+                          1,
+                          'AI detects potential emergency',
+                        ),
+                        const SizedBox(width: 12),
+                        // Image 2 - Top Right
+                        _buildScreenshot(
+                          step.screenshots![1],
+                          2,
+                          '15s countdown - tap False Alarm to cancel',
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    // Bottom row
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Image 3 - Bottom Left
+                        _buildScreenshot(
+                          step.screenshots![2],
+                          3,
+                          'AI lodges & submits incident report automatically',
+                        ),
+                        const SizedBox(width: 12),
+                        // Image 4 - Bottom Right
+                        _buildScreenshot(
+                          step.screenshots![3],
+                          4,
+                          'Emergency mode activated',
+                        ),
+                      ],
+                    ),
                   ],
-                ),
+
+                  // Special instruction for interactive steps
+                  if (step.requireUserTap)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: Colors.orange.withOpacity(0.3),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.touch_app,
+                              color: Colors.orange,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Tap the highlighted button to continue',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.orange[800],
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
+          ),
 
           const SizedBox(height: 20),
 
@@ -516,6 +665,7 @@ class TutorialStep {
   final double scrollToPosition;
   final bool requireUserTap;
   final InteractionType? interactionType;
+  final List<String>? screenshots;
 
   TutorialStep({
     required this.title,
@@ -525,6 +675,7 @@ class TutorialStep {
     this.scrollToPosition = 0,
     this.requireUserTap = false,
     this.interactionType,
+    this.screenshots,
   });
 }
 

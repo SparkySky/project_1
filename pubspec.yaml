@@ -17,6 +17,7 @@ dependencies:
   flutter_background_service: ^5.0.0
   flutter_local_notifications: ^17.2.1
   permission_handler: ^11.3.1
+  android_intent_plus: ^5.1.0
   sensors_plus: ^5.0.1
   # flutter_sound: ^9.2.13  # UNUSED - Commented out for faster builds
   record: ^6.1.2 # Audio recording with amplitude monitoring for dB detection
@@ -88,6 +89,10 @@ flutter:
   assets:
     - .env
     - assets/images/mysafezone_logo.png
+    - assets/images/AI_lodge1.jpg
+    - assets/images/AI_lodge2.jpg
+    - assets/images/AI_lodge3.jpg
+    - assets/images/AI_lodge4.jpg
   fonts:
   - family: Goldman
     fonts:

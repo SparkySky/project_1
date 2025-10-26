@@ -62,6 +62,19 @@ class _HomePageTutorialState extends State<HomePageTutorial>
         position: TutorialPosition.center,
       ),
       TutorialStep(
+        title: "Important!!!\nPermissions Required",
+        description:
+            "To ensure MYSafeZone works properly, please grant the following permissions:\n\n"
+            "📍 Location (Always): To get your current location to notify others if you face an emergency, and to show you nearby incidents.\n\n"
+            "🎤 Microphone (Always): To detect and analyze sounds around you for identifying potential threats.\n\n"
+            "🔔 Notifications: To receive instant alerts about nearby incidents.\n\n"
+            "⚡ Disable Battery Saving (Always): Battery optimization can stop background monitoring. Please disable it for MYSafeZone to ensure reliable 24/7 protection.\n\n"
+            "Your privacy is our priority - all your data is kept secure and confidential.",
+        highlightArea: null,
+        position: TutorialPosition.center,
+        isPermissionDialog: true,
+      ),
+      TutorialStep(
         title: "This is MYSafeZone Homepage",
         description:
             "Here is the main hub for monitoring safety in your area. You can view the live map, nearby incidents, and activate / deactivate the safety trigger.",
@@ -81,7 +94,7 @@ class _HomePageTutorialState extends State<HomePageTutorial>
       TutorialStep(
         title: "Safety Trigger",
         description:
-            "Click to ACTIVATE to actively monitor sounds around you. Our app uses AI to detect potential threats like screams or breaking glass and sends alerts to people nearby.",
+            "Click to ACTIVATE to actively monitor sounds and motions around you. Our app uses AI to detect potential threats like screams, breaking glass or sudden phone collisions, and sends alerts to people nearby.",
         highlightArea: HighlightArea(
           top: appBarHeight + statusBarHeight + mapHeight + dragHandleHeight,
           height: safetyTriggerHeight,
@@ -91,7 +104,7 @@ class _HomePageTutorialState extends State<HomePageTutorial>
       TutorialStep(
         title: "Nearby Incidents List",
         description:
-            "Scroll through recent incidents reported in your postcode area.",
+            "Scroll through recent incidents reported in your postcode area. You can click on any incident to view more details.",
         highlightArea: HighlightArea(
           top:
               appBarHeight +
@@ -441,7 +454,9 @@ class _HomePageTutorialState extends State<HomePageTutorial>
               color: Colors.grey[700],
               height: 1.5,
             ),
-            textAlign: TextAlign.center,
+            textAlign: step.isPermissionDialog
+                ? TextAlign.left
+                : TextAlign.center,
           ),
 
           // Special instruction for interactive steps
@@ -482,15 +497,17 @@ class _HomePageTutorialState extends State<HomePageTutorial>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Skip button
-              TextButton(
-                onPressed: _skipTutorial,
-                child: Text(
-                  'Skip',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 14),
-                ),
-              ),
-
+              // Skip button (hide on welcome step and permission dialog)
+              if (_currentStep > 0 && !step.isPermissionDialog)
+                TextButton(
+                  onPressed: _skipTutorial,
+                  child: Text(
+                    'Skip',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                  ),
+                )
+              else
+                const SizedBox(width: 70), // Placeholder for alignment
               // Back button (hide for interactive steps)
               if (_currentStep > 0 && !step.requireUserTap)
                 OutlinedButton(
@@ -603,6 +620,7 @@ class TutorialStep {
   final bool requireUserTap;
   final InteractionType? interactionType;
   final bool showAfterDialog;
+  final bool isPermissionDialog;
 
   TutorialStep({
     required this.title,
@@ -612,6 +630,7 @@ class TutorialStep {
     this.requireUserTap = false,
     this.interactionType,
     this.showAfterDialog = false,
+    this.isPermissionDialog = false,
   });
 }
 
