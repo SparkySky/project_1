@@ -62,7 +62,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
 
   bool _isLoading = false;
   String? _incidentSummary;
-  List<Map<String, String>> _chatHistory = []; // For Gemini context
+  final List<Map<String, String>> _chatHistory = []; // For Gemini context
 
   List<ChatMessage> messages = [];
 
@@ -228,7 +228,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
             desc = desc.split('\n---\n')[0]; // Get title only
           }
           if (desc.length > 60) desc = '${desc.substring(0, 60)}...';
-          summary += "• ${desc}\n";
+          summary += "• $desc\n";
         }
       }
 

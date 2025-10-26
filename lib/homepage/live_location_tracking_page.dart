@@ -14,12 +14,12 @@ class LiveLocationTrackingPage extends StatefulWidget {
   final double initialLng;
 
   const LiveLocationTrackingPage({
-    Key? key,
+    super.key,
     required this.uid,
     required this.incidentId,
     required this.initialLat,
     required this.initialLng,
-  }) : super(key: key);
+  });
 
   @override
   State<LiveLocationTrackingPage> createState() =>

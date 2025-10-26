@@ -371,6 +371,7 @@ class RapidLocationService extends ChangeNotifier {
     }
   }
 
+  @override
   void dispose() {
     _locationTimer?.cancel();
     _videoTimer?.cancel();

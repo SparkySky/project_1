@@ -4055,10 +4055,12 @@ class _ProfilePageState extends State<ProfilePage> {
                 await _saveCustomKeywords(categoryKey, keywords);
 
                 // Close both dialogs
-                if (mounted)
+                if (mounted) {
                   Navigator.of(context).pop(); // Close add keyword dialog
-                if (mounted)
+                }
+                if (mounted) {
                   Navigator.of(context).pop(); // Close all keywords dialog
+                }
 
                 // Reopen the all keywords dialog with the new keyword highlighted
                 if (mounted) {

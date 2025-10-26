@@ -391,7 +391,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage>
 
         // Ensure it's under 45 characters
         if (generatedTitle.length > 45) {
-          generatedTitle = generatedTitle.substring(0, 42) + '...';
+          generatedTitle = '${generatedTitle.substring(0, 42)}...';
         }
 
         // Set to controller
@@ -690,7 +690,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage>
             // Get file extension
             var fileExtension = file.path.split('.').last.toLowerCase();
 
-            print('Uploading media ${order}/${_mediaFiles.length}...');
+            print('Uploading media $order/${_mediaFiles.length}...');
 
             // Read file and convert to base64
             final bytes = await File(file.path).readAsBytes();
@@ -727,7 +727,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage>
 
             if (response.statusCode != 200) {
               throw Exception(
-                'Failed to upload media ${order} to AWS S3: ${response.body}',
+                'Failed to upload media $order to AWS S3: ${response.body}',
               );
             }
 
@@ -737,11 +737,11 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage>
 
             if (mediaURL == null || mediaURL.isEmpty) {
               throw Exception(
-                'Failed to get media URL from AWS S3 for file ${order}',
+                'Failed to get media URL from AWS S3 for file $order',
               );
             }
 
-            print('✅ Media ${order} uploaded to AWS S3');
+            print('✅ Media $order uploaded to AWS S3');
             print('✅ Media URL: $mediaURL');
 
             // Save media reference to CloudDB with the AWS S3 URL
@@ -759,11 +759,11 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage>
 
             if (!success) {
               throw Exception(
-                'Failed to save media reference ${order} to CloudDB',
+                'Failed to save media reference $order to CloudDB',
               );
             }
 
-            print('✅ Media reference ${order} saved to CloudDB');
+            print('✅ Media reference $order saved to CloudDB');
           }
 
           print(

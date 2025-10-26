@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 
 class CloudDbService {
   static AGConnectCloudDB? _cloudDB;
-  static bool _isInitialized = false;
+  static final bool _isInitialized = false;
   AGConnectCloudDBZone? _zone;
   final String zoneName;
 
@@ -94,7 +94,7 @@ class CloudDbService {
       for (var obj in snapshot.snapshotObjects) {
         try {
           results.add(fromMap(obj));
-                } catch (e) {
+        } catch (e) {
           print('Error converting object: $e');
         }
       }

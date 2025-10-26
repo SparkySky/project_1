@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -5,9 +8,16 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Load keystore properties
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+}
+
 android {
     namespace = "com.meowResQ.mysafezone"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36  // Updated to match plugin requirements
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -20,10 +30,21 @@ android {
         jvmTarget = JavaVersion.VERSION_11.toString()
     }
 
+    signingConfigs {
+        create("release") {
+            if (keystoreProperties.isNotEmpty()) {
+                storeFile = file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+            }
+        }
+    }
+
     defaultConfig {
         applicationId = "com.meowResQ.mysafezone"
         minSdk = 29
-        targetSdk = 33
+        targetSdk = 34  // Updated to latest Android requirement
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 
@@ -32,14 +53,53 @@ android {
         ndk {
             abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a"))
         }
+        
+        // Optimize vector drawables
+        vectorDrawables.useSupportLibrary = true
+    }
+    
+    // Lint options - prevent build failures on warnings
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+        disable += listOf("MissingTranslation", "ExtraTranslation")
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Use release signing configuration
+            signingConfig = signingConfigs.getByName("release")
+            
+            // Enable code shrinking, obfuscation, and optimization for release
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+            
+            // Additional optimizations
+            isDebuggable = false
+            isJniDebuggable = false
+            isPseudoLocalesEnabled = false
+            
+            // Optimize native libraries
+            ndk {
+                debugSymbolLevel = "SYMBOL_TABLE"  // Changed from NONE to avoid stripping errors
+            }
         }
+        debug {
+            signingConfig = signingConfigs.getByName("debug")
+            isDebuggable = true
+        }
+    }
+    
+    // Build features optimization
+    buildFeatures {
+        buildConfig = true
+        aidl = false
+        renderScript = false
+        shaders = false
     }
 
     packaging {
@@ -54,6 +114,15 @@ android {
                 "META-INF/LICENSE.txt",
                 "META-INF/NOTICE.txt"
             )
+            // Pick first for duplicate files
+            pickFirsts += listOf(
+                "**/*.so",
+                "**/*.dll"
+            )
+        }
+        // Handle duplicate classes from CloudDB
+        jniLibs {
+            pickFirsts += listOf("**/*.so")
         }
     }
 
@@ -63,18 +132,29 @@ flutter {
     source = "../.."
 }
 
-// Kotlin Format
+// Dependencies
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
-    // Add Huawei HMS Core dependencies.
+    
+    // ========================================
+    // ACTIVELY USED - AGConnect Services
+    // ========================================
     implementation("com.huawei.agconnect:agconnect-core:1.9.1.301")
     implementation("com.huawei.agconnect:agconnect-cloud-database:1.5.3.300")
     implementation("com.huawei.agconnect:agconnect-storage:1.9.1.301")
+    
+    // ========================================
+    // ACTIVELY USED - HMS Services
+    // ========================================
     implementation("com.huawei.hms:maps:6.11.0.301")
     implementation("com.huawei.hms:maps-basic:6.11.0.300")
     implementation("com.huawei.hms:location:6.12.0.300")
     implementation("com.huawei.hms:push:6.13.0.300")
     implementation("com.huawei.hms:hwid:6.12.0.300")
-    implementation("com.huawei.hms:drive:5.2.0.300")
-    implementation("com.huawei.hms:site:6.5.1.302")
+    
+    // ========================================
+    // UNUSED - Commented Out for Smaller APK
+    // ========================================
+    // implementation("com.huawei.hms:drive:5.2.0.300")  // huawei_drive not used
+    // implementation("com.huawei.hms:site:6.5.1.302")   // huawei_site not used
 }

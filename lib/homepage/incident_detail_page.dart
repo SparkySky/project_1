@@ -14,8 +14,7 @@ import 'package:project_1/homepage/live_location_tracking_page.dart';
 class IncidentDetailPage extends StatefulWidget {
   final Map<String, dynamic> incident;
 
-  const IncidentDetailPage({Key? key, required this.incident})
-    : super(key: key);
+  const IncidentDetailPage({super.key, required this.incident});
 
   @override
   State<IncidentDetailPage> createState() => _IncidentDetailPageState();
@@ -76,16 +75,14 @@ class _IncidentDetailPageState extends State<IncidentDetailPage> {
         return;
       }
 
+      // API key must be in URL query parameter, not Authorization header
       final url = Uri.parse(
-        'https://siteapi.cloud.huawei.com/mapApi/v1/siteService/reverseGeocode',
+        'https://siteapi.cloud.huawei.com/mapApi/v1/siteService/reverseGeocode?key=$apiKey',
       );
 
       final response = await http.post(
         url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $apiKey',
-        },
+        headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'location': {'lat': lat, 'lng': lon},
           'language': 'en',

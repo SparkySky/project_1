@@ -1505,7 +1505,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       mainAxisSize: MainAxisSize.max,
                       children: [
                         // Drag handle
-                        Container(
+                        SizedBox(
                           height: 30,
                           child: Center(
                             child: Container(
