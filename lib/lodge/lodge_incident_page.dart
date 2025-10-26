@@ -50,11 +50,10 @@ class LodgeIncidentPage extends StatefulWidget {
 
 class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
   final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _titleController;
-  late final TextEditingController _districtController;
-  late final TextEditingController _postcodeController;
-  late final TextEditingController _stateController;
+  late final TextEditingController _addressController;
   late final TextEditingController _descriptionController;
+  final FocusNode _addressFocusNode = FocusNode();
+  late final TextEditingController _titleController;
 
   String _incidentType = 'general';
   List<File> _mediaFiles = [];
@@ -87,9 +86,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
   @override
   void initState() {
     super.initState();
-    _districtController = TextEditingController(text: widget.district);
-    _postcodeController = TextEditingController(text: widget.postcode);
-    _stateController = TextEditingController(text: widget.state);
+    _addressController = TextEditingController();
 
     // Parse title and description if coming from Gemini (format: "Title\n---\nDescription")
     String initialTitle = '';
@@ -217,9 +214,8 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
     _scrollController.dispose();
     _titleAnimationValue.dispose();
     _titleController.dispose();
-    _districtController.dispose();
-    _postcodeController.dispose();
-    _stateController.dispose();
+    _addressController.dispose();
+    _addressFocusNode.dispose();
     _descriptionController.dispose();
     super.dispose();
   }
@@ -468,7 +464,6 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
         throw Exception('API key not found in environment variables');
       }
 
-      // Rest of your code remains the same...
       final url = Uri.parse(
         'https://siteapi.cloud.huawei.com/mapApi/v1/siteService/reverseGeocode',
       );
@@ -479,7 +474,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
         url,
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $apiKey', // Add authorization header
+          'Authorization': 'Bearer $apiKey',
         },
         body: jsonEncode({
           'location': {'lat': latitude, 'lng': longitude},
@@ -506,52 +501,33 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
           final address = site['address'];
 
           setState(() {
-            // Extract full address before postcode for district
+            // Combine everything into one address field
             String fullAddress = site['formatAddress'] ?? '';
-            if (fullAddress.isNotEmpty) {
-              // Remove postcode and everything after it
-              if (address['postalCode'] != null &&
-                  address['postalCode'].isNotEmpty) {
-                String postcode = address['postalCode'];
-                int postcodeIndex = fullAddress.indexOf(postcode);
-                if (postcodeIndex > 0) {
-                  _districtController.text = fullAddress
-                      .substring(0, postcodeIndex)
-                      .trim();
-                } else {
-                  _districtController.text = fullAddress;
-                }
-              } else {
-                _districtController.text = fullAddress;
+            
+            if (fullAddress.isEmpty) {
+              // Fallback: build address from components
+              List<String> addressParts = [];
+              
+              if (address['subLocality'] != null && address['subLocality'].isNotEmpty) {
+                addressParts.add(address['subLocality']);
               }
-            } else {
-              // Fallback to locality if formatAddress is not available
-              if (address['locality'] != null &&
-                  address['locality'].isNotEmpty) {
-                _districtController.text = address['locality'];
-              } else if (address['subLocality'] != null &&
-                  address['subLocality'].isNotEmpty) {
-                _districtController.text = address['subLocality'];
-              } else if (address['county'] != null &&
-                  address['county'].isNotEmpty) {
-                _districtController.text = address['county'];
+              if (address['locality'] != null && address['locality'].isNotEmpty) {
+                addressParts.add(address['locality']);
               }
+              if (address['postalCode'] != null && address['postalCode'].isNotEmpty) {
+                addressParts.add(address['postalCode']);
+              }
+              if (address['adminArea'] != null && address['adminArea'].isNotEmpty) {
+                addressParts.add(address['adminArea']);
+              }
+              if (address['country'] != null && address['country'].isNotEmpty) {
+                addressParts.add(address['country']);
+              }
+              
+              fullAddress = addressParts.join(', ');
             }
-
-            // Extract postcode
-            if (address['postalCode'] != null &&
-                address['postalCode'].isNotEmpty) {
-              _postcodeController.text = address['postalCode'];
-            }
-
-            // Extract state
-            if (address['adminArea'] != null &&
-                address['adminArea'].isNotEmpty) {
-              _stateController.text = address['adminArea'];
-            } else if (address['subAdminArea'] != null &&
-                address['subAdminArea'].isNotEmpty) {
-              _stateController.text = address['subAdminArea'];
-            }
+            
+            _addressController.text = fullAddress;
           });
 
           if (mounted) {
@@ -819,9 +795,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
           setState(() {
             _incidentType = 'general';
             _mediaFiles.clear();
-            _districtController.clear();
-            _postcodeController.clear();
-            _stateController.clear();
+            _addressController.clear();
             _descriptionController.clear();
             _titleController.clear();
             _selectedPosition = null;
@@ -897,7 +871,6 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
     );
   }
 
-  // Helper method to build just the map widget
   Widget _buildMapWidget() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1010,38 +983,50 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Tap on map to select location or use auto-detected location',
+          'Use auto-detected location or tap on map to select location',
           style: TextStyle(
             color: Colors.grey[600],
-            fontSize: 12,
+            fontSize: 10,
             fontStyle: FontStyle.italic,
           ),
         ),
-        const SizedBox(height: 16),
-        // Location details (read-only, auto-filled)
-        if (_districtController.text.isNotEmpty ||
-            _postcodeController.text.isNotEmpty ||
-            _stateController.text.isNotEmpty)
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.grey[50],
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey[200]!),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.info_outline, size: 16, color: Colors.grey[600]),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '${_districtController.text}${_postcodeController.text.isNotEmpty ? ', ' + _postcodeController.text : ''}${_stateController.text.isNotEmpty ? ', ' + _stateController.text : ''}',
-                    style: TextStyle(fontSize: 13, color: Colors.grey[700]),
-                  ),
+        const SizedBox(height: 20),
+        Focus(
+          onFocusChange: (hasFocus) {
+            setState(() {}); // Rebuild to update label color
+          },
+          child: TextFormField(
+            controller: _addressController,
+            focusNode: _addressFocusNode,
+            decoration: InputDecoration(
+              labelText: 'Address',
+              labelStyle: TextStyle(
+                color: _addressFocusNode.hasFocus
+                    ? (_incidentType == 'threat' ? Colors.red[700] : AppTheme.primaryOrange)
+                    : Colors.grey[600],
+              ),
+              hintText: 'Full address will auto-fill or enter manually',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey[300]!),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: _incidentType == 'threat' ? Colors.red : AppTheme.primaryOrange,
+                  width: 2,
                 ),
-              ],
+              ),
+              filled: true,
+              fillColor: Colors.white,
             ),
+            maxLines: 3,
+            cursorColor: _incidentType == 'threat' ? Colors.red : AppTheme.primaryOrange,
           ),
+        ),
       ],
     );
   }
@@ -1211,7 +1196,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                         children: [
                           // Map Section
                           _buildMapWidget(),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 24),
 
                           // Incident Type
                           _buildLabelWithIcon(Icons.category, 'Incident Type'),
@@ -1235,7 +1220,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 24),
 
                           // Description
                           _buildLabelWithIcon(Icons.description, 'Description'),
@@ -1259,8 +1244,8 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                  color: AppTheme.primaryOrange,
+                                borderSide: BorderSide(
+                                 color: _incidentType == 'threat' ? Colors.red : AppTheme.primaryOrange,
                                   width: 2,
                                 ),
                               ),
@@ -1268,7 +1253,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                               fillColor: Colors.white,
                             ),
                             maxLines: 6,
-                            cursorColor: AppTheme.primaryOrange,
+                            cursorColor: _incidentType == 'threat' ? Colors.red : AppTheme.primaryOrange,
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return 'Please enter a description';
@@ -1327,8 +1312,8 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                  color: AppTheme.primaryOrange,
+                                borderSide: BorderSide(
+                                  color: _incidentType == 'threat' ? Colors.red : AppTheme.primaryOrange,
                                   width: 2,
                                 ),
                               ),
@@ -1341,6 +1326,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                             ),
                             maxLines: 1,
                             maxLength: 45,
+                            cursorColor: _incidentType == 'threat' ? Colors.red : AppTheme.primaryOrange,
                             textCapitalization: TextCapitalization.sentences,
                             validator: (value) {
                               if (value == null || value.trim().isEmpty) {
@@ -1349,7 +1335,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                               return null;
                             },
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 12),
 
                           // Media Evidence
                           MediaOperationsWidget(
@@ -1367,12 +1353,11 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 30),
 
                     // Submit Button with DateTime inside
                     SizedBox(
                       width: double.infinity,
-                      height: 72,
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 3000),
                         curve: Curves.easeInOut,
@@ -1384,9 +1369,13 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                               borderRadius: BorderRadius.circular(16),
                             ),
                             elevation: 0,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 16,
+                              horizontal: 20,
+                            ),
                           ),
                           child: Column(
+                            mainAxisSize: MainAxisSize.min,
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               const Text(
@@ -1399,6 +1388,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage> {
                               ),
                               const SizedBox(height: 4),
                               Row(
+                                mainAxisSize: MainAxisSize.min,
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   const Icon(

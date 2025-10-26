@@ -594,105 +594,94 @@ class _MediaOperationsWidgetState extends State<MediaOperationsWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              AnimatedContainer(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 3000),
+              curve: Curves.easeInOut,
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: widget.accentColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.photo_library,
+                color: widget.accentColor,
+                size: 18,
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              'Media Evidence',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const Spacer(),
+            IconButton(
+              onPressed: _pickMedia,
+              icon: AnimatedContainer(
                 duration: const Duration(milliseconds: 3000),
                 curve: Curves.easeInOut,
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: widget.accentColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  Icons.photo_library,
                   color: widget.accentColor,
-                  size: 20,
+                  borderRadius: BorderRadius.circular(10),
                 ),
+                child: const Icon(Icons.add, color: Colors.white, size: 20),
               ),
-              const SizedBox(width: 12),
-              const Text(
-                'Media Evidence',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const Spacer(),
-              IconButton(
-                onPressed: _pickMedia,
-                icon: AnimatedContainer(
-                  duration: const Duration(milliseconds: 3000),
-                  curve: Curves.easeInOut,
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: widget.accentColor,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.add, color: Colors.white, size: 20),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          if (widget.mediaFiles.isEmpty)
-            Container(
-              padding: const EdgeInsets.all(30),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.grey[300]!,
-                  style: BorderStyle.solid,
-                  width: 2,
-                ),
-              ),
-              child: Column(
-                children: [
-                  Icon(Icons.photo_camera, size: 48, color: Colors.grey[400]),
-                  const SizedBox(height: 12),
-                  Text(
-                    'No media added yet',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 14),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Tap + to add photos, videos or audio',
-                    style: TextStyle(color: Colors.grey[500], fontSize: 12),
-                  ),
-                ],
-              ),
-            )
-          else
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-              ),
-              itemCount: widget.mediaFiles.length,
-              itemBuilder: (context, index) {
-                final file = widget.mediaFiles[index];
-                return _buildMediaThumbnail(file, index);
-              },
             ),
-        ],
-      ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        if (widget.mediaFiles.isEmpty)
+        SizedBox(
+          width: double.infinity,
+          child: Container(
+            padding: const EdgeInsets.all(30),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.grey[300]!,
+                style: BorderStyle.solid,
+                width: 2,
+              ),
+            ),
+            child: Column(
+              children: [
+                Icon(Icons.photo_camera, size: 48, color: Colors.grey[400]),
+                const SizedBox(height: 12),
+                Text(
+                  'No media added yet',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Tap + to add photos, videos or audio',
+                  style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        )
+        else
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+            ),
+            itemCount: widget.mediaFiles.length,
+            itemBuilder: (context, index) {
+              final file = widget.mediaFiles[index];
+              return _buildMediaThumbnail(file, index);
+            },
+          ),
+      ],
     );
   }
 }
