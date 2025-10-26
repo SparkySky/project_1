@@ -21,6 +21,15 @@
 # Secret files
 .env
 
+# Keystore files (CRITICAL - DO NOT COMMIT!)
+*.jks
+*.keystore
+keystore.properties
+android/keystore.properties
+android/app/keystore/
+key.properties
+android/key.properties
+
 # IDE specific
 .idea/
 .vscode/
