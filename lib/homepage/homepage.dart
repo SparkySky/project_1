@@ -497,7 +497,22 @@ class _HomePageState extends State<HomePage> {
       case 2:
         return LodgeIncidentPage(incidentTypeNotifier: _incidentTypeNotifier);
       case 3:
-        return ProfilePage();
+        return ProfilePage(
+          onNavigateToHomeWithTutorial: () async {
+            // Switch to home tab
+            setState(() {
+              _selectedIndex = 0;
+            });
+            
+            // Wait for the UI to update
+            await Future.delayed(const Duration(milliseconds: 500));
+            
+            // Show tutorial
+            if (mounted) {
+              HomePageTutorialManager.showTutorial(context);
+            }
+          },
+        );
       case 4:
         // TODO: Remove this page after testing
         return PushNotificationDemo();

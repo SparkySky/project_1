@@ -85,9 +85,9 @@ class _MediaOperationsWidgetState extends State<MediaOperationsWidget> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildFileTypeSection('Images', ['JPG', 'JPEG', 'PNG', 'GIF']),
+            _buildFileTypeSection('Image', ['JPG', 'JPEG', 'PNG', 'GIF']),
             const SizedBox(height: 12),
-            _buildFileTypeSection('Videos', ['MP4', 'MOV', 'AVI', 'MKV']),
+            _buildFileTypeSection('Video', ['MP4', 'MOV', 'AVI', 'MKV']),
             const SizedBox(height: 12),
             _buildFileTypeSection('Audio', [
               'MP3',
@@ -668,79 +668,67 @@ class _MediaOperationsWidgetState extends State<MediaOperationsWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              AnimatedContainer(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 3000),
+              curve: Curves.easeInOut,
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: widget.accentColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.photo_library,
+                color: widget.accentColor,
+                size: 18,
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              'Media Evidence',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: _showSupportedFileTypes,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.info_outline,
+                  size: 16,
+                  color: Colors.grey,
+                ),
+              ),
+            ),
+            const Spacer(),
+            IconButton(
+              onPressed: _pickMedia,
+              icon: AnimatedContainer(
                 duration: const Duration(milliseconds: 3000),
                 curve: Curves.easeInOut,
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: widget.accentColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  Icons.photo_library,
                   color: widget.accentColor,
-                  size: 20,
+                  borderRadius: BorderRadius.circular(10),
                 ),
+                child: const Icon(Icons.add, color: Colors.white, size: 20),
               ),
-              const SizedBox(width: 12),
-              const Text(
-                'Media Evidence',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              // show supported file types dialog
-              const SizedBox(width: 8),
-              GestureDetector(
-                onTap: _showSupportedFileTypes,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.info_outline,
-                    size: 16,
-                    color: Colors.grey,
-                  ),
-                ),
-              ),
-              const Spacer(),
-              IconButton(
-                onPressed: _pickMedia,
-                icon: AnimatedContainer(
-                  duration: const Duration(milliseconds: 3000),
-                  curve: Curves.easeInOut,
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: widget.accentColor,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.add, color: Colors.white, size: 20),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          if (widget.mediaFiles.isEmpty)
-            Container(
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        if (widget.mediaFiles.isEmpty)
+          SizedBox(
+            width: double.infinity,
+            child: Container(
               padding: const EdgeInsets.all(30),
               decoration: BoxDecoration(
                 color: Colors.grey[100],
@@ -766,24 +754,24 @@ class _MediaOperationsWidgetState extends State<MediaOperationsWidget> {
                   ),
                 ],
               ),
-            )
-          else
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-              ),
-              itemCount: widget.mediaFiles.length,
-              itemBuilder: (context, index) {
-                final file = widget.mediaFiles[index];
-                return _buildMediaThumbnail(file, index);
-              },
             ),
-        ],
-      ),
+          )
+        else
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+            ),
+            itemCount: widget.mediaFiles.length,
+            itemBuilder: (context, index) {
+              final file = widget.mediaFiles[index];
+              return _buildMediaThumbnail(file, index);
+            },
+          ),
+      ],
     );
   }
 }

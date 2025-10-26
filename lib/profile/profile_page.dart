@@ -8,21 +8,27 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:local_auth/local_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../app_theme.dart';
 import '../models/users.dart';
 import '../repository/incident_repository.dart';
 import '../repository/media_repository.dart';
-import '../../signup_login/auth_page.dart';
-import '../../signup_login/auth_service.dart';
-import '../../signup_login/terms_conditions_page.dart';
-import '../../signup_login/privacy_policy_page.dart';
-import '../../app_theme.dart';
+import '../signup_login/auth_page.dart';
+import '../signup_login/auth_service.dart';
+import '../signup_login/terms_conditions_page.dart';
+import '../signup_login/privacy_policy_page.dart';
+import '../tutorial/homepage_tutorial.dart';
 import '../../constants/provider_types.dart';
 import '../debug_overlay/debug_state.dart';
 import '../providers/safety_service_provider.dart';
 import '../providers/user_provider.dart';
 
 class ProfilePage extends StatefulWidget {
-  const ProfilePage({super.key});
+  final VoidCallback? onNavigateToHomeWithTutorial;
+
+  const ProfilePage({
+    super.key,
+    this.onNavigateToHomeWithTutorial
+  });
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -1520,6 +1526,26 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                       ],
                     ),
+                  ),
+
+                  const SizedBox(height: 32),
+
+                  // Tutorial Section
+                  _buildSectionHeader('Tutorial', Icons.help_outline),
+                  const SizedBox(height: 16),
+
+                  // Tutorial Replay Card
+                  _buildActionCard(
+                    icon: Icons.play_circle_outline,
+                    title: 'View Tutorial',
+                    subtitle: 'Replay the interactive walkthrough',
+                    color: Colors.blue,
+                    onTap: () async {
+                      await HomePageTutorialManager.resetTutorial();
+                      if (mounted && widget.onNavigateToHomeWithTutorial != null) {
+                        widget.onNavigateToHomeWithTutorial!();
+                      }
+                    },
                   ),
 
                   const SizedBox(height: 32),
