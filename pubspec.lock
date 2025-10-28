@@ -15,13 +15,6 @@ packages:
       relative: true
     source: path
     version: "1.9.0+300"
-  agconnect_cloudstorage:
-    dependency: "direct main"
-    description:
-      path: "plugins/agconnect_cloudstorage"
-      relative: true
-    source: path
-    version: "1.9.0+300"
   agconnect_core:
     dependency: "direct main"
     description:

@@ -86,8 +86,8 @@ dependencies:
     path: plugins/agconnect_core
   agconnect_auth:
     path: plugins/agconnect_auth
-  agconnect_cloudstorage:
-    path: plugins/agconnect_cloudstorage
+  # agconnect_cloudstorage:  # NOT USED - Media stored in AWS S3 instead
+  #   path: plugins/agconnect_cloudstorage
   agconnect_clouddb:
     path: plugins/agconnect_clouddb
 

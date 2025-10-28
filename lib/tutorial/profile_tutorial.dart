@@ -27,8 +27,6 @@ class _ProfileTutorialState extends State<ProfileTutorial>
   List<TutorialStep> get _steps {
     final appBarHeight = AppBar().preferredSize.height;
     final statusBarHeight = MediaQuery.of(context).padding.top;
-    final screenHeight = MediaQuery.of(context).size.height;
-    final screenWidth = MediaQuery.of(context).size.width;
 
     return [
       TutorialStep(
@@ -44,7 +42,7 @@ class _ProfileTutorialState extends State<ProfileTutorial>
         description:
             "Fill in your information including phone number and address. This information helps with location-based features.",
         highlightArea: HighlightArea(
-          top: appBarHeight + statusBarHeight + 300,
+          top: appBarHeight + statusBarHeight + 300 - 2, // Step 1: -2px
           height: 400,
         ),
         position: TutorialPosition.top,
@@ -55,7 +53,7 @@ class _ProfileTutorialState extends State<ProfileTutorial>
         description:
             "Select your preferred language for voice detection. This helps our AI better detect emergency sounds in your language.",
         highlightArea: HighlightArea(
-          top: appBarHeight + statusBarHeight + 170,
+          top: appBarHeight + statusBarHeight + 170 - 4, // Step 2: -4px
           height: 420,
         ),
         position: TutorialPosition.bottom,
@@ -66,7 +64,10 @@ class _ProfileTutorialState extends State<ProfileTutorial>
         description:
             "Tap 'Edit All Custom Keywords' to customize words that trigger the AI to detect emergency situations. This personalizes the safety detection for your needs.",
         highlightArea: HighlightArea(
-          top: appBarHeight + statusBarHeight + 500,
+          top:
+              appBarHeight +
+              statusBarHeight +
+              470, // Centered on Custom Keywords button
           height: 80,
         ),
         position: TutorialPosition.top,
@@ -79,7 +80,11 @@ class _ProfileTutorialState extends State<ProfileTutorial>
         description:
             "Enable 'Allow Discoverable' to let other users find you in the app, and 'Allow Emergency Alerts' to receive notifications about nearby incidents.",
         highlightArea: HighlightArea(
-          top: appBarHeight + statusBarHeight + 160,
+          top:
+              appBarHeight +
+              statusBarHeight +
+              160 -
+              28, // Step 4: adjusted up by 20
           height: 200,
         ),
         position: TutorialPosition.bottom,
@@ -90,7 +95,11 @@ class _ProfileTutorialState extends State<ProfileTutorial>
         description:
             "Need to review the tutorials? Tap here to replay the tutorials anytime.",
         highlightArea: HighlightArea(
-          top: appBarHeight + statusBarHeight + 280,
+          top:
+              appBarHeight +
+              statusBarHeight +
+              280 -
+              50, // Step 5: moved up by 30 total
           height: 180,
         ),
         position: TutorialPosition.bottom,
@@ -101,7 +110,12 @@ class _ProfileTutorialState extends State<ProfileTutorial>
         description:
             "Access Terms & Conditions and Privacy Policy. These are important for your account security.",
         highlightArea: HighlightArea(
-          top: appBarHeight + statusBarHeight + 150,
+          top:
+              appBarHeight +
+              statusBarHeight +
+              150 -
+              12 -
+              40, // Step 6: -12px - 40px offset
           height: 300,
         ),
         position: TutorialPosition.bottom,

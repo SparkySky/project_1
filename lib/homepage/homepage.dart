@@ -1,16 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:geocoding/geocoding.dart';
 import 'dart:async';
 import 'dart:math' show cos, sqrt, asin;
-import '../demo/push_notification_demo.dart';
 import 'map_widget.dart';
 import '../app_theme.dart';
 import 'chatbot_widget.dart';
 import '../lodge/lodge_incident_page.dart';
 import '../history/incident_history_page.dart';
 import '../profile/profile_page.dart';
-import '../user_management.dart';
 import 'package:provider/provider.dart';
 import '../providers/safety_service_provider.dart';
 import '../tutorial/homepage_tutorial.dart';
@@ -22,6 +19,7 @@ import '../sensors/location_centre.dart';
 import 'package:agconnect_auth/agconnect_auth.dart';
 import 'incident_detail_page.dart';
 import '../data/emergency_services.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -31,8 +29,6 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
-  bool _isServiceRunning = false;
-  final _backgroundService = FlutterBackgroundService();
   final GlobalKey _infoIconKey = GlobalKey();
   bool _isRefreshing = false;
   int _mapRebuildKey = 0; // Key to force map rebuild on resume
@@ -45,7 +41,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   );
 
   List<Map<String, dynamic>> _incidents = [];
-  List<incidents> _rawIncidents = [];
   bool _isLoadingIncidents = true;
   double _radiusFilter = 800.0; // Default 800m
   String?
@@ -64,7 +59,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Timer? _refreshTimer;
   Timer? _locationUpdateTimer;
   Timer? _debounceTimer;
-  Function(Map<String, dynamic>)? _mapFocusCallback;
   final ValueNotifier<double> _listOverlayPosition = ValueNotifier<double>(
     0.0,
   ); // Position of incident list overlay (0 = default, negative = expanded)
@@ -79,13 +73,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this); // Add lifecycle observer
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final safetyProvider = Provider.of<SafetyServiceProvider>(
-        context,
-        listen: false,
-      );
-      setState(() {
-        _isServiceRunning = safetyProvider.isEnabled;
-      });
+      setState(() {});
 
       // Load user ID and settings
       await _loadUserSettings();
@@ -134,11 +122,280 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       context,
       listen: false,
     );
+
+    // If activating, request permissions explicitly with explanations
+    if (value) {
+      final permissionsGranted = await _requestPermissionsWithExplanation();
+      if (!permissionsGranted) {
+        // Don't activate if permissions denied
+        return;
+      }
+    }
+
     await safetyProvider.toggle(value, context);
 
-    setState(() {
-      _isServiceRunning = value;
-    });
+    // If successfully activated, auto-enable discoverable mode
+    if (value && safetyProvider.isEnabled) {
+      await _enableDiscoverableMode();
+    }
+
+    setState(() {});
+  }
+
+  /// Request permissions one by one with clear explanations
+  Future<bool> _requestPermissionsWithExplanation() async {
+    // 1. Location (Precise/Accurate GPS)
+    bool locationGranted = await _requestLocationPermission();
+    if (!locationGranted) return false;
+
+    // 2. Microphone
+    bool microphoneGranted = await _requestMicrophonePermission();
+    if (!microphoneGranted) return false;
+
+    // 3. Notification
+    bool notificationGranted = await _requestNotificationPermission();
+    if (!notificationGranted) return false;
+
+    return true;
+  }
+
+  Future<bool> _requestLocationPermission() async {
+    final status = await Permission.location.status;
+    if (status.isGranted) {
+      // Check if precise location is enabled
+      final preciseStatus = await Permission.locationWhenInUse.serviceStatus;
+      if (preciseStatus.isEnabled) {
+        return true; // Already have precise location
+      }
+    }
+
+    // Show explanation dialog
+    final shouldRequest = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.location_on, color: Colors.blue),
+            SizedBox(width: 8),
+            Text('Location Permission'),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Why we need this:',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 8),
+            Text('• Detect your location during emergencies'),
+            Text('• Share your position with emergency services'),
+            Text('• Track incidents near you'),
+            SizedBox(height: 12),
+            Text(
+              'Without this permission:',
+              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+            ),
+            SizedBox(height: 4),
+            Text('✗ Cannot pinpoint your location during emergency'),
+            Text('✗ Cannot share your coordinates with responders'),
+            SizedBox(height: 12),
+            Text(
+              'Please select "Allow all the time" and "Precise location" for best protection.',
+              style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Grant Permission'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldRequest != true) return false;
+
+    // Request location permissions
+    await Permission.location.request();
+    await Permission.locationAlways.request();
+
+    final finalStatus = await Permission.location.status;
+    return finalStatus.isGranted;
+  }
+
+  Future<bool> _requestMicrophonePermission() async {
+    final status = await Permission.microphone.status;
+    if (status.isGranted) return true;
+
+    // Show explanation dialog
+    final shouldRequest = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.mic, color: Colors.red),
+            SizedBox(width: 8),
+            Expanded(child: Text('Microphone Permission')),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Why we need this:',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 8),
+            Text('• Detect emergency keywords like "help", "SOS"'),
+            Text('• Record audio evidence during triggered events'),
+            Text('• Enable voice-activated emergency response'),
+            SizedBox(height: 12),
+            Text(
+              'Without this permission:',
+              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+            ),
+            SizedBox(height: 4),
+            Text('✗ Cannot detect verbal cries for help'),
+            Text('✗ No audio evidence for incidents'),
+            Text('✗ Voice triggers will not work'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Grant Permission'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldRequest != true) return false;
+
+    final result = await Permission.microphone.request();
+    return result.isGranted;
+  }
+
+  Future<bool> _requestNotificationPermission() async {
+    final status = await Permission.notification.status;
+    if (status.isGranted) return true;
+
+    // Show explanation dialog
+    final shouldRequest = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.notifications, color: Colors.orange),
+            SizedBox(width: 8),
+            Expanded(child: Text('Notification Permission')),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Why we need this:',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 8),
+            Text('• Alert you when safety triggers are detected'),
+            Text('• Keep the app running in background'),
+            Text('• Notify you of nearby incidents'),
+            SizedBox(height: 12),
+            Text(
+              'Without this permission:',
+              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+            ),
+            SizedBox(height: 4),
+            Text('✗ No alerts for detected emergencies'),
+            Text('✗ Background monitoring may stop'),
+            Text('✗ Cannot notify you of threats'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Grant Permission'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldRequest != true) return false;
+
+    final result = await Permission.notification.request();
+    return result.isGranted;
+  }
+
+  /// Auto-enable discoverable mode after successful activation
+  Future<void> _enableDiscoverableMode() async {
+    if (_allowDiscoverable) return; // Already enabled
+
+    try {
+      if (_currentUserId != null) {
+        await _userRepository.openZone();
+        final userData = await _userRepository.getUserById(_currentUserId!);
+
+        if (userData != null) {
+          userData.allowDiscoverable = true;
+          await _userRepository.upsertUser(userData);
+
+          setState(() {
+            _allowDiscoverable = true;
+          });
+
+          debugPrint(
+            '[Homepage] ✅ Auto-enabled discoverable mode on activation',
+          );
+
+          // Show success message
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Row(
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.white),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Safety monitoring activated! You are now discoverable to others.',
+                      ),
+                    ),
+                  ],
+                ),
+                backgroundColor: Colors.green,
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          }
+        }
+
+        await _userRepository.closeZone();
+      }
+    } catch (e) {
+      debugPrint('[Homepage] Error enabling discoverable mode: $e');
+    }
   }
 
   // Load user settings from CloudDB
@@ -505,7 +762,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
       if (mounted) {
         setState(() {
-          _rawIncidents = sortedIncidents;
           _incidents = incidentMaps;
           _isLoadingIncidents = false;
 
@@ -857,9 +1113,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   void _navigateToLodge() {
-    print('[Homepage] _navigateToLodge called, setting _selectedIndex to 2');
+    print('[Homepage] _navigateToLodge called, setting _selectedIndex to 1');
     setState(() {
-      _selectedIndex = 2; // Navigate to Lodge tab (index 2)
+      _selectedIndex = 1; // Navigate to Lodge tab (index 1)
     });
   }
 
@@ -939,9 +1195,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       case 0:
         return _buildHomePage();
       case 1:
-        return const IncidentHistoryPage();
-      case 2:
         return LodgeIncidentPage(incidentTypeNotifier: _incidentTypeNotifier);
+      case 2:
+        return const IncidentHistoryPage();
       case 3:
         return ProfilePage(
           onNavigateToHomeWithTutorial: () async {
@@ -1030,8 +1286,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildNavItem(0, Icons.home, 'Home', appBarColor),
-                _buildNavItem(1, Icons.history, 'History', appBarColor),
-                _buildNavItem(2, Icons.add_box, 'Lodge', appBarColor),
+                _buildNavItem(1, Icons.add_box, 'Lodge', appBarColor),
+                _buildNavItem(2, Icons.history, 'History', appBarColor),
                 _buildNavItem(3, Icons.person, 'Profile', appBarColor),
                 // _buildNavItem(4, Icons.person, 'Debug', appBarColor),
               ],
@@ -1141,7 +1397,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           setState(() {
             _selectedIndex = index;
             // Reset to yellow/general when leaving Lodge page
-            if (index != 2) {
+            if (index != 1) {
               _incidentTypeNotifier.value = 'general';
             }
           });
@@ -1378,7 +1634,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   userLongitude: _userLongitude,
                   radiusMeters: _radiusFilter,
                   onMapReady: (focusCallback) {
-                    _mapFocusCallback = focusCallback;
+                    // Callback intentionally unused - kept for future implementation
                   },
                   onMarkerTap: (incident) {
                     _onIncidentTap(incident, fromMarker: true);

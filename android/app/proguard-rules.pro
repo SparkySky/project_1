@@ -92,3 +92,22 @@
 -dontwarn okio.**
 -dontwarn javax.annotation.**
 
+# ========================================
+# APK Size Optimization Rules
+# ========================================
+
+# Remove HMS/AGConnect BuildConfig debug flags
+-assumenosideeffects class **.BuildConfig {
+    public static boolean DEBUG;
+}
+
+# Aggressive optimization settings
+-optimizations !code/simplification/arithmetic,!code/simplification/cast,!field/*,!class/merging/*
+-optimizationpasses 5
+-allowaccessmodification
+-repackageclasses ''
+
+# Remove unused attributes to reduce size
+-dontwarn **
+-ignorewarnings
+

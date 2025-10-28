@@ -41,7 +41,7 @@ class _LodgeTutorialState extends State<LodgeTutorial>
         description:
             "Location is filled automatically using your current location. You can tap anywhere on the map to select a different incident location.",
         highlightArea: HighlightArea(
-          top: appBarHeight + statusBarHeight + 80, // Include label
+          top: appBarHeight + statusBarHeight + 80 - 6, // Step 1: -6px
           height:
               470, // Map (250) + hint text (~30) + address field (3 lines ~120) + spacing
         ),
@@ -53,7 +53,7 @@ class _LodgeTutorialState extends State<LodgeTutorial>
         description:
             "Choose between General for routine incidents or Threat for emergency situations.",
         highlightArea: HighlightArea(
-          top: appBarHeight + statusBarHeight + 310,
+          top: appBarHeight + statusBarHeight + 310 - 12, // Step 2: -12px
           height: 170,
         ),
         position: TutorialPosition.top,
@@ -64,7 +64,7 @@ class _LodgeTutorialState extends State<LodgeTutorial>
         description:
             "Write a detailed description of the incident. Be as specific as possible to help others understand what happened.",
         highlightArea: HighlightArea(
-          top: appBarHeight + statusBarHeight + 440,
+          top: appBarHeight + statusBarHeight + 440 - 18, // Step 3: -18px
           height: 260,
         ),
         position: TutorialPosition.top,
@@ -75,7 +75,7 @@ class _LodgeTutorialState extends State<LodgeTutorial>
         description:
             "Enter a description first, then click the sparkle button to automatically generate a concise title using AI.",
         highlightArea: HighlightArea(
-          top: appBarHeight + statusBarHeight + 560,
+          top: appBarHeight + statusBarHeight + 560 - 24, // Step 4: -24px
           height: 145,
         ),
         position: TutorialPosition.center,
@@ -86,7 +86,7 @@ class _LodgeTutorialState extends State<LodgeTutorial>
         description:
             "Add photos, videos, or audio recordings to support your incident report.",
         highlightArea: HighlightArea(
-          top: appBarHeight + statusBarHeight + 400,
+          top: appBarHeight + statusBarHeight + 400 - 30, // Step 5: -30px
           height: 280,
         ),
         position: TutorialPosition.top,
@@ -97,7 +97,7 @@ class _LodgeTutorialState extends State<LodgeTutorial>
         description:
             "Once you've filled in all the details, tap the Submit button to lodge your incident. It will appear on the nearby incidents list on the Homepage.",
         highlightArea: HighlightArea(
-          top: appBarHeight + statusBarHeight + 590,
+          top: appBarHeight + statusBarHeight + 590 - 36, // Step 6: -36px
           height: 120,
         ),
         position: TutorialPosition.center,

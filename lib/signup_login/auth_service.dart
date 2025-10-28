@@ -75,7 +75,13 @@ class AuthService {
 
       // Update user in CloudDB if needed
       if (result.user != null) {
-        await _createOrUpdateUserInCloudDB(result.user!, email: email);
+        await _createOrUpdateUserInCloudDB(
+          result.user!,
+          email: email,
+          profileURL: result
+              .user!
+              .photoUrl, // ✅ Fetch profile picture from AGCUser (includes Huawei ID photo if linked)
+        );
 
         if (context != null && context.mounted) {
           await context.read<UserProvider>().setUser(result.user!);
@@ -287,6 +293,7 @@ class AuthService {
           result.user!,
           username: authAccount.displayName,
           email: authAccount.email,
+          profileURL: authAccount.avatarUri, // ✅ Save Huawei ID profile picture
         );
 
         if (context != null && context.mounted) {
@@ -423,8 +430,8 @@ class AuthService {
           phoneNo: phoneNo,
           latitude: latitude,
           longitude: longitude,
-          allowDiscoverable: true,
-          allowEmergencyAlert: true,
+          allowDiscoverable: false, // Off by default - user must enable
+          allowEmergencyAlert: false, // Off by default - requires discoverable
           profileURL: profileURL,
         );
 

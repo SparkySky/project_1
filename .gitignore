@@ -8,8 +8,8 @@
 .buildlog/
 .history
 .svn/
-.apk
-.apks
+*.apk
+*.apks
 linux/
 ios/
 windows/
@@ -17,9 +17,13 @@ macos/
 web/
 extracted_apk/
 app-universal/
-.jsk
-.pem
-.md
+*.jsk
+*.pem
+*.md
+*.zip
+bundletool-all-1.19.2.jar
+bundletool.jar
+
 
 # Flutter/Dart
 .dart_tool/

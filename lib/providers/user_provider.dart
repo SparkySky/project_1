@@ -30,36 +30,74 @@ class UserProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      debugPrint('[UserProvider] 🔄 Initializing user...');
       _agcUser = await _authService.currentUser;
 
       if (_agcUser != null) {
+        debugPrint('[UserProvider] ✅ AGC User found: ${_agcUser!.uid}');
+        debugPrint('[UserProvider]    Email: ${_agcUser!.email}');
+        debugPrint('[UserProvider]    Display Name: ${_agcUser!.displayName}');
+        debugPrint('[UserProvider]    Photo URL: ${_agcUser!.photoUrl}');
+        debugPrint(
+          '[UserProvider]    Provider Info: ${_agcUser!.providerInfo}',
+        );
+
         await _loadCloudDbUser();
+      } else {
+        debugPrint('[UserProvider] ⚠️  No AGC User found (not logged in)');
       }
     } catch (e) {
-      debugPrint('Error initializing user: $e');
+      debugPrint('[UserProvider] ❌ Error initializing user: $e');
+      debugPrint('[UserProvider]    Stack trace: ${StackTrace.current}');
     } finally {
       _isLoading = false;
       notifyListeners();
+      debugPrint('[UserProvider] ✅ User initialization complete');
+      debugPrint('[UserProvider]    AGC User: ${_agcUser?.uid}');
+      debugPrint('[UserProvider]    CloudDB User: ${_cloudDbUser?.uid}');
     }
   }
 
   // Load CloudDB user data
   Future<void> _loadCloudDbUser() async {
-    if (_agcUser == null) return;
+    if (_agcUser == null) {
+      debugPrint(
+        '[UserProvider] ⚠️  Cannot load CloudDB user: AGC User is null',
+      );
+      return;
+    }
 
     try {
+      debugPrint('[UserProvider] 🔄 Loading CloudDB user: ${_agcUser!.uid}');
       await _userRepository.openZone();
-      debugPrint('Loading CloudDB user: ${_agcUser!.uid}');
-      // Snackbar.success("Logged in success!");
+
       _cloudDbUser = await _userRepository.getUserById(_agcUser!.uid!);
 
-      // Immediately sync language preference from SharedPreferences
-      // SharedPreferences is the single source of truth for language
-      await _syncLanguageFromPreferences();
+      if (_cloudDbUser != null) {
+        debugPrint('[UserProvider] ✅ CloudDB user loaded successfully');
+        debugPrint('[UserProvider]    Username: ${_cloudDbUser!.username}');
+        debugPrint('[UserProvider]    Email: ${_cloudDbUser!.email}');
+        debugPrint('[UserProvider]    Phone: ${_cloudDbUser!.phoneNo}');
+        debugPrint(
+          '[UserProvider]    Profile URL: ${_cloudDbUser!.profileURL}',
+        );
+        debugPrint('[UserProvider]    District: ${_cloudDbUser!.district}');
+        debugPrint('[UserProvider]    State: ${_cloudDbUser!.state}');
+        debugPrint('[UserProvider]    Postcode: ${_cloudDbUser!.postcode}');
+
+        // Immediately sync language preference from SharedPreferences
+        // SharedPreferences is the single source of truth for language
+        await _syncLanguageFromPreferences();
+      } else {
+        debugPrint(
+          '[UserProvider] ⚠️  CloudDB user not found for UID: ${_agcUser!.uid}',
+        );
+      }
 
       notifyListeners();
     } catch (e) {
-      debugPrint('Error loading CloudDB user: $e');
+      debugPrint('[UserProvider] ❌ Error loading CloudDB user: $e');
+      debugPrint('[UserProvider]    Stack trace: ${StackTrace.current}');
     }
   }
 
@@ -130,9 +168,17 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
-  // Refresh user data
+  // Refresh user data (re-fetch AGCUser and CloudDB data)
   Future<void> refreshUser() async {
+    debugPrint('[UserProvider] 🔄 Refreshing user data...');
     await _initUser();
+    debugPrint('[UserProvider] ✅ User data refreshed');
+    debugPrint('[UserProvider]    AGC User: ${_agcUser?.uid}');
+    debugPrint('[UserProvider]    Provider Info: ${_agcUser?.providerInfo}');
+    debugPrint('[UserProvider]    Photo URL: ${_agcUser?.photoUrl}');
+    debugPrint(
+      '[UserProvider]    CloudDB Profile URL: ${_cloudDbUser?.profileURL}',
+    );
   }
 
   // Notify listeners when local preferences change

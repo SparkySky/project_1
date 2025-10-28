@@ -127,7 +127,7 @@ class _HomePageTutorialState extends State<HomePageTutorial>
         description:
             "You can filter nearby incidents by status, distance or type, or sort by time or distance.",
         highlightArea: HighlightArea(
-          top: screenHeight - bottomNavHeight - 190,
+          top: screenHeight - bottomNavHeight - 190 - 13, // Offset byS-16px
           height: 56,
           left: screenWidth - 72,
           width: 56,
@@ -145,11 +145,12 @@ class _HomePageTutorialState extends State<HomePageTutorial>
           top:
               screenHeight -
               bottomNavHeight -
-              40, // Start 40px above bottom nav
-          height: bottomNavHeight + 10, // Include full height with more padding
-          left:
-              screenWidth / 4 * 2 + 10, // Third button (index 2) - moved right
-          width: screenWidth / 4 - 10,
+              94 -
+              50 +
+              60, // Move up by 40px (54 + 40) + 60 offset
+          height: bottomNavHeight + 40, // Include full height with more padding
+          left: screenWidth / 4 * 1, // Second button (Lodge - index 1)
+          width: screenWidth / 4,
         ),
         position: TutorialPosition.top,
         requireUserTap: true,

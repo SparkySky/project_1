@@ -23,45 +23,44 @@ class IMUCentre {
       _magnetometerController.stream;
   Stream<double> get magnitudeStream => _magnitudeController.stream;
 
-  StreamSubscription? _accelerometerSubscription;
-  StreamSubscription? _gyroscopeSubscription;
-  StreamSubscription? _magnetometerSubscription;
+  StreamSubscription<UserAccelerometerEvent>? _accelSubscription;
+  StreamSubscription<GyroscopeEvent>? _gyroSubscription;
+  StreamSubscription<MagnetometerEvent>? _magnetoSubscription;
 
   void startIMUUpdates() {
-    _accelerometerSubscription ??= accelerometerEvents.listen((event) {
-      _accelerometerController.add(event);
-      _calculateMagnitude(event);
+    // Use userAccelerometerEvents instead of accelerometerEvents
+    // This automatically excludes gravity for motion detection
+    _accelSubscription = userAccelerometerEvents.listen((
+      UserAccelerometerEvent event,
+    ) {
+      // Convert to AccelerometerEvent for compatibility
+      final accelEvent = AccelerometerEvent(event.x, event.y, event.z);
+      _accelerometerController.add(accelEvent);
+      _calculateAndBroadcastMagnitude(event);
     });
 
-    _gyroscopeSubscription ??= gyroscopeEvents.listen((event) {
+    _gyroSubscription = gyroscopeEvents.listen((GyroscopeEvent event) {
       _gyroscopeController.add(event);
     });
 
-    _magnetometerSubscription ??= magnetometerEvents.listen((event) {
+    _magnetoSubscription = magnetometerEvents.listen((MagnetometerEvent event) {
       _magnetometerController.add(event);
     });
   }
 
-  void _calculateMagnitude(AccelerometerEvent event) {
-    // Calculate total acceleration magnitude
-    final totalMagnitude = sqrt(
-      pow(event.x, 2) + pow(event.y, 2) + pow(event.z, 2),
+  void _calculateAndBroadcastMagnitude(UserAccelerometerEvent event) {
+    // Calculate magnitude without gravity (already removed by userAccelerometerEvents)
+    // This will be ~0 when device is at rest, and spike during actual movement
+    final magnitude = sqrt(
+      event.x * event.x + event.y * event.y + event.z * event.z,
     );
-
-    // Subtract Earth's gravity (9.81 m/s²) to get actual movement
-    // This gives us the acceleration due to device movement only
-    final movementMagnitude = (totalMagnitude - 9.81).abs();
-
-    _magnitudeController.add(movementMagnitude);
+    _magnitudeController.add(magnitude);
   }
 
   void stopIMUUpdates() {
-    _accelerometerSubscription?.cancel();
-    _gyroscopeSubscription?.cancel();
-    _magnetometerSubscription?.cancel();
-    _accelerometerSubscription = null;
-    _gyroscopeSubscription = null;
-    _magnetometerSubscription = null;
+    _accelSubscription?.cancel();
+    _gyroSubscription?.cancel();
+    _magnetoSubscription?.cancel();
   }
 
   void dispose() {

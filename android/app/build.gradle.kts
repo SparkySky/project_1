@@ -29,6 +29,16 @@ android {
     kotlinOptions {
         jvmTarget = JavaVersion.VERSION_11.toString()
     }
+    
+    // APK Size Optimization: Split APKs by architecture
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("armeabi-v7a", "arm64-v8a")
+            isUniversalApk = false  // Set to true if you need a universal APK for testing
+        }
+    }
 
     signingConfigs {
         create("release") {
@@ -50,12 +60,15 @@ android {
 
         manifestPlaceholders.put("HUAWEI_API_KEY", project.property("HUAWEI_MAP_API_KEY") as String)
 
-        ndk {
-            abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a"))
-        }
+        // Note: ndk.abiFilters removed - using splits.abi instead for APK size optimization
+        // This allows generating separate APKs per architecture
         
         // Optimize vector drawables
         vectorDrawables.useSupportLibrary = true
+        
+        // APK Size Optimization: Keep only required language resources
+        // Add more languages as needed: "zh", "ms", etc.
+        resourceConfigurations += listOf("en")
     }
     
     // Lint options - prevent build failures on warnings
@@ -141,7 +154,7 @@ dependencies {
     // ========================================
     implementation("com.huawei.agconnect:agconnect-core:1.9.1.301")
     implementation("com.huawei.agconnect:agconnect-cloud-database:1.5.3.300")
-    implementation("com.huawei.agconnect:agconnect-storage:1.9.1.301")
+    // implementation("com.huawei.agconnect:agconnect-storage:1.9.1.301")  // NOT USED - AWS S3 used instead
     
     // ========================================
     // ACTIVELY USED - HMS Services

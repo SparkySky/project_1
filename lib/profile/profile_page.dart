@@ -44,8 +44,8 @@ class _ProfilePageState extends State<ProfilePage> {
 
   // Local preferences (loaded from SharedPreferences)
   String _selectedLanguage = 'en';
-  bool _allowDiscoverable = true;
-  bool _allowEmergencyAlert = true;
+  bool _allowDiscoverable = false; // Off by default
+  bool _allowEmergencyAlert = false; // Off by default (requires discoverable)
 
   // Developer settings
   bool _isApiKeySet = false;
@@ -63,6 +63,9 @@ class _ProfilePageState extends State<ProfilePage> {
 
   // Track if email has been set before (can only be set once)
   bool _emailHasBeenSet = false;
+
+  // Track if controllers have been initialized
+  bool _controllersInitialized = false;
 
   File? _profileImage;
   final ImagePicker _picker = ImagePicker();
@@ -148,8 +151,10 @@ class _ProfilePageState extends State<ProfilePage> {
 
     setState(() {
       _selectedLanguage = prefs.getString('voice_detection_language') ?? 'en';
-      _allowDiscoverable = prefs.getBool('allow_discoverable') ?? true;
-      _allowEmergencyAlert = prefs.getBool('allow_emergency_alert') ?? true;
+      _allowDiscoverable =
+          prefs.getBool('allow_discoverable') ?? false; // Off by default
+      _allowEmergencyAlert =
+          prefs.getBool('allow_emergency_alert') ?? false; // Off by default
     });
 
     debugPrint('[ProfilePage] ✅ Loaded local preferences:');
@@ -413,7 +418,9 @@ class _ProfilePageState extends State<ProfilePage> {
 
     // Check if any provider is Huawei ID (provider index 10)
     for (final provider in _agcUser!.providerInfo!) {
-      if (provider['providerId'] == '10') {
+      final providerId = int.tryParse(provider['providerId'] ?? '0') ?? 0;
+      if (providerId == 10) {
+        // ✅ Fixed: Compare as integer, not string
         return true;
       }
     }
@@ -1085,6 +1092,63 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  // Build Huawei ID already linked card
+  Widget _buildHuaweiIdLinkedCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.green.withOpacity(0.3), width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            spreadRadius: 0,
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.green.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.check_circle,
+              color: Colors.green,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Huawei ID Linked',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'You can sign in with your Huawei ID',
+                  style: TextStyle(fontSize: 12, color: Colors.black54),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // Handle linking Huawei ID
   Future<void> _handleLinkHuaweiId() async {
     try {
@@ -1100,17 +1164,23 @@ class _ProfilePageState extends State<ProfilePage> {
       final authService = AuthService();
       await authService.linkHuaweiID(context);
 
+      // Refresh user data to get updated AGCUser with providerInfo
+      await _userProvider?.refreshUser();
+
+      // Reset controllers to reload data (including profile picture)
+      _controllersInitialized = false;
+
       // Close loading dialog
       if (!mounted) return;
       Navigator.of(context).pop();
 
-      // Refresh user data
+      // Force rebuild to show updated Huawei ID linked status
       if (!mounted) return;
-      await _userProvider?.refreshUser();
+      setState(() {});
 
-      // Show success
-      if (!mounted) return;
-      setState(() {}); // Refresh UI
+      debugPrint('[ProfilePage] ✅ Huawei ID linked and data refreshed');
+      debugPrint('[ProfilePage]    Provider Info: ${_agcUser?.providerInfo}');
+      debugPrint('[ProfilePage]    Is Huawei Linked: ${_isHuaweiIdLinked()}');
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1132,7 +1202,48 @@ class _ProfilePageState extends State<ProfilePage> {
       if (!mounted) return;
       Navigator.of(context).pop();
 
-      // Show error
+      // Check if error is "already linked" - this means Huawei ID is linked
+      final errorMessage = e.toString();
+      if (errorMessage.contains('Provider user hava been linked') ||
+          errorMessage.contains('already linked')) {
+        // This is not an error - Huawei ID is already linked!
+        // Refresh user data to show linked status
+        await _userProvider?.refreshUser();
+        _controllersInitialized = false;
+
+        if (!mounted) return;
+        setState(() {});
+
+        debugPrint(
+          '[ProfilePage] ℹ️ Huawei ID already linked, showing linked status',
+        );
+
+        // Show info message instead of error
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.white),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Your Huawei ID is already linked to this account',
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.blue,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 3),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        );
+        return;
+      }
+
+      // Show actual error for other cases
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1148,17 +1259,48 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    // Capture previous UID before updating from provider
+    final previousUserId = _cloudDbUser?.uid;
+
     _userProvider = Provider.of<UserProvider>(context);
-    _agcUser = _userProvider!.agcUser;
-    _cloudDbUser = _userProvider!.cloudDbUser;
+    final newAgcUser = _userProvider!.agcUser;
+    final newCloudDbUser = _userProvider!.cloudDbUser;
     final isLoading = _userProvider!.isLoading;
 
-    // Email: prefer AGCUser email, fallback to CloudDB email
-    _emailController.text = _agcUser?.email ?? _cloudDbUser?.email ?? '';
-    _phoneController.text = _cloudDbUser?.phoneNo ?? '';
-    _districtController.text = _cloudDbUser?.district ?? '';
-    _postcodeController.text = _cloudDbUser?.postcode ?? '';
-    _stateController.text = _cloudDbUser?.state ?? '';
+    // Detect if user data changed (user switch or initial load after app restart)
+    final currentUserId = newCloudDbUser?.uid;
+    final userChanged = previousUserId != currentUserId;
+
+    // Update instance variables
+    _agcUser = newAgcUser;
+    _cloudDbUser = newCloudDbUser;
+
+    // Reset controllers if user changed or if data just loaded for first time
+    if (userChanged && currentUserId != null) {
+      _controllersInitialized = false;
+      debugPrint('[ProfilePage] 🔄 User data changed, resetting controllers');
+      debugPrint('[ProfilePage]    Previous UID: $previousUserId');
+      debugPrint('[ProfilePage]    Current UID: $currentUserId');
+    }
+
+    // Only populate controllers once when data is first loaded OR when user changes
+    // This prevents clearing user input while they're typing
+    if (!_controllersInitialized && _cloudDbUser != null) {
+      // Email: prefer AGCUser email, fallback to CloudDB email
+      _emailController.text = _agcUser?.email ?? _cloudDbUser?.email ?? '';
+      _phoneController.text = _cloudDbUser?.phoneNo ?? '';
+      _districtController.text = _cloudDbUser?.district ?? '';
+      _postcodeController.text = _cloudDbUser?.postcode ?? '';
+      _stateController.text = _cloudDbUser?.state ?? '';
+      _controllersInitialized = true;
+
+      debugPrint('[ProfilePage] ✅ Controllers initialized with user data');
+      debugPrint('[ProfilePage]    User ID: ${_cloudDbUser?.uid}');
+      debugPrint('[ProfilePage]    Email: ${_emailController.text}');
+      debugPrint('[ProfilePage]    Phone: ${_phoneController.text}');
+      debugPrint('[ProfilePage]    District: ${_districtController.text}');
+      debugPrint('[ProfilePage]    Profile URL: ${_cloudDbUser?.profileURL}');
+    }
 
     // Check if email has been set
     _emailHasBeenSet =
@@ -1412,12 +1554,13 @@ class _ProfilePageState extends State<ProfilePage> {
                       _agcUser!.providerInfo!.length > 1)
                     _buildLinkedProvidersCard(),
 
-                  // Link Huawei ID button (only for email users without Huawei ID linked)
-                  if (_agcUser!.providerId?.index == 12 && // Email provider
-                      !_isHuaweiIdLinked())
+                  // Link Huawei ID button OR Linked status (only for email users)
+                  if (_agcUser!.providerId?.index == 12) // Email provider
                     Container(
                       margin: const EdgeInsets.only(top: 12),
-                      child: _buildLinkHuaweiIdCard(),
+                      child: _isHuaweiIdLinked()
+                          ? _buildHuaweiIdLinkedCard() // ✅ Show linked status
+                          : _buildLinkHuaweiIdCard(), // Show link button
                     ),
                   if (_agcUser!.email != null && _agcUser!.email!.isNotEmpty)
                     _buildInfoCard(
@@ -2945,6 +3088,14 @@ class _ProfilePageState extends State<ProfilePage> {
                 onChanged: (value) async {
                   setState(() {
                     _allowDiscoverable = value;
+                    // If turning off discoverable, also turn off emergency alerts
+                    if (!value && _allowEmergencyAlert) {
+                      _allowEmergencyAlert = false;
+                      _cloudDbUser?.allowEmergencyAlert = false;
+                      debugPrint(
+                        '[ProfilePage] ⚠️ Auto-disabled emergency alerts because discoverable was turned off',
+                      );
+                    }
                   });
                   _cloudDbUser?.allowDiscoverable = value;
                   await _userProvider!.updateCloudDbUser(_cloudDbUser!);
@@ -2952,6 +3103,28 @@ class _ProfilePageState extends State<ProfilePage> {
                   debugPrint(
                     '[ProfilePage] 💾 Saved allow_discoverable: $value',
                   );
+
+                  // Show warning if turning off discoverable
+                  if (!value && mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Row(
+                          children: [
+                            Icon(Icons.info_outline, color: Colors.white),
+                            SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Discoverable disabled. Emergency alerts also disabled.',
+                              ),
+                            ),
+                          ],
+                        ),
+                        backgroundColor: Colors.orange,
+                        behavior: SnackBarBehavior.floating,
+                        duration: Duration(seconds: 3),
+                      ),
+                    );
+                  }
                 },
               ),
               // Show last location update time when toggle is ON
@@ -2982,13 +3155,71 @@ class _ProfilePageState extends State<ProfilePage> {
 
           const SizedBox(height: 16),
 
-          // Allow Emergency Alerts Toggle
+          // Allow Emergency Alerts Toggle (requires discoverable to be on)
           _buildInlineToggle(
             icon: Icons.warning_amber_outlined,
             title: 'Allow Emergency Alerts',
-            subtitle: 'Receive emergency notifications',
-            value: _allowEmergencyAlert,
+            subtitle: _allowDiscoverable
+                ? 'Receive emergency notifications'
+                : 'Requires "Allow Discoverable" to be enabled',
+            value:
+                _allowEmergencyAlert &&
+                _allowDiscoverable, // Only true if both are on
             onChanged: (value) async {
+              // If trying to enable emergency alerts, check if discoverable is on
+              if (value && !_allowDiscoverable) {
+                // Show explanation dialog
+                await showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Row(
+                      children: [
+                        Icon(Icons.warning_amber, color: Colors.orange),
+                        SizedBox(width: 8),
+                        Text('Enable Discoverable First'),
+                      ],
+                    ),
+                    content: const Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Emergency alerts require you to be discoverable.',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        SizedBox(height: 12),
+                        Text('Why?'),
+                        SizedBox(height: 8),
+                        Text(
+                          '• Emergency responders need to find your location',
+                        ),
+                        Text(
+                          '• Nearby users can see and respond to your alerts',
+                        ),
+                        Text(
+                          '• Your safety depends on others knowing where you are',
+                        ),
+                        SizedBox(height: 12),
+                        Text(
+                          'Please enable "Allow Discoverable" first.',
+                          style: TextStyle(
+                            fontStyle: FontStyle.italic,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('OK'),
+                      ),
+                    ],
+                  ),
+                );
+                return; // Don't enable emergency alerts
+              }
+
               setState(() {
                 _allowEmergencyAlert = value;
               });

@@ -164,23 +164,6 @@ class PushNotificationService {
     }
   }
 
-  /// Subscribe user to emergency alerts topic
-  Future<void> subscribeToEmergencyAlerts() async {
-    try {
-      await Push.subscribe('emergency_alerts');
-      debugPrint('[PushService] Subscribed to emergency_alerts topic');
-    } catch (e) {
-      debugPrint('[PushService] Error subscribing to topic: $e');
-    }
-  }
-
-  /// Unsubscribe user from emergency alerts topic
-  Future<void> unsubscribeFromEmergencyAlerts() async {
-    try {
-      await Push.unsubscribe('emergency_alerts');
-      debugPrint('[PushService] Unsubscribed from emergency_alerts topic');
-    } catch (e) {
-      debugPrint('[PushService] Error unsubscribing from topic: $e');
-    }
-  }
+  // Note: Topic subscription features removed as they're not currently used
+  // Re-add subscribeToEmergencyAlerts() and unsubscribeFromEmergencyAlerts() when needed
 }

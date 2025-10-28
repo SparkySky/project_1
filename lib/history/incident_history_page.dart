@@ -923,17 +923,20 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
                   // Mark as Resolved button (only for active status)
                   if (incident.status == 'active')
                     Expanded(
-                      child: OutlinedButton.icon(
+                      child: ElevatedButton.icon(
                         onPressed: () => _markAsResolved(incident, index),
                         icon: const Icon(Icons.check_circle_outline, size: 18),
-                        label: const Text('Mark Resolved'),
-                        style: OutlinedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.green,
-                          side: const BorderSide(color: Colors.green, width: 2),
+                        label: const Text(
+                          'Mark Resolved',
+                          textAlign: TextAlign.center,
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
+                          elevation: 0,
                         ),
                       ),
                     ),

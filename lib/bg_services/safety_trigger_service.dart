@@ -57,7 +57,7 @@ class SafetyTriggerService {
 
   // Thresholds
   static const double IMU_MAGNITUDE_THRESHOLD =
-      12.0; // Lowered for better sensitivity
+      8.0; // User acceleration threshold (without gravity) - detects sudden movements
   static const double DECIBEL_THRESHOLD =
       90.0; // Shouting detection threshold (triggers at 90-92 dB range)
 
@@ -433,79 +433,6 @@ class SafetyTriggerService {
   /// Start monitoring decibel levels for shouting detection
   /// DISABLED: Decibel monitoring conflicts with speech-to-text (both need microphone access)
   /// Word trigger is more reliable and doesn't require separate microphone access
-  // ignore: unused_element
-  Future<void> _startDecibelMonitoring() async {
-    debugPrint(
-      '[SafetyTrigger] ⚠️ Decibel monitoring DISABLED - conflicts with speech-to-text',
-    );
-    return; // Exit early - function disabled
-
-    // Code below is kept for reference but not executed
-    // ignore: dead_code
-    try {
-      debugPrint(
-        '[SafetyTrigger] 📊 Starting decibel monitoring (threshold: ${DECIBEL_THRESHOLD}dB)',
-      );
-
-      // Get the stream from microphone service
-      final decibelStream = _microphoneService.startDecibelMonitoring();
-
-      int readingCount = 0;
-      // _decibelSubscription = decibelStream.listen(
-      decibelStream.listen(
-        (db) {
-          readingCount++;
-          // Log first few readings to confirm stream is working
-          if (readingCount <= 5 || readingCount % 50 == 0) {
-            debugPrint(
-              '[SafetyTrigger] 📡 Received decibel reading #$readingCount: ${db.toStringAsFixed(1)} dB',
-            );
-          }
-          _checkDecibelTrigger(db);
-        },
-        onError: (error) {
-          debugPrint('[SafetyTrigger] ❌ Decibel monitoring error: $error');
-        },
-        onDone: () {
-          debugPrint('[SafetyTrigger] ⚠️ Decibel stream closed unexpectedly');
-        },
-      );
-
-      debugPrint('[SafetyTrigger] ✅ Decibel monitoring subscription active');
-    } catch (e) {
-      debugPrint('[SafetyTrigger] ❌ Failed to start decibel monitoring: $e');
-    }
-  }
-
-  /// Check if decibel level exceeds threshold (shouting/screaming)
-  // ignore: unused_element
-  void _checkDecibelTrigger(double decibels) {
-    // Debug: Log state check for high decibel levels
-    if (decibels > 70.0) {
-      debugPrint(
-        '[SafetyTrigger] 📊 Decibel: ${decibels.toStringAsFixed(1)} dB | isRunning: $_isRunning | captureActive: $_isCaptureWindowActive',
-      );
-    }
-
-    if (!_isRunning || _isCaptureWindowActive) {
-      if (decibels > 70.0) {
-        debugPrint(
-          '[SafetyTrigger] ⚠️ Trigger blocked: isRunning=$_isRunning, captureActive=$_isCaptureWindowActive',
-        );
-      }
-      return;
-    }
-
-    if (decibels >= DECIBEL_THRESHOLD) {
-      debugPrint(
-        '[SafetyTrigger] 🚨 DECIBEL TRIGGER DETECTED! Level: ${decibels.toStringAsFixed(1)} dB (Threshold: $DECIBEL_THRESHOLD)',
-      );
-      debugPrint(
-        '[SafetyTrigger] ✅ Conditions met - calling onTriggerDetected()',
-      );
-      onTriggerDetected('Loud Sound - ${decibels.toStringAsFixed(1)} dB');
-    }
-  }
 
   /// Start keyword detection from microphone
   Future<void> _startKeywordDetection() async {
