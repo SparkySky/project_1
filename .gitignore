@@ -19,6 +19,7 @@ extracted_apk/
 app-universal/
 .jsk
 .pem
+.md
 
 # Flutter/Dart
 .dart_tool/
