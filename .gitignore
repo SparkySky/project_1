@@ -8,6 +8,17 @@
 .buildlog/
 .history
 .svn/
+.apk
+.apks
+linux/
+ios/
+windows/
+macos/
+web/
+extracted_apk/
+app-universal/
+.jsk
+.pem
 
 # Flutter/Dart
 .dart_tool/
