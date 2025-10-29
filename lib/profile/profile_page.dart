@@ -24,6 +24,11 @@ import '../tutorial/lodge_tutorial.dart';
 import '../tutorial/profile_tutorial.dart';
 import '../tutorial/chatbot_tutorial.dart';
 import '../../constants/provider_types.dart';
+import '../widgets/common/section_header.dart';
+import '../widgets/common/info_card.dart';
+import '../widgets/common/toggle_card.dart';
+import '../widgets/common/custom_text_field.dart';
+import '../widgets/common/action_card.dart';
 import '../debug_overlay/debug_state.dart';
 import '../providers/safety_service_provider.dart';
 import '../providers/user_provider.dart';
@@ -567,73 +572,6 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   // Build action card (for Terms, Privacy, etc.)
-  Widget _buildActionCard({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  spreadRadius: 0,
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(icon, color: color, size: 24),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(Icons.chevron_right, color: Colors.grey[400]),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 
   // Build delete account card with warning
   Widget _buildDeleteAccountCard() {
@@ -1533,17 +1471,17 @@ class _ProfilePageState extends State<ProfilePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Account Information Section
-                  _buildSectionHeader(
-                    'Account Information',
-                    Icons.info_outline,
+                  SectionHeader(
+                    title: 'Account Information',
+                    icon: Icons.info_outline,
                   ),
                   const SizedBox(height: 16),
-                  _buildInfoCard(
+                  InfoCard(
                     icon: Icons.fingerprint,
                     title: 'User ID',
                     value: _agcUser!.uid!,
                   ),
-                  _buildInfoCard(
+                  InfoCard(
                     icon: Icons.login,
                     title: 'Primary Sign-in Method',
                     value: _getProviderName(_agcUser!.providerId!.index),
@@ -1563,7 +1501,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           : _buildLinkHuaweiIdCard(), // Show link button
                     ),
                   if (_agcUser!.email != null && _agcUser!.email!.isNotEmpty)
-                    _buildInfoCard(
+                    InfoCard(
                       icon: _agcUser!.emailVerified!
                           ? Icons.verified_user
                           : Icons.warning_amber_rounded,
@@ -1579,7 +1517,10 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(height: 32),
 
                   // User Information Section
-                  _buildSectionHeader('User Information', Icons.person_outline),
+                  SectionHeader(
+                    title: 'User Information',
+                    icon: Icons.person_outline,
+                  ),
                   const SizedBox(height: 16),
 
                   _buildUserInfoForm(),
@@ -1587,7 +1528,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(height: 45),
 
                   // Preferences Section
-                  _buildSectionHeader('Preferences', Icons.tune),
+                  SectionHeader(title: 'Preferences', icon: Icons.tune),
                   const SizedBox(height: 16),
 
                   // Combined Voice Detection Language Card with toggles
@@ -1596,11 +1537,11 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(height: 32),
 
                   // Developer Section
-                  _buildSectionHeader('Developer', Icons.code),
+                  SectionHeader(title: 'Developer', icon: Icons.code),
                   const SizedBox(height: 16),
 
                   // Debug Overlay Toggle
-                  _buildToggleCard(
+                  ToggleCard(
                     icon: Icons.bug_report_outlined,
                     title: 'Debug Overlay',
                     subtitle: 'Show developer diagnostics',
@@ -1754,11 +1695,11 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(height: 32),
 
                   // Tutorial Section
-                  _buildSectionHeader('Tutorial', Icons.help_outline),
+                  SectionHeader(title: 'Tutorial', icon: Icons.help_outline),
                   const SizedBox(height: 16),
 
                   // Tutorial Replay Card
-                  _buildActionCard(
+                  ActionCard(
                     icon: Icons.play_circle_outline,
                     title: 'View Tutorial',
                     subtitle: 'Replay the interactive walkthrough',
@@ -1780,11 +1721,14 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(height: 32),
 
                   // Legal Section
-                  _buildSectionHeader('Legal', Icons.description_outlined),
+                  SectionHeader(
+                    title: 'Legal',
+                    icon: Icons.description_outlined,
+                  ),
                   const SizedBox(height: 16),
 
                   // Terms & Conditions Button
-                  _buildActionCard(
+                  ActionCard(
                     icon: Icons.article_outlined,
                     title: 'Terms & Conditions',
                     subtitle: 'View our terms of service',
@@ -1800,7 +1744,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
 
                   // Privacy Policy Button
-                  _buildActionCard(
+                  ActionCard(
                     icon: Icons.privacy_tip_outlined,
                     title: 'Privacy Policy',
                     subtitle: 'View our privacy policy',
@@ -1818,9 +1762,9 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(height: 32),
 
                   // Delete Account Section
-                  _buildSectionHeader(
-                    'Danger Zone',
-                    Icons.warning_amber_rounded,
+                  SectionHeader(
+                    title: 'Danger Zone',
+                    icon: Icons.warning_amber_rounded,
                   ),
                   const SizedBox(height: 16),
 
@@ -1896,7 +1840,7 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
       child: Column(
         children: [
-          _buildTextField(
+          CustomTextField(
             controller: _emailController,
             label: 'Email',
             icon: Icons.email_outlined,
@@ -1907,27 +1851,27 @@ class _ProfilePageState extends State<ProfilePage> {
                 : null,
           ),
           const SizedBox(height: 16),
-          _buildTextField(
+          CustomTextField(
             controller: _phoneController,
             label: 'Phone Number',
             icon: Icons.phone_outlined,
             keyboardType: TextInputType.phone,
           ),
           const SizedBox(height: 16),
-          _buildTextField(
+          CustomTextField(
             controller: _districtController,
             label: 'District',
             icon: Icons.location_city_outlined,
           ),
           const SizedBox(height: 16),
-          _buildTextField(
+          CustomTextField(
             controller: _postcodeController,
             label: 'Postcode',
             icon: Icons.pin_drop_outlined,
             keyboardType: TextInputType.number,
           ),
           const SizedBox(height: 16),
-          _buildTextField(
+          CustomTextField(
             controller: _stateController,
             label: 'State',
             icon: Icons.map_outlined,
@@ -1960,149 +1904,6 @@ class _ProfilePageState extends State<ProfilePage> {
                 elevation: 0,
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    required IconData icon,
-    TextInputType? keyboardType,
-    bool readOnly = false,
-    String? helperText,
-  }) {
-    return TextField(
-      controller: controller,
-      keyboardType: keyboardType,
-      readOnly: readOnly,
-      cursorColor: AppTheme.primaryOrange,
-      style: TextStyle(color: readOnly ? Colors.grey[600] : Colors.black87),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: TextStyle(color: Colors.grey[600]),
-        floatingLabelStyle: TextStyle(color: AppTheme.primaryOrange),
-        helperText: helperText,
-        helperStyle: TextStyle(color: Colors.grey[600], fontSize: 12),
-        prefixIcon: Icon(icon, color: AppTheme.primaryOrange),
-        suffixIcon: readOnly
-            ? Icon(Icons.lock_outline, color: Colors.grey[400], size: 18)
-            : null,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey[300]!),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey[300]!),
-        ),
-        disabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey[200]!),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppTheme.primaryOrange, width: 2),
-        ),
-        filled: true,
-        fillColor: readOnly ? Colors.grey[100] : Colors.grey[50],
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 16,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader(String title, IconData icon) {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: AppTheme.primaryOrange.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: AppTheme.primaryOrange, size: 20),
-        ),
-        const SizedBox(width: 12),
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildToggleCard({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required bool value,
-    required ValueChanged<bool> onChanged,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            spreadRadius: 0,
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: value
-                  ? AppTheme.primaryOrange.withOpacity(0.1)
-                  : Colors.grey.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              icon,
-              color: value ? AppTheme.primaryOrange : Colors.grey,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                ),
-              ],
-            ),
-          ),
-          Switch(
-            activeThumbColor: AppTheme.primaryOrange,
-            value: value,
-            onChanged: onChanged,
           ),
         ],
       ),
@@ -2829,69 +2630,6 @@ class _ProfilePageState extends State<ProfilePage> {
           onChanged: onChanged,
         ),
       ],
-    );
-  }
-
-  Widget _buildInfoCard({
-    required IconData icon,
-    required String title,
-    required String value,
-    Color? valueColor,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            spreadRadius: 0,
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppTheme.primaryOrange.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: AppTheme.primaryOrange, size: 24),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: valueColor ?? Colors.black87,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 

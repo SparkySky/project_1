@@ -31,6 +31,9 @@ android {
     }
     
     // APK Size Optimization: Split APKs by architecture
+    // TEMPORARILY DISABLED - Conflicts with Flutter defaults
+    // TODO: Fix ABI filter conflict between Flutter plugin and splits configuration
+    /*
     splits {
         abi {
             isEnable = true
@@ -39,6 +42,7 @@ android {
             isUniversalApk = false  // Set to true if you need a universal APK for testing
         }
     }
+    */
 
     signingConfigs {
         create("release") {
@@ -60,8 +64,11 @@ android {
 
         manifestPlaceholders.put("HUAWEI_API_KEY", project.property("HUAWEI_MAP_API_KEY") as String)
 
-        // Note: ndk.abiFilters removed - using splits.abi instead for APK size optimization
+        // Note: Explicitly clear ndk.abiFilters to avoid conflicts with splits.abi
         // This allows generating separate APKs per architecture
+        ndk {
+            // Empty - using splits.abi configuration instead
+        }
         
         // Optimize vector drawables
         vectorDrawables.useSupportLibrary = true

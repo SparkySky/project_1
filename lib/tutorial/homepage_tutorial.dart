@@ -148,7 +148,7 @@ class _HomePageTutorialState extends State<HomePageTutorial>
               94 -
               50 +
               60, // Move up by 40px (54 + 40) + 60 offset
-          height: bottomNavHeight + 40, // Include full height with more padding
+          height: bottomNavHeight + 10, // Include full height with more padding
           left: screenWidth / 4 * 1, // Second button (Lodge - index 1)
           width: screenWidth / 4,
         ),

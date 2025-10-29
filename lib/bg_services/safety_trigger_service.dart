@@ -57,7 +57,7 @@ class SafetyTriggerService {
 
   // Thresholds
   static const double IMU_MAGNITUDE_THRESHOLD =
-      8.0; // User acceleration threshold (without gravity) - detects sudden movements
+      10.0; // User acceleration threshold (without gravity) - detects sudden movements
   static const double DECIBEL_THRESHOLD =
       90.0; // Shouting detection threshold (triggers at 90-92 dB range)
 
@@ -67,15 +67,15 @@ class SafetyTriggerService {
     'help', 'please', 'emergency', 'danger',
 
     // SOS variations (often transcribed as "sauce", "so so", "sos")
-    'sos', 'sauce', 'so so', 'soss',
+    'sos', 'sauce',
 
     // Malay - "tolong" variations (might be heard as "to long", "too long", "toh long")
-    'tolong', 'to long', 'too long', 'toh long', 'tulun',
+    'tolong', 'to long', 'too long',
 
     // Chinese pinyin variations
     'qiujiu', 'chew chew', 'chiu chiu', 'jiu jiu', // 救救 (save/help)
     'jiuming', 'chew ming', 'jiu ming', // 救命 (save life)
-    'bangwo', 'bang wo', 'bung wo', // 帮我 (help me)
+    'bangwo', 'bang wo', // 帮我 (help me)
   ];
   static const int CAPTURE_WINDOW_SECONDS = 8;
   static const int MAX_IMU_READINGS = 10;
