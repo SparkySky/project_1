@@ -44,14 +44,18 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
   }
 
   Future<void> _loadIncidents() async {
-    setState(() => _isLoading = true);
+    if (mounted) {
+      setState(() => _isLoading = true);
+    }
 
     try {
       // Get current user ID
       final user = await AGCAuth.instance.currentUser;
       if (user == null || user.uid == null) {
         debugPrint('[IncidentHistory] No user logged in');
-        setState(() => _isLoading = false);
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
         return;
       }
 
@@ -90,14 +94,18 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
         );
       }
 
-      setState(() {
-        _incidents = incidents;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _incidents = incidents;
+          _isLoading = false;
+        });
+      }
     } catch (e, stackTrace) {
       debugPrint('[IncidentHistory] Error loading incidents: $e');
       debugPrint('[IncidentHistory] Stack trace: $stackTrace');
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -138,9 +146,11 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
           final site = data['sites'][0];
           String fullAddress = site['formatAddress'] ?? 'Unknown Location';
 
-          setState(() {
-            _addressMap[iid] = fullAddress;
-          });
+          if (mounted) {
+            setState(() {
+              _addressMap[iid] = fullAddress;
+            });
+          }
         }
       }
     } catch (e) {
@@ -198,7 +208,7 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
 
       final success = await _incidentRepository.upsertIncident(updatedIncident);
 
-      if (success) {
+      if (success && mounted) {
         setState(() {
           _incidents[index] = updatedIncident;
         });
@@ -281,7 +291,7 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
         incident.iid,
       );
 
-      if (success) {
+      if (success && mounted) {
         setState(() {
           _incidents.removeAt(index);
         });
@@ -969,10 +979,12 @@ class _VideoPlayerDialogState extends State<_VideoPlayerDialog> {
     super.initState();
     _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl))
       ..initialize().then((_) {
-        setState(() {
-          _isInitialized = true;
-        });
-        _controller.play();
+        if (mounted) {
+          setState(() {
+            _isInitialized = true;
+          });
+          _controller.play();
+        }
       });
   }
 
@@ -1022,13 +1034,15 @@ class _VideoPlayerDialogState extends State<_VideoPlayerDialog> {
                     color: Colors.white,
                   ),
                   onPressed: () {
-                    setState(() {
-                      if (_controller.value.isPlaying) {
-                        _controller.pause();
-                      } else {
-                        _controller.play();
-                      }
-                    });
+                    if (mounted) {
+                      setState(() {
+                        if (_controller.value.isPlaying) {
+                          _controller.pause();
+                        } else {
+                          _controller.play();
+                        }
+                      });
+                    }
                   },
                 ),
               ],

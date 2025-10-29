@@ -713,11 +713,14 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage>
 
             final fileName = '${timestamp}_${order}_$baseFileName';
 
+            final awsApiUrl = dotenv.env['AWS_API_URL'];
+            if (awsApiUrl == null || awsApiUrl.isEmpty) {
+              throw Exception('Missing environment variable: AWS_API_URL');
+            }
+
             // Upload to AWS S3
             final response = await http.post(
-              Uri.parse(
-                'https://9bgg6p599h.execute-api.ap-southeast-1.amazonaws.com/dev/media',
-              ),
+              Uri.parse('$awsApiUrl/media'),
               headers: {'Content-Type': 'application/json'},
               body: jsonEncode({
                 'file_name': fileName,
@@ -816,11 +819,27 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage>
 
         // Send push notifications to nearby users
         try {
+          // Get title with fallback logic
+          final titleText = _titleController.text.trim();
+          final descriptionText = _descriptionController.text.trim();
+
+          // Use title if available, otherwise use first part of description or a default
+          final notificationTitle = titleText.isNotEmpty
+              ? titleText
+              : descriptionText.isNotEmpty
+              ? descriptionText.split('\n')[0]
+              : 'Emergency Incident Reported';
+
+          print('[Push] Sending notification with title: "$notificationTitle"');
+          print('[Push] Title controller value: "$titleText"');
+          print('[Push] Description: "$descriptionText"');
+
           await _pushService.notifyNearbyUsers(
+            incidentTitle: notificationTitle,
             incidentLatitude: _selectedPosition!.lat,
             incidentLongitude: _selectedPosition!.lng,
             incidentType: _incidentType,
-            incidentDescription: _descriptionController.text.trim(),
+            incidentDescription: descriptionText,
             incidentId: incidentId,
             radiusKm: 5.0, // 5km radius for prototyping
           );
