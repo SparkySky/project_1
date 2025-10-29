@@ -62,7 +62,7 @@ android {
         versionName = flutter.versionName
 
         manifestPlaceholders.put("HUAWEI_API_KEY", project.property("HUAWEI_MAP_API_KEY") as String)
-        
+
         
         // Optimize vector drawables
         vectorDrawables.useSupportLibrary = true
