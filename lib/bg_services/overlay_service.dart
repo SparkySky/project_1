@@ -23,11 +23,6 @@ class OverlayService {
     final lifecycleState = WidgetsBinding.instance.lifecycleState;
     final isResumed = lifecycleState == AppLifecycleState.resumed;
     final isInactive = lifecycleState == AppLifecycleState.inactive;
-
-    debugPrint(
-      '[OverlayService] 🔍 Foreground check: hasContext=$hasContext, lifecycleState=$lifecycleState',
-    );
-
     // Consider both resumed and inactive as foreground (inactive = app is visible but not focused)
     return hasContext && (isResumed || isInactive);
   }
@@ -35,17 +30,13 @@ class OverlayService {
   /// Show the 8-second capture window overlay (foreground only)
   /// Shows notification if in background
   void showCaptureWindow() {
-    debugPrint('[OverlayService] ════════════════════════════════════');
-    debugPrint('[OverlayService] 🚨🚨🚨 showCaptureWindow() CALLED 🚨🚨🚨');
-    debugPrint('[OverlayService] ════════════════════════════════════');
-
     hideCurrentOverlay();
 
     // Try to push as a route instead of using Overlay
     final navigator = navigatorKey.currentState;
 
     if (navigator != null && isAppInForeground) {
-      debugPrint('[OverlayService] 📱 Pushing capture window as route');
+
 
       try {
         _hasActiveRoute = true;
@@ -55,17 +46,14 @@ class OverlayService {
             fullscreenDialog: true,
           ),
         );
-        debugPrint('[OverlayService] ✅ Route pushed successfully');
+
       } catch (e, stackTrace) {
-        debugPrint('[OverlayService] ❌ Error pushing route: $e');
-        debugPrint('[OverlayService] Stack: $stackTrace');
+
+
         _hasActiveRoute = false;
         _showCaptureNotification();
       }
     } else {
-      debugPrint(
-        '[OverlayService] 🔔 No navigator or app in background - showing notification',
-      );
       _showCaptureNotification();
     }
   }
@@ -107,13 +95,10 @@ class OverlayService {
 
     final navigator = navigatorKey.currentState;
     if (navigator == null) {
-      debugPrint(
-        '[OverlayService] No navigator available for analyzing screen',
-      );
       return;
     }
 
-    debugPrint('[OverlayService] 🤖 Showing analyzing screen');
+
 
     _hasActiveRoute = true;
     navigator.push(
@@ -135,13 +120,10 @@ class OverlayService {
 
     final navigator = navigatorKey.currentState;
     if (navigator == null) {
-      debugPrint(
-        '[OverlayService] No navigator available for confirmation screen',
-      );
       return;
     }
 
-    debugPrint('[OverlayService] ⚠️  Showing incident confirmation screen');
+
 
     _hasActiveRoute = true;
     navigator.push(
@@ -169,14 +151,9 @@ class OverlayService {
 
     final navigator = navigatorKey.currentState;
     if (navigator == null) {
-      debugPrint('[OverlayService] No navigator available for analysis result');
+
       return;
     }
-
-    debugPrint(
-      '[OverlayService] 📊 Showing analysis result: ${isIncident ? "THREAT" : "SAFE"}',
-    );
-
     _hasActiveRoute = true;
     navigator.push(
       MaterialPageRoute(
@@ -198,14 +175,14 @@ class OverlayService {
   /// Hide the current overlay (pop the route)
   void hideCurrentOverlay() {
     if (_hasActiveRoute) {
-      debugPrint('[OverlayService] ❌ Popping route');
+
       try {
         final navigator = navigatorKey.currentState;
         if (navigator != null && navigator.canPop()) {
           navigator.pop();
         }
       } catch (e) {
-        debugPrint('[OverlayService] ⚠️  Error popping route: $e');
+
       }
       _hasActiveRoute = false;
     }

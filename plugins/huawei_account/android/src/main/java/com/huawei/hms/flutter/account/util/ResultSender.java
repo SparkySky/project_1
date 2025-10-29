@@ -27,8 +27,7 @@ import io.flutter.plugin.common.MethodChannel;
 
 public class ResultSender {
     public static void exception(Activity activity, String tag, Exception e, String methodName, MethodChannel.Result result) {
-        if (e instanceof ApiException) {
-            ApiException apiException = (ApiException) e;
+        if (e instanceof ApiException apiException) {
             HMSLogger.getInstance(activity.getApplicationContext()).sendSingleEvent(methodName, String.valueOf(apiException.getStatusCode()));
             result.error(tag, apiException.getMessage(), apiException.getStatusCode());
         } else {

@@ -42,24 +42,15 @@ class SafetyServiceProvider extends ChangeNotifier {
 
     // Set up callbacks
     _service.onTriggerDetectedCallback = (source) {
-      debugPrint(
-        '[SafetyProvider] ⚡ onTriggerDetectedCallback called with: $source',
-      );
       _lastTrigger = source;
       notifyListeners();
 
       // Show capture window overlay
-      debugPrint(
-        '[SafetyProvider] 📱 Calling overlayService.showCaptureWindow()',
-      );
       overlayService.showCaptureWindow();
-      debugPrint(
-        '[SafetyProvider] ✅ overlayService.showCaptureWindow() completed',
-      );
     };
 
     _service.onStartAnalyzing = () {
-      debugPrint('[SafetyProvider] 🤖 Starting Gemini analysis');
+
 
       // Hide capture window and show analyzing screen
       overlayService.showAnalyzingScreen();
@@ -68,19 +59,8 @@ class SafetyServiceProvider extends ChangeNotifier {
     _service.onAnalysisResult = (isIncident, title, description, transcript) {
       _lastAnalysisResult = isIncident;
       notifyListeners();
-
-      debugPrint(
-        '[SafetyProvider] 📊 Analysis result: ${isIncident ? "THREAT" : "SAFE"}',
-      );
-      debugPrint('[SafetyProvider] 📝 Title: $title');
-      debugPrint('[SafetyProvider] 📝 Transcript: $transcript');
-
       if (isIncident) {
         // TRUE POSITIVE: Show 15-second confirmation screen
-        debugPrint(
-          '[SafetyProvider] ⚠️  TRUE POSITIVE - Showing confirmation screen',
-        );
-
         // Store data for later use
         _pendingLodgeData = {
           'title': title,
@@ -94,23 +74,17 @@ class SafetyServiceProvider extends ChangeNotifier {
           transcript: transcript,
           onConfirm: () {
             // User did NOT cancel - proceed to lodge page
-            debugPrint(
-              '[SafetyProvider] ✅ Confirmed - Navigating to lodge page',
-            );
             overlayService.hideCurrentOverlay();
             _triggerLodgeNavigation();
             // Monitoring will resume after lodge page is submitted or closed
           },
           onCancel: () {
             // User clicked FALSE ALARM - restart monitoring immediately
-            debugPrint('[SafetyProvider] ❌ User cancelled - False alarm');
+
             overlayService.hideCurrentOverlay();
             _pendingLodgeData = null;
             // Resume monitoring immediately
             _service.resumeMonitoring();
-            debugPrint(
-              '[SafetyProvider] 🔄 Monitoring resumed after false alarm',
-            );
           },
         );
       } else {
@@ -122,9 +96,6 @@ class SafetyServiceProvider extends ChangeNotifier {
           transcript: transcript,
           onDismiss: () {
             // Resume monitoring when user dismisses false positive
-            debugPrint(
-              '[SafetyProvider] Resuming monitoring after false positive dismissal',
-            );
             _service.resumeMonitoring();
           },
         );
@@ -138,7 +109,7 @@ class SafetyServiceProvider extends ChangeNotifier {
     };
 
     _service.onNavigateToLodge = (lodgeData) {
-      debugPrint('[SafetyProvider] ➡️  Received lodge data from service');
+
       // Store the lodge data from the service (includes audio file path, location, etc.)
       _pendingLodgeData = {
         ...?_pendingLodgeData, // Keep existing data (description, transcript)
@@ -154,13 +125,13 @@ class SafetyServiceProvider extends ChangeNotifier {
   /// Navigate to lodge page with pre-filled data
   void _triggerLodgeNavigation() {
     if (_pendingLodgeData == null) {
-      debugPrint('[SafetyProvider] ❌ No pending lodge data');
+
       return;
     }
 
     final navigator = navigatorKey.currentState;
     if (navigator == null) {
-      debugPrint('[SafetyProvider] ❌ No navigator available');
+
       return;
     }
 
@@ -176,10 +147,10 @@ class SafetyServiceProvider extends ChangeNotifier {
     // Get audio file path (mediaID from service)
     final audioPath = _pendingLodgeData!['mediaID'] as String? ?? '';
 
-    debugPrint('[SafetyProvider] 📝 Navigating to lodge page');
-    debugPrint('[SafetyProvider] Title: $title');
-    debugPrint('[SafetyProvider] Description: $formattedDescription');
-    debugPrint('[SafetyProvider] Audio path: $audioPath');
+
+
+
+
 
     navigator
         .push(
@@ -196,9 +167,6 @@ class SafetyServiceProvider extends ChangeNotifier {
         )
         .then((_) {
           // Resume monitoring when user returns from lodge page (submitted or cancelled)
-          debugPrint(
-            '[SafetyProvider] Returned from lodge page, resuming monitoring',
-          );
           _service.resumeMonitoring();
         });
 
@@ -209,7 +177,7 @@ class SafetyServiceProvider extends ChangeNotifier {
   /// Toggle the safety service on/off
   Future<void> toggle(bool enabled, BuildContext context) async {
     if (!_isInitialized) {
-      debugPrint('[SafetyProvider] Service not initialized yet');
+
       return;
     }
 
@@ -228,14 +196,6 @@ class SafetyServiceProvider extends ChangeNotifier {
             savedLanguage ??
             userProvider.cloudDbUser?.detectionLanguage ??
             'en';
-
-        debugPrint(
-          '[SafetyProvider] 🌍 Loading detection language: $detectionLanguage',
-        );
-        debugPrint(
-          '[SafetyProvider] 💾 From SharedPreferences: $savedLanguage',
-        );
-
         await _service.setPreferredLanguage(detectionLanguage);
       }
 
@@ -261,15 +221,11 @@ class SafetyServiceProvider extends ChangeNotifier {
 
   /// Update language while system is running
   Future<void> updateLanguage(String language) async {
-    debugPrint('[SafetyProvider] Updating language to: $language');
+
 
     // Persist to SharedPreferences
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('voice_detection_language', language);
-    debugPrint(
-      '[SafetyProvider] 💾 Saved language to SharedPreferences: $language',
-    );
-
     await _service.setPreferredLanguage(language);
   }
 
@@ -280,7 +236,7 @@ class SafetyServiceProvider extends ChangeNotifier {
 
   /// Cancel the current 8-second capture window
   Future<void> cancelCapture() async {
-    debugPrint('[SafetyProvider] User requested capture cancellation');
+
     await _service.cancelCapture();
 
     // Clear UI state

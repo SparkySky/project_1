@@ -48,7 +48,7 @@ public class AGConnectCoreModule {
     }
 
     private class AGConnectCoreResultHandler implements AGConnectCoreContract.ResultListener{
-        private MethodChannel.Result mResult;
+        private final MethodChannel.Result mResult;
         AGConnectCoreResultHandler(final MethodChannel.Result result){this.mResult = result;}
         @Override
         public void onSuccess(Object result) {

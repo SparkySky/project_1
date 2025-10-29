@@ -112,7 +112,7 @@ class _ProfilePageState extends State<ProfilePage> {
             context,
             pageScrollController: _scrollController,
             onCustomKeywordsTap: () {
-              print('[ProfilePage] onCustomKeywordsTap callback triggered');
+
               _showCombinedCustomKeywordsDialog();
             },
           );
@@ -137,7 +137,7 @@ class _ProfilePageState extends State<ProfilePage> {
         // Remove from old storage
         await prefs.remove('gemini_api_key');
         apiKey = oldApiKey;
-        debugPrint('[ProfilePage] 🔄 Migrated API key to secure storage');
+
       }
     }
 
@@ -162,10 +162,10 @@ class _ProfilePageState extends State<ProfilePage> {
           prefs.getBool('allow_emergency_alert') ?? false; // Off by default
     });
 
-    debugPrint('[ProfilePage] ✅ Loaded local preferences:');
-    debugPrint('[ProfilePage]    Language: $_selectedLanguage');
-    debugPrint('[ProfilePage]    Allow Discoverable: $_allowDiscoverable');
-    debugPrint('[ProfilePage]    Allow Emergency Alert: $_allowEmergencyAlert');
+
+
+
+
   }
 
   @override
@@ -344,7 +344,7 @@ class _ProfilePageState extends State<ProfilePage> {
         }
 
         // Optionally handle success
-        print('Uploaded successfully: $mediaURL');
+
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -357,13 +357,13 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ),
           );
-          debugPrint('Media URL: $mediaURL');
+
           _cloudDbUser!.profileURL = mediaURL;
           _userProvider!.updateCloudDbUser(_cloudDbUser!);
         }
       }
     } catch (e) {
-      debugPrint('Error picking image: $e');
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -413,7 +413,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   String _getProviderName(int providerId) {
-    debugPrint("provider ID = $providerId");
+
     return AuthProviderName.name(providerId);
   }
 
@@ -882,12 +882,9 @@ class _ProfilePageState extends State<ProfilePage> {
               if (!incident.isAIGenerated) {
                 // Not AI-generated = user uploaded = can be deleted
                 await mediaRepo.deleteMediaByMediaId(incident.mediaID!);
-                debugPrint('✅ Deleted media for incident ${incident.iid}');
+
               } else {
                 // AI-generated = trigger evidence = keep it
-                debugPrint(
-                  '⚠️ Preserved evidence media for incident ${incident.iid}',
-                );
               }
             }
           }
@@ -899,7 +896,7 @@ class _ProfilePageState extends State<ProfilePage> {
           await incidentRepo.closeZone();
           await mediaRepo.closeZone();
         } catch (e) {
-          debugPrint('❌ Error during incident/media cleanup: $e');
+
           // Continue with user deletion even if this fails
         }
       }
@@ -1115,11 +1112,6 @@ class _ProfilePageState extends State<ProfilePage> {
       // Force rebuild to show updated Huawei ID linked status
       if (!mounted) return;
       setState(() {});
-
-      debugPrint('[ProfilePage] ✅ Huawei ID linked and data refreshed');
-      debugPrint('[ProfilePage]    Provider Info: ${_agcUser?.providerInfo}');
-      debugPrint('[ProfilePage]    Is Huawei Linked: ${_isHuaweiIdLinked()}');
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Row(
@@ -1151,11 +1143,6 @@ class _ProfilePageState extends State<ProfilePage> {
 
         if (!mounted) return;
         setState(() {});
-
-        debugPrint(
-          '[ProfilePage] ℹ️ Huawei ID already linked, showing linked status',
-        );
-
         // Show info message instead of error
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1216,9 +1203,9 @@ class _ProfilePageState extends State<ProfilePage> {
     // Reset controllers if user changed or if data just loaded for first time
     if (userChanged && currentUserId != null) {
       _controllersInitialized = false;
-      debugPrint('[ProfilePage] 🔄 User data changed, resetting controllers');
-      debugPrint('[ProfilePage]    Previous UID: $previousUserId');
-      debugPrint('[ProfilePage]    Current UID: $currentUserId');
+
+
+
     }
 
     // Only populate controllers once when data is first loaded OR when user changes
@@ -1232,12 +1219,12 @@ class _ProfilePageState extends State<ProfilePage> {
       _stateController.text = _cloudDbUser?.state ?? '';
       _controllersInitialized = true;
 
-      debugPrint('[ProfilePage] ✅ Controllers initialized with user data');
-      debugPrint('[ProfilePage]    User ID: ${_cloudDbUser?.uid}');
-      debugPrint('[ProfilePage]    Email: ${_emailController.text}');
-      debugPrint('[ProfilePage]    Phone: ${_phoneController.text}');
-      debugPrint('[ProfilePage]    District: ${_districtController.text}');
-      debugPrint('[ProfilePage]    Profile URL: ${_cloudDbUser?.profileURL}');
+
+
+
+
+
+
     }
 
     // Check if email has been set
@@ -1662,13 +1649,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                       ),
                                     );
                                   }
-                                  debugPrint(
-                                    '[ProfilePage] 🗑️ Emergency cleared API key',
-                                  );
                                 } catch (e) {
-                                  debugPrint(
-                                    '[ProfilePage] ❌ Error clearing API key: $e',
-                                  );
                                   if (mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
@@ -2026,14 +2007,11 @@ class _ProfilePageState extends State<ProfilePage> {
       final bool canCheckBiometrics = await _localAuth.canCheckBiometrics;
       final bool isDeviceSupported = await _localAuth.isDeviceSupported();
 
-      debugPrint('[ProfilePage] Can check biometrics: $canCheckBiometrics');
-      debugPrint('[ProfilePage] Is device supported: $isDeviceSupported');
+
+
 
       if (!isDeviceSupported) {
         // Device doesn't support any authentication, allow access
-        debugPrint(
-          '[ProfilePage] Device does not support authentication - allowing access',
-        );
         return true;
       }
 
@@ -2041,16 +2019,13 @@ class _ProfilePageState extends State<ProfilePage> {
       List<BiometricType> availableBiometrics = [];
       try {
         availableBiometrics = await _localAuth.getAvailableBiometrics();
-        debugPrint('[ProfilePage] Available biometrics: $availableBiometrics');
+
       } catch (e) {
-        debugPrint('[ProfilePage] Error checking biometrics: $e');
+
       }
 
       if (!canCheckBiometrics && availableBiometrics.isEmpty) {
         // No security set up - show warning but allow access
-        debugPrint(
-          '[ProfilePage] No device security enrolled - showing warning',
-        );
         if (mounted) {
           final shouldProceed = await showDialog<bool>(
             context: context,
@@ -2096,10 +2071,10 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
       );
 
-      debugPrint('[ProfilePage] Authentication result: $authenticated');
+
       return authenticated;
     } catch (e) {
-      debugPrint('[ProfilePage] Authentication error: $e');
+
 
       // Show error dialog with option to proceed
       if (mounted) {
@@ -2143,7 +2118,7 @@ class _ProfilePageState extends State<ProfilePage> {
   /// Test Gemini API key
   Future<bool> _testApiKey(String apiKey) async {
     try {
-      debugPrint('[ProfilePage] 🧪 Testing API key...');
+
       final response = await http
           .post(
             Uri.parse(
@@ -2169,16 +2144,16 @@ class _ProfilePageState extends State<ProfilePage> {
         final data = jsonDecode(response.body);
         // Check if we got a valid response
         if (data['candidates'] != null && data['candidates'].isNotEmpty) {
-          debugPrint('[ProfilePage] ✅ API key test successful');
+
           return true;
         }
       }
 
-      debugPrint('[ProfilePage] ❌ API key test failed: ${response.statusCode}');
-      debugPrint('[ProfilePage] Response: ${response.body}');
+
+
       return false;
     } catch (e) {
-      debugPrint('[ProfilePage] ❌ API key test error: $e');
+
       return false;
     }
   }
@@ -2557,9 +2532,6 @@ class _ProfilePageState extends State<ProfilePage> {
                     key: 'gemini_api_key',
                     value: apiKey,
                   );
-                  debugPrint(
-                    '[ProfilePage] 🔐 API key saved to secure storage (AES-256-GCM encrypted)',
-                  );
                   setState(() {
                     _isApiKeySet = true;
                   });
@@ -2699,11 +2671,6 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _buildLanguageSelectionCard() {
     // Use local state (loaded from SharedPreferences)
     final currentLanguage = _selectedLanguage;
-
-    debugPrint(
-      '[ProfilePage] 🎨 Building language card with: $currentLanguage',
-    );
-
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -2831,18 +2798,10 @@ class _ProfilePageState extends State<ProfilePage> {
                     if (!value && _allowEmergencyAlert) {
                       _allowEmergencyAlert = false;
                       _cloudDbUser?.allowEmergencyAlert = false;
-                      debugPrint(
-                        '[ProfilePage] ⚠️ Auto-disabled emergency alerts because discoverable was turned off',
-                      );
                     }
                   });
                   _cloudDbUser?.allowDiscoverable = value;
                   await _userProvider!.updateCloudDbUser(_cloudDbUser!);
-
-                  debugPrint(
-                    '[ProfilePage] 💾 Saved allow_discoverable: $value',
-                  );
-
                   // Show warning if turning off discoverable
                   if (!value && mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -2966,10 +2925,6 @@ class _ProfilePageState extends State<ProfilePage> {
               await _userProvider!.updateCloudDbUser(_cloudDbUser!);
 
               if (!mounted) return;
-
-              debugPrint(
-                '[ProfilePage] 💾 Saved allow_emergency_alert: $value',
-              );
             },
           ),
         ],
@@ -3033,7 +2988,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
   /// Handle language selection
   Future<void> _selectLanguage(String languageCode, String languageName) async {
-    debugPrint('[ProfilePage] 🔘 Language selected: $languageCode');
+
 
     // Show confirmation dialog for non-English languages
     if (languageCode != 'en') {
@@ -3203,17 +3158,13 @@ class _ProfilePageState extends State<ProfilePage> {
     // Save to SharedPreferences for local persistence (after confirmation)
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('voice_detection_language', languageCode);
-    debugPrint(
-      '[ProfilePage] 💾 Saved language to SharedPreferences: $languageCode',
-    );
-
     // Update local state
     if (!mounted) return;
     setState(() {
       _selectedLanguage = languageCode;
     });
 
-    debugPrint('[ProfilePage] ✅ Language updated to: $languageCode');
+
 
     // Update running safety trigger
     final safetyProvider = Provider.of<SafetyServiceProvider>(
@@ -3256,7 +3207,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
       return 'en'; // Default to English
     } catch (e) {
-      debugPrint('[ProfilePage] Error detecting system language: $e');
+
       return 'en';
     }
   }

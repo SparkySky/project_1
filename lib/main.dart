@@ -23,14 +23,14 @@ Future<void> main() async {
   // Global error handlers to prevent crashes
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details);
-    debugPrint('Flutter Error: ${details.exception}');
-    debugPrint('Stack trace: ${details.stack}');
+
+
   };
 
   // Catch errors in async code
   PlatformDispatcher.instance.onError = (error, stack) {
-    debugPrint('Async Error: $error');
-    debugPrint('Stack trace: $stack');
+
+
     return true; // Mark as handled
   };
 
@@ -73,25 +73,25 @@ Future<void> main() async {
 
   // Initialize Cloud DB
   try {
-    print('[MAIN] Step 2: Initializing Cloud DB...');
+
     await CloudDbService.initialize();
     await CloudDbService.createObjectType();
-    print('[MAIN] ✅ Cloud DB initialized successfully');
+
 
     await Future.delayed(const Duration(milliseconds: 300));
   } catch (e, stackTrace) {
-    print('[MAIN] ❌ Error initializing Cloud DB: $e');
-    print('[MAIN] Stack trace: $stackTrace');
+
+
   }
 
   // Initialize Push Notification Service
   try {
-    print('[MAIN] Step 3: Initializing Push Notification Service...');
+
     await PushNotificationService().initialize();
-    print('[MAIN] ✅ Push Notification Service initialized successfully');
+
   } catch (e, stackTrace) {
-    print('[MAIN] ❌ Error initializing Push Notification Service: $e');
-    print('[MAIN] Stack trace: $stackTrace');
+
+
   }
 
   runApp(
@@ -99,19 +99,19 @@ Future<void> main() async {
       providers: [
         ChangeNotifierProvider(
           create: (_) {
-            debugPrint("[main.dart] UserProvider created.");
+
             return UserProvider();
           },
         ),
         ChangeNotifierProvider(
           create: (_) {
-            debugPrint("[main.dart] SafetyServiceProvider created.");
+
             return SafetyServiceProvider();
           },
         ),
         ChangeNotifierProvider(
           create: (_) {
-            debugPrint("[main.dart] RapidLocationService created.");
+
             return RapidLocationService();
           },
         ),

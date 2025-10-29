@@ -152,9 +152,6 @@ class GeminiAnalysisService {
   }) async {
     if (_model == null) {
       if (kDebugMode) {
-        print(
-          "[GeminiAnalysisService] Error: Gemini API key is not configured.",
-        );
       }
       return null;
     }
@@ -184,20 +181,14 @@ class GeminiAnalysisService {
               DataPart('audio/m4a', audioBytes),
             ); // or 'audio/mp4', 'audio/wav'
             if (kDebugMode) {
-              print(
-                "[GeminiAnalysisService] Audio file attached (${audioBytes.length} bytes)",
-              );
             }
           } else {
             if (kDebugMode) {
-              print(
-                "[GeminiAnalysisService] Audio file not found: $audioFilePath",
-              );
             }
           }
         } catch (e) {
           if (kDebugMode) {
-            print("[GeminiAnalysisService] Error loading audio file: $e");
+
           }
         }
       }
@@ -217,9 +208,6 @@ class GeminiAnalysisService {
 
         try {
           if (kDebugMode) {
-            print(
-              "[GeminiAnalysisService] Attempt $attempt/$maxAttempts - Calling Gemini API with ${timeout.inSeconds}s timeout...",
-            );
           }
 
           // Call Gemini with timeout
@@ -245,9 +233,6 @@ class GeminiAnalysisService {
             );
           } else {
             if (kDebugMode) {
-              print(
-                "[GeminiAnalysisService] No JSON found in response, retrying...",
-              );
             }
             if (attempt < maxAttempts) continue;
             return null;
@@ -257,62 +242,34 @@ class GeminiAnalysisService {
               jsonDecode(sanitizedText) as Map<String, dynamic>;
 
           if (kDebugMode) {
-            print(
-              "[GeminiAnalysisService] ✅ Successfully received response on attempt $attempt",
-            );
           }
 
           return jsonResponse;
         } on TimeoutException catch (e) {
           if (kDebugMode) {
-            print("[GeminiAnalysisService] ⏱️ Timeout on attempt $attempt: $e");
+
           }
           if (attempt >= maxAttempts) {
             if (kDebugMode) {
-              print(
-                "[GeminiAnalysisService] ❌ Max attempts reached, giving up",
-              );
             }
             return null;
           }
-          // Wait with countdown before retrying
-          if (kDebugMode) {
-            print(
-              "[GeminiAnalysisService] 🔄 Retrying in 2 seconds... (Attempt ${attempt + 1}/$maxAttempts)",
-            );
-          }
-          await Future.delayed(const Duration(milliseconds: 500));
-          if (kDebugMode) print("[GeminiAnalysisService] ⏳ 1.5s...");
-          await Future.delayed(const Duration(milliseconds: 500));
-          if (kDebugMode) print("[GeminiAnalysisService] ⏳ 1.0s...");
-          await Future.delayed(const Duration(milliseconds: 500));
-          if (kDebugMode) print("[GeminiAnalysisService] ⏳ 0.5s...");
-          await Future.delayed(const Duration(milliseconds: 500));
+          // Wait before retrying
+          await Future.delayed(const Duration(seconds: 2));
         } catch (e) {
           if (kDebugMode) {
-            print("[GeminiAnalysisService] ❌ Error on attempt $attempt: $e");
+
           }
           if (attempt >= maxAttempts) return null;
-          // Wait with countdown before retrying
-          if (kDebugMode) {
-            print(
-              "[GeminiAnalysisService] 🔄 Retrying in 2 seconds... (Attempt ${attempt + 1}/$maxAttempts)",
-            );
-          }
-          await Future.delayed(const Duration(milliseconds: 500));
-          if (kDebugMode) print("[GeminiAnalysisService] ⏳ 1.5s...");
-          await Future.delayed(const Duration(milliseconds: 500));
-          if (kDebugMode) print("[GeminiAnalysisService] ⏳ 1.0s...");
-          await Future.delayed(const Duration(milliseconds: 500));
-          if (kDebugMode) print("[GeminiAnalysisService] ⏳ 0.5s...");
-          await Future.delayed(const Duration(milliseconds: 500));
+          // Wait before retrying
+          await Future.delayed(const Duration(seconds: 2));
         }
       }
 
       return null;
     } catch (e) {
       if (kDebugMode) {
-        print("[GeminiAnalysisService] ❌ Fatal error calling Gemini API: $e");
+
       }
       return null;
     }

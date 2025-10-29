@@ -88,7 +88,7 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
         });
       }
     } catch (e) {
-      print('Error initializing video: $e');
+
       if (mounted && !_isDisposed) {
         setState(() {
           _hasError = true;
@@ -143,7 +143,7 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
         });
       }
     } catch (e) {
-      print('Error initializing audio: $e');
+
       if (mounted && !_isDisposed) {
         setState(() {
           _hasError = true;
@@ -207,7 +207,7 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
         }
       }
     } catch (e) {
-      print('Error toggling play/pause: $e');
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -230,7 +230,7 @@ class _MediaViewerPageState extends State<MediaViewerPage> {
         _audioPlayer!.seek(position);
       }
     } catch (e) {
-      print('Error seeking: $e');
+
     }
   }
 

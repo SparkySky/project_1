@@ -37,7 +37,7 @@ public enum PushIntent {
     NOTIFICATION_OPEN_ACTION("hms.intent.action.NOTIFICATION_OPEN_ACTION"),
     NOTIFICATION_OPEN("NOTIFICATION_OPEN");
 
-    private String id;
+    private final String id;
 
     PushIntent(String id) {
         this.id = id;

@@ -101,13 +101,38 @@
     public static boolean DEBUG;
 }
 
-# Aggressive optimization settings
+# Aggressive optimization settings (max compression)
 -optimizations !code/simplification/arithmetic,!code/simplification/cast,!field/*,!class/merging/*
--optimizationpasses 5
+-optimizationpasses 7
 -allowaccessmodification
 -repackageclasses ''
+-mergeinterfacesaggressively
 
-# Remove unused attributes to reduce size
+# Remove debug logging completely
+-assumenosideeffects class kotlin.jvm.internal.Intrinsics {
+    public static void check*(...);
+    public static void throw*(...);
+}
+
+# Strip out line numbers and source file names (saves space)
+-renamesourcefileattribute SourceFile
+-keepattributes SourceFile,LineNumberTable
+
+# Remove unused code aggressively
 -dontwarn **
 -ignorewarnings
+
+# Optimize method calls
+-assumenosideeffects class java.lang.StringBuilder {
+    public java.lang.StringBuilder();
+    public java.lang.StringBuilder(int);
+    public java.lang.StringBuilder append(...);
+    public java.lang.String toString();
+}
+
+# Remove Kotlin metadata (not needed in production)
+-dontwarn kotlin.**
+-assumenosideeffects class kotlin.jvm.internal.** {
+    *;
+}
 

@@ -52,7 +52,7 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
       // Get current user ID
       final user = await AGCAuth.instance.currentUser;
       if (user == null || user.uid == null) {
-        debugPrint('[IncidentHistory] No user logged in');
+
         if (mounted) {
           setState(() => _isLoading = false);
         }
@@ -73,7 +73,7 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
       // Sort by datetime (newest first)
       incidents.sort((a, b) => b.datetime.compareTo(a.datetime));
 
-      debugPrint('[IncidentHistory] Found ${incidents.length} incidents');
+
 
       // Fetch media for each incident
       for (var incident in incidents) {
@@ -101,8 +101,8 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
         });
       }
     } catch (e, stackTrace) {
-      debugPrint('[IncidentHistory] Error loading incidents: $e');
-      debugPrint('[IncidentHistory] Stack trace: $stackTrace');
+
+
       if (mounted) {
         setState(() => _isLoading = false);
       }
@@ -118,7 +118,7 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
       final apiKey = dotenv.env['HUAWEI_SITE_API_KEY'];
 
       if (apiKey == null || apiKey.isEmpty) {
-        debugPrint('[IncidentHistory] API key not found');
+
         return;
       }
 
@@ -154,7 +154,7 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
         }
       }
     } catch (e) {
-      debugPrint('[IncidentHistory] Error reverse geocoding: $e');
+
     }
   }
 
@@ -230,7 +230,7 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
         }
       }
     } catch (e) {
-      debugPrint('[IncidentHistory] Error marking as resolved: $e');
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -313,7 +313,7 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
         }
       }
     } catch (e) {
-      debugPrint('[IncidentHistory] Error deleting incident: $e');
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

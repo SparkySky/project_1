@@ -30,77 +30,48 @@ class UserProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      debugPrint('[UserProvider] 🔄 Initializing user...');
+
       _agcUser = await _authService.currentUser;
 
       if (_agcUser != null) {
-        debugPrint('[UserProvider] ✅ AGC User found: ${_agcUser!.uid}');
-        debugPrint('[UserProvider]    Email: ${_agcUser!.email}');
-        debugPrint('[UserProvider]    Display Name: ${_agcUser!.displayName}');
-        debugPrint('[UserProvider]    Photo URL: ${_agcUser!.photoUrl}');
-        debugPrint(
-          '[UserProvider]    Provider Info: ${_agcUser!.providerInfo}',
-        );
-
         await _loadCloudDbUser();
       } else {
-        debugPrint('[UserProvider] ⚠️  No AGC User found (not logged in)');
       }
     } catch (e) {
-      debugPrint('[UserProvider] ❌ Error initializing user: $e');
-      debugPrint('[UserProvider]    Stack trace: ${StackTrace.current}');
+
+
     } finally {
       _isLoading = false;
       notifyListeners();
-      debugPrint('[UserProvider] ✅ User initialization complete');
-      debugPrint('[UserProvider]    AGC User: ${_agcUser?.uid}');
-      debugPrint('[UserProvider]    CloudDB User: ${_cloudDbUser?.uid}');
+
+
+
     }
   }
 
   // Load CloudDB user data
   Future<void> _loadCloudDbUser() async {
     if (_agcUser == null) {
-      debugPrint(
-        '[UserProvider] ⚠️  Cannot load CloudDB user: AGC User is null',
-      );
       return;
     }
 
     try {
-      debugPrint('[UserProvider] 🔄 Loading CloudDB user: ${_agcUser!.uid}');
+
       await _userRepository.openZone();
 
       _cloudDbUser = await _userRepository.getUserById(_agcUser!.uid!);
 
       if (_cloudDbUser != null) {
-        debugPrint('[UserProvider] ✅ CloudDB user loaded successfully');
-        debugPrint('[UserProvider]    Username: ${_cloudDbUser!.username}');
-        debugPrint('[UserProvider]    Email: ${_cloudDbUser!.email}');
-        debugPrint('[UserProvider]    Phone: ${_cloudDbUser!.phoneNo}');
-        debugPrint(
-          '[UserProvider]    Profile URL: ${_cloudDbUser!.profileURL}',
-        );
-        debugPrint('[UserProvider]    District: ${_cloudDbUser!.district}');
-        debugPrint('[UserProvider]    State: ${_cloudDbUser!.state}');
-        debugPrint('[UserProvider]    Postcode: ${_cloudDbUser!.postcode}');
-
         // Immediately sync language preference from SharedPreferences
         // SharedPreferences is the single source of truth for language
         await _syncLanguageFromPreferences();
-        debugPrint('✅ Pending push token applied: ${_cloudDbUser!.pushToken}');
+
       } else {
-        debugPrint(
-          '[UserProvider] ⚠️  CloudDB user not found for UID: ${_agcUser!.uid}',
-        );
-        debugPrint(
-          '[UserProvider] 💡 This may happen if the user was just created. Try refreshing.',
-        );
       }
       notifyListeners();
     } catch (e) {
-      debugPrint('[UserProvider] ❌ Error loading CloudDB user: $e');
-      debugPrint('[UserProvider]    Stack trace: ${StackTrace.current}');
+
+
     }
   }
 
@@ -114,14 +85,6 @@ class UserProvider extends ChangeNotifier {
 
       // Load language preference
       final savedLanguage = prefs.getString('voice_detection_language');
-
-      debugPrint(
-        '[UserProvider] 📱 CloudDB loaded language: ${_cloudDbUser!.detectionLanguage}',
-      );
-      debugPrint(
-        '[UserProvider] 💾 SharedPreferences saved language: $savedLanguage',
-      );
-
       // Load allow discoverable preference
       final allowDiscoverable = prefs.getBool('allow_discoverable');
 
@@ -131,57 +94,30 @@ class UserProvider extends ChangeNotifier {
       // Sync language
       if (savedLanguage != null &&
           savedLanguage != _cloudDbUser!.detectionLanguage) {
-        debugPrint(
-          '[UserProvider] 🔄 Syncing language from SharedPreferences: $savedLanguage',
-        );
         _cloudDbUser!.detectionLanguage = savedLanguage;
-        debugPrint(
-          '[UserProvider] ✅ Language updated to: ${_cloudDbUser!.detectionLanguage}',
-        );
       } else if (savedLanguage != null) {
-        debugPrint('[UserProvider] ✅ Language already in sync: $savedLanguage');
+
       } else {
-        debugPrint(
-          '[UserProvider] ⚠️  No saved language in SharedPreferences, keeping CloudDB value: ${_cloudDbUser!.detectionLanguage}',
-        );
       }
 
       // Sync allow discoverable
       if (allowDiscoverable != null) {
         _cloudDbUser!.allowDiscoverable = allowDiscoverable;
-        debugPrint(
-          '[UserProvider] ✅ Loaded allow_discoverable: $allowDiscoverable',
-        );
       }
 
       // Sync allow emergency alert
       if (allowEmergencyAlert != null) {
         _cloudDbUser!.allowEmergencyAlert = allowEmergencyAlert;
-        debugPrint(
-          '[UserProvider] ✅ Loaded allow_emergency_alert: $allowEmergencyAlert',
-        );
       }
-
-      debugPrint('[UserProvider] 💾 All preferences loaded from local storage');
-      debugPrint(
-        '[UserProvider] 🎯 Final language value: ${_cloudDbUser!.detectionLanguage}',
-      );
     } catch (e) {
-      debugPrint('[UserProvider] ❌ Error syncing preferences: $e');
+
     }
   }
 
   // Refresh user data (re-fetch AGCUser and CloudDB data)
   Future<void> refreshUser() async {
-    debugPrint('[UserProvider] 🔄 Refreshing user data...');
+
     await _initUser();
-    debugPrint('[UserProvider] ✅ User data refreshed');
-    debugPrint('[UserProvider]    AGC User: ${_agcUser?.uid}');
-    debugPrint('[UserProvider]    Provider Info: ${_agcUser?.providerInfo}');
-    debugPrint('[UserProvider]    Photo URL: ${_agcUser?.photoUrl}');
-    debugPrint(
-      '[UserProvider]    CloudDB Profile URL: ${_cloudDbUser?.profileURL}',
-    );
   }
 
   // Notify listeners when local preferences change
@@ -201,18 +137,12 @@ class UserProvider extends ChangeNotifier {
     // If CloudDB user is still null after loading, try again with a short delay
     // This handles race conditions where CloudDB sync hasn't completed yet
     if (_cloudDbUser == null) {
-      debugPrint(
-        '[UserProvider] ⏳ CloudDB user not found, retrying after delay...',
-      );
       await Future.delayed(const Duration(milliseconds: 1500));
       await _loadCloudDbUser();
 
       if (_cloudDbUser != null) {
-        debugPrint('[UserProvider] ✅ CloudDB user loaded on retry');
+
       } else {
-        debugPrint(
-          '[UserProvider] ⚠️  CloudDB user still not found after retry',
-        );
       }
     }
 
@@ -227,7 +157,7 @@ class UserProvider extends ChangeNotifier {
       try {
         await _userRepository.openZone();
       } catch (e) {
-        debugPrint('⚠️  CloudDB zone not available, updating local state only');
+
         _cloudDbUser = user;
         notifyListeners();
         return;
@@ -238,14 +168,14 @@ class UserProvider extends ChangeNotifier {
       if (success) {
         _cloudDbUser = user;
         notifyListeners();
-        debugPrint('✅ CloudDB user updated successfully');
+
       } else {
-        debugPrint('⚠️  CloudDB update failed, updating local state only');
+
         _cloudDbUser = user;
         notifyListeners();
       }
     } catch (e) {
-      debugPrint('❌ Error updating user: $e');
+
       // Don't rethrow - just log the error and update local state
       _cloudDbUser = user;
       notifyListeners();
@@ -257,9 +187,9 @@ class UserProvider extends ChangeNotifier {
     try {
       await _userRepository.openZone();
       await _userRepository.deleteUser(user);
-      debugPrint('✅ User deleted from CloudDB');
+
     } catch (e) {
-      debugPrint('❌ Error deleting user from CloudDB: $e');
+
       rethrow;
     }
   }
@@ -283,11 +213,11 @@ class UserProvider extends ChangeNotifier {
     try {
       _cloudDbUser?.pushToken = token;
       await updateCloudDbUser(_cloudDbUser!);
-      debugPrint('✅ Local state updated: ${_cloudDbUser!.pushToken}');
-      debugPrint('✅ Push token updated: ${_cloudDbUser!.pushToken}');
+
+
       notifyListeners();
     } catch (e) {
-      debugPrint('❌ Error updating push token: $e');
+
     }
   }
 }

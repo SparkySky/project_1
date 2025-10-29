@@ -90,7 +90,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
     _incidentRepository.closeZone();
     // Clear chat history when leaving
     _chatHistory.clear();
-    debugPrint('[Chatbot] Chat history cleared on dispose');
+
     super.dispose();
   }
 
@@ -235,7 +235,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
       _incidentSummary = summary;
       await _incidentRepository.closeZone();
     } catch (e) {
-      debugPrint('[Chatbot] Error fetching incidents: $e');
+
       _incidentSummary = null;
     }
   }
@@ -320,13 +320,10 @@ class _ChatbotPageState extends State<ChatbotPage> {
 
         return cleanedResponse;
       } else {
-        debugPrint(
-          '[Chatbot] API Error: ${response.statusCode} - ${response.body}',
-        );
         return _getFallbackResponse(userMessage);
       }
     } catch (e) {
-      debugPrint('[Chatbot] Error calling Gemini: $e');
+
       return _getFallbackResponse(userMessage);
     }
   }
@@ -394,11 +391,6 @@ Remember: Your goal is to help users feel safer and more informed, not anxious. 
   }
 
   String _cleanGeminiResponse(String response) {
-    debugPrint('[Chatbot] 🧹 Cleaning response (length: ${response.length})');
-    debugPrint(
-      '[Chatbot] Original response preview: ${response.substring(0, response.length > 100 ? 100 : response.length)}',
-    );
-
     String cleaned = response;
 
     // Remove code blocks first (```...```) - unlikely but just in case
@@ -418,7 +410,6 @@ Remember: Your goal is to help users feel safer and more informed, not anxious. 
     cleaned = cleaned.replaceAllMapped(
       RegExp(r'\*\*\*([\s\S]+?)\*\*\*', multiLine: true),
       (match) {
-        debugPrint('[Chatbot] Removing bold+italic: ${match.group(0)}');
         return match.group(1) ?? '';
       },
     );
@@ -431,12 +422,9 @@ Remember: Your goal is to help users feel safer and more informed, not anxious. 
     int boldCount = 0;
     cleaned = cleaned.replaceAllMapped(RegExp(r'\*\*([^\*]+?)\*\*'), (match) {
       boldCount++;
-      debugPrint(
-        '[Chatbot] Removing bold #$boldCount: "${match.group(0)}" -> "${match.group(1)}"',
-      );
       return match.group(1) ?? '';
     });
-    debugPrint('[Chatbot] Total bold patterns removed: $boldCount');
+
 
     cleaned = cleaned.replaceAllMapped(
       RegExp(r'__([^_]+?)__'),
@@ -482,10 +470,6 @@ Remember: Your goal is to help users feel safer and more informed, not anxious. 
 
     // Trim leading/trailing whitespace
     cleaned = cleaned.trim();
-
-    debugPrint(
-      '[Chatbot] ✅ Cleaned response preview: ${cleaned.substring(0, cleaned.length > 100 ? 100 : cleaned.length)}',
-    );
     return cleaned;
   }
 
@@ -879,7 +863,7 @@ Remember: Your goal is to help users feel safer and more informed, not anxious. 
         }
       }
     } catch (e) {
-      debugPrint('[Chatbot] Error launching phone app: $e');
+
       if (mounted) {
         ScaffoldMessenger.of(
           context,

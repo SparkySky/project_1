@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:huawei_location/huawei_location.dart' as huawei_loc;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 import '../sensors/location_centre.dart';
 import '../repository/user_repository.dart';
 import '../repository/incident_repository.dart';
@@ -41,12 +42,15 @@ class RapidLocationService extends ChangeNotifier {
   Future<void> startRapidUpdates({String? incidentId}) async {
     if (_isRunning) return;
 
-    print('[RapidLocation] 🚀 Starting rapid location updates...');
+
     _isRunning = true;
     _updateCount = 0;
     _startTime = DateTime.now();
     _incidentId = incidentId;
     notifyListeners();
+
+    // Start actual foreground service (prevents Android from killing the app)
+    await _startForegroundService();
 
     // Show persistent foreground notification to keep app alive
     await _showForegroundNotification();
@@ -76,24 +80,20 @@ class RapidLocationService extends ChangeNotifier {
           },
           onLocationAvailability: (availability) {
             if (availability.isLocationAvailable) {
-              debugPrint('[RapidLocation] ✅ Location available');
+
             } else {
-              debugPrint('[RapidLocation] ⚠️ Location not available');
+
             }
           },
         ),
       );
-
-      print(
-        '[RapidLocation] ✅ Continuous location updates started (callback ID: $_locationCallbackId)',
-      );
     } catch (e) {
-      print('[RapidLocation] ❌ Failed to start continuous updates: $e');
+
       // Fallback to timer-based approach if continuous updates fail
       _locationTimer = Timer.periodic(const Duration(seconds: 10), (_) async {
         await _updateLocation();
       });
-      print('[RapidLocation] ⚠️ Using fallback timer-based updates');
+
     }
 
     // TODO: Start video recording timer (every 2 minutes)
@@ -102,9 +102,12 @@ class RapidLocationService extends ChangeNotifier {
 
   /// Stop rapid location updates and set incident status to 'endedByBtn'
   Future<void> stopRapidUpdates() async {
-    print('[RapidLocation] 🛑 Stopping rapid location updates...');
+
     _locationTimer?.cancel();
     _videoTimer?.cancel();
+
+    // Stop foreground service
+    await _stopForegroundService();
 
     // Hide foreground notification
     await _hideForegroundNotification();
@@ -113,13 +116,8 @@ class RapidLocationService extends ChangeNotifier {
     if (_locationCallbackId != null) {
       try {
         await _fusedLocationClient.removeLocationUpdates(_locationCallbackId!);
-        print(
-          '[RapidLocation] ✅ Removed location callback (ID: $_locationCallbackId)',
-        );
-      } on PlatformException catch (e) {
-        print(
-          '[RapidLocation] ⚠️ Error removing location updates (ignorable): ${e.message}',
-        );
+      } on PlatformException {
+        // Ignorable error when removing location updates
       } finally {
         _locationCallbackId = null;
       }
@@ -139,14 +137,14 @@ class RapidLocationService extends ChangeNotifier {
         if (incident != null) {
           incident.status = 'endedByBtn';
           await _incidentRepository.upsertIncident(incident);
-          print('[RapidLocation] ✅ Incident status updated to "endedByBtn"');
+
         } else {
-          print('[RapidLocation] ⚠️ Incident not found: $_incidentId');
+
         }
 
         await _incidentRepository.closeZone();
       } catch (e) {
-        print('[RapidLocation] ❌ Error updating incident status: $e');
+
       }
     }
 
@@ -155,9 +153,9 @@ class RapidLocationService extends ChangeNotifier {
     // Close CloudDB zone now that rapid updates are stopped
     try {
       await _userRepository.closeZone();
-      print('[RapidLocation] ✅ CloudDB zone closed');
+
     } catch (e) {
-      print('[RapidLocation] ⚠️ Error closing CloudDB zone: $e');
+
     }
 
     notifyListeners();
@@ -168,7 +166,7 @@ class RapidLocationService extends ChangeNotifier {
     try {
       final user = await AGCAuth.instance.currentUser;
       if (user == null || user.uid == null) {
-        print('[RapidLocation] No authenticated user');
+
         return;
       }
 
@@ -176,7 +174,7 @@ class RapidLocationService extends ChangeNotifier {
       if (location == null ||
           location.latitude == null ||
           location.longitude == null) {
-        print('[RapidLocation] No location available');
+
         return;
       }
 
@@ -191,97 +189,117 @@ class RapidLocationService extends ChangeNotifier {
 
         _updateCount++;
         notifyListeners();
-
-        print(
-          '[RapidLocation] ✅ Update #$_updateCount: ${location.latitude}, ${location.longitude} at ${userData.locUpdateTime}',
-        );
       }
     } catch (e) {
-      print('[RapidLocation] Error updating location: $e');
+
     }
   }
 
   /// Update location from continuous callback (works in background)
   Future<void> _updateLocationFromCallback(huawei_loc.Location location) async {
     if (!_isRunning) {
-      debugPrint(
-        '[RapidLocation] ⚠️ Received location but service not running',
-      );
       return;
     }
 
     final startTime = DateTime.now();
-    print(
-      '[RapidLocation] 🔄 Background callback triggered at ${startTime.toIso8601String()}',
-    );
-
     try {
       final user = await AGCAuth.instance.currentUser;
       if (user == null || user.uid == null) {
-        print('[RapidLocation] ❌ No authenticated user');
+
         return;
       }
 
       if (location.latitude == null || location.longitude == null) {
-        print('[RapidLocation] ❌ Invalid location data');
+
         return;
       }
-
-      print(
-        '[RapidLocation] 📍 Got location: ${location.latitude}, ${location.longitude}',
-      );
-      print('[RapidLocation] 💾 Opening CloudDB zone...');
-
       // Ensure CloudDB zone is open (may have been closed in background)
       await _userRepository.openZone();
-      print('[RapidLocation] ✅ CloudDB zone opened');
 
-      print('[RapidLocation] 🔍 Fetching user data for UID: ${user.uid}');
+
+
       final userData = await _userRepository.getUserById(user.uid!);
 
       if (userData != null) {
-        print('[RapidLocation] ✅ User data found, updating location...');
-
         userData.latitude = location.latitude;
         userData.longitude = location.longitude;
         userData.locUpdateTime = DateTime.now(); // Update timestamp
 
-        print('[RapidLocation] 💾 Upserting user data to CloudDB...');
         await _userRepository.upsertUser(userData);
 
         _updateCount++;
         notifyListeners();
 
-        final timestamp = DateTime.now().toIso8601String();
-        final duration = DateTime.now().difference(startTime).inMilliseconds;
-
-        print(
-          '[RapidLocation] ✅✅✅ SUCCESS! Update #$_updateCount completed in ${duration}ms',
-        );
-        print(
-          '[RapidLocation] 📍 Location: ${location.latitude}, ${location.longitude}',
-        );
-        print('[RapidLocation] 🕐 Timestamp: $timestamp');
-
         // Update notification to show progress
         await _updateNotificationProgress();
-      } else {
-        print('[RapidLocation] ❌ User data not found in CloudDB');
       }
 
       // Keep zone open for next update (don't close)
-      print('[RapidLocation] 💡 Keeping CloudDB zone open for next update');
-    } catch (e, stackTrace) {
-      final duration = DateTime.now().difference(startTime).inMilliseconds;
-      print('[RapidLocation] ❌❌❌ FAILED after ${duration}ms: $e');
-      print('[RapidLocation] Stack trace: $stackTrace');
+    } catch (e) {
+
+
 
       // Try to reopen zone on next update
       try {
         await _userRepository.closeZone();
       } catch (e2) {
-        print('[RapidLocation] ⚠️ Error closing zone: $e2');
+
       }
+    }
+  }
+
+  /// Start the actual Android foreground service
+  Future<void> _startForegroundService() async {
+    try {
+      final service = FlutterBackgroundService();
+
+      // Check if service is already running
+      final isRunning = await service.isRunning();
+      if (isRunning) {
+
+        return;
+      }
+
+      // Configure the service
+      await service.configure(
+        iosConfiguration: IosConfiguration(
+          autoStart: false,
+          onForeground: (service) {},
+          onBackground: (service) {
+            return true;
+          },
+        ),
+        androidConfiguration: AndroidConfiguration(
+          onStart: (service) {
+
+          },
+          isForegroundMode: true,
+          autoStart: false,
+          autoStartOnBoot: false,
+          foregroundServiceTypes: [AndroidForegroundType.location],
+        ),
+      );
+
+      // Start the service
+      await service.startService();
+    } catch (e) {
+
+      // Continue anyway - notification might still keep app alive
+    }
+  }
+
+  /// Stop the Android foreground service
+  Future<void> _stopForegroundService() async {
+    try {
+      final service = FlutterBackgroundService();
+      final isRunning = await service.isRunning();
+
+      if (isRunning) {
+        service.invoke('stopService');
+
+      }
+    } catch (e) {
+
     }
   }
 
@@ -314,10 +332,8 @@ class RapidLocationService extends ChangeNotifier {
         'Tracking your location every 10 seconds',
         notificationDetails,
       );
-
-      print('[RapidLocation] ✅ Foreground notification shown (HIGH priority)');
     } catch (e) {
-      print('[RapidLocation] ⚠️ Failed to show notification: $e');
+
     }
   }
 
@@ -357,7 +373,7 @@ class RapidLocationService extends ChangeNotifier {
       );
     } catch (e) {
       // Silently fail to not spam logs
-      debugPrint('[RapidLocation] Failed to update notification: $e');
+
     }
   }
 
@@ -365,9 +381,9 @@ class RapidLocationService extends ChangeNotifier {
   Future<void> _hideForegroundNotification() async {
     try {
       await _notificationsPlugin.cancel(_notificationId);
-      print('[RapidLocation] ✅ Foreground notification hidden');
+
     } catch (e) {
-      print('[RapidLocation] ⚠️ Failed to hide notification: $e');
+
     }
   }
 
@@ -376,13 +392,16 @@ class RapidLocationService extends ChangeNotifier {
     _locationTimer?.cancel();
     _videoTimer?.cancel();
 
+    // Stop foreground service
+    _stopForegroundService();
+
     // Remove location callback if still active
     if (_locationCallbackId != null) {
       try {
         _fusedLocationClient.removeLocationUpdates(_locationCallbackId!);
-        print('[RapidLocation] 🧹 Cleaned up location callback on dispose');
+
       } catch (e) {
-        print('[RapidLocation] Error cleaning up location callback: $e');
+
       }
       _locationCallbackId = null;
     }

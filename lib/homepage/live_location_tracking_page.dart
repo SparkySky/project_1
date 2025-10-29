@@ -56,10 +56,6 @@ class _LiveLocationTrackingPageState extends State<LiveLocationTrackingPage> {
   }
 
   void _startLiveTracking() {
-    print(
-      '[LiveTracking] 🚀 Starting live location tracking for UID: ${widget.uid}',
-    );
-
     // Fetch immediately
     _fetchVictimLocation();
 
@@ -78,17 +74,12 @@ class _LiveLocationTrackingPageState extends State<LiveLocationTrackingPage> {
     });
 
     try {
-      print('[LiveTracking] 📡 Fetching location for UID: ${widget.uid}');
+
 
       await _userRepository.openZone();
       final user = await _userRepository.getUserById(widget.uid);
 
       if (mounted && user != null) {
-        print(
-          '[LiveTracking] ✅ Got location: ${user.latitude}, ${user.longitude}',
-        );
-        print('[LiveTracking] 🕐 Update time: ${user.locUpdateTime}');
-
         final newLat = user.latitude;
         final newLng = user.longitude;
         final updateTime = user.locUpdateTime;
@@ -110,26 +101,21 @@ class _LiveLocationTrackingPageState extends State<LiveLocationTrackingPage> {
               CameraUpdate.newLatLng(LatLng(newLat, newLng)),
             );
           }
-
-          print(
-            '[LiveTracking] 📍 Map updated with new location (Update #$_updateCount)',
-          );
-
           // Fetch place name for new location
           _fetchPlaceName(newLat, newLng);
         } else {
-          print('[LiveTracking] ⚠️ Location data is null');
+
         }
       } else {
-        print('[LiveTracking] ❌ User not found or mounted=false');
+
       }
 
       setState(() {
         _isLoading = false;
       });
     } catch (e, stackTrace) {
-      print('[LiveTracking] ❌ Error fetching location: $e');
-      print('[LiveTracking] Stack trace: $stackTrace');
+
+
 
       if (mounted) {
         setState(() {
@@ -142,11 +128,11 @@ class _LiveLocationTrackingPageState extends State<LiveLocationTrackingPage> {
   /// Fetch place name using reverse geocoding (with fallback)
   Future<void> _fetchPlaceName(double lat, double lng) async {
     try {
-      print('[LiveTracking] 🗺️ Fetching place name for: $lat, $lng');
+
 
       // Try geocoding package first (more reliable)
       try {
-        print('[LiveTracking] Trying geocoding package...');
+
         final placemarks = await placemarkFromCoordinates(lat, lng);
 
         if (placemarks.isNotEmpty) {
@@ -174,12 +160,12 @@ class _LiveLocationTrackingPageState extends State<LiveLocationTrackingPage> {
             setState(() {
               _placeName = address;
             });
-            print('[LiveTracking] ✅ Geocoding package address: $_placeName');
+
             return; // Success! Exit early
           }
         }
       } catch (geocodingError) {
-        print('[LiveTracking] ⚠️ Geocoding package failed: $geocodingError');
+
         // Continue to Huawei API fallback
       }
 
@@ -187,7 +173,7 @@ class _LiveLocationTrackingPageState extends State<LiveLocationTrackingPage> {
       final apiKey = dotenv.env['HUAWEI_SITE_API_KEY'];
 
       if (apiKey == null || apiKey.isEmpty) {
-        print('[LiveTracking] ⚠️ Huawei Site API key not found');
+
         if (mounted) {
           setState(() {
             _placeName = ''; // Empty if unavailable
@@ -196,7 +182,7 @@ class _LiveLocationTrackingPageState extends State<LiveLocationTrackingPage> {
         return;
       }
 
-      print('[LiveTracking] Trying Huawei Site API...');
+
       final url = Uri.parse(
         'https://siteapi.cloud.huawei.com/mapApi/v1/siteService/reverseGeocode',
       );
@@ -224,7 +210,7 @@ class _LiveLocationTrackingPageState extends State<LiveLocationTrackingPage> {
             setState(() {
               _placeName = address ?? '';
             });
-            print('[LiveTracking] ✅ Huawei API address: $_placeName');
+
           }
         } else {
           if (mounted) {
@@ -234,7 +220,7 @@ class _LiveLocationTrackingPageState extends State<LiveLocationTrackingPage> {
           }
         }
       } else {
-        print('[LiveTracking] ⚠️ Huawei API failed: ${response.statusCode}');
+
         if (mounted) {
           setState(() {
             _placeName = '';
@@ -242,7 +228,7 @@ class _LiveLocationTrackingPageState extends State<LiveLocationTrackingPage> {
         }
       }
     } catch (e) {
-      print('[LiveTracking] ❌ Error fetching place name: $e');
+
       if (mounted) {
         setState(() {
           _placeName = '';

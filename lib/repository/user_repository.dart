@@ -41,7 +41,7 @@ class UserRepository {
 
       return results.isNotEmpty ? results.first : null;
     } catch (e) {
-      print('Error getting user by email: $e');
+
       return null;
     }
   }
@@ -64,7 +64,7 @@ class UserRepository {
       final result = await _dbService.upsert(_objectTypeName, user.toMap());
       return result > 0;
     } catch (e) {
-      print('Error upserting user: $e');
+
       return false;
     }
   }
@@ -76,7 +76,7 @@ class UserRepository {
       final result = await _dbService.upsertBatch(_objectTypeName, maps);
       return result > 0;
     } catch (e) {
-      print('Error upserting users: $e');
+
       return false;
     }
   }
@@ -87,7 +87,7 @@ class UserRepository {
       final result = await _dbService.delete(_objectTypeName, user.toMap());
       return result > 0;
     } catch (e) {
-      print('Error deleting user: $e');
+
       return false;
     }
   }
@@ -100,7 +100,7 @@ class UserRepository {
       final result = await _dbService.deleteByQuery(_objectTypeName, query);
       return result > 0;
     } catch (e) {
-      print('Error deleting user by id: $e');
+
       return false;
     }
   }
@@ -112,7 +112,7 @@ class UserRepository {
       final result = await _dbService.deleteBatch(_objectTypeName, maps);
       return result > 0;
     } catch (e) {
-      print('Error deleting users: $e');
+
       return false;
     }
   }

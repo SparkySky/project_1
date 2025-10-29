@@ -34,7 +34,7 @@ import io.flutter.plugin.common.MethodChannel.Result;
 
 public class AGConnectCoreMethodHandler implements MethodCallHandler{
     private final AGConnectCoreModule agConnectCoreModule;
-    private Context context;
+    private final Context context;
 
     public AGConnectCoreMethodHandler(AGConnectCoreModule module,Context context){
         this.agConnectCoreModule = module;

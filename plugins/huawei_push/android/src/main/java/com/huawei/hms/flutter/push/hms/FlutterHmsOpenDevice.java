@@ -40,8 +40,7 @@ public class FlutterHmsOpenDevice {
             Log.d("FlutterHmsInstanceId", "Odid");
             result.success(ooid);
         }).addOnFailureListener(e -> {
-            if (e instanceof ApiException) {
-                ApiException apiException = (ApiException) e;
+            if (e instanceof ApiException apiException) {
                 HMSLogger.getInstance(PluginContext.getContext())
                     .sendSingleEvent("getOdid", String.valueOf(apiException.getStatusCode()));
             } else {

@@ -38,7 +38,7 @@ class DebugState with ChangeNotifier {
       _showDebugOverlay = prefs.getBool(_prefKey) ?? false;
       notifyListeners();
     } catch (e) {
-      debugPrint("Error loading debug state: $e");
+
       _showDebugOverlay = false;
     }
   }
@@ -52,7 +52,7 @@ class DebugState with ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_prefKey, value);
     } catch (e) {
-      debugPrint("Error saving debug state: $e");
+
     }
   }
 

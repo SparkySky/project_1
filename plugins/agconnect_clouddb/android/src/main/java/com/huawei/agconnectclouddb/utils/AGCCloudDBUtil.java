@@ -11,6 +11,7 @@ import com.huawei.agconnectclouddb.objecttypes.ObjectTypeInfoHelper;
 import java.util.Locale;
 
 public abstract class AGCCloudDBUtil {
+    @SuppressWarnings("unchecked")
     public static Class<CloudDBZoneObject> getClass(String className) throws ClassNotFoundException {
         for (Class<? extends CloudDBZoneObject> clazz : ObjectTypeInfoHelper.getObjectTypeInfo().getObjectTypes()) {
             if (clazz.getSimpleName().equals(className)) {

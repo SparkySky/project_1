@@ -35,17 +35,12 @@ class _CaptureWindowOverlayState extends State<CaptureWindowOverlay>
 
   @override
   Widget build(BuildContext context) {
-    debugPrint('[CaptureWindowOverlay] ═══════════════════════════');
-    debugPrint('[CaptureWindowOverlay] 🎨 BUILD METHOD CALLED');
-    debugPrint('[CaptureWindowOverlay] ═══════════════════════════');
+
+
+
 
     return Consumer<SafetyServiceProvider>(
       builder: (context, provider, child) {
-        debugPrint('[CaptureWindowOverlay] 📦 Consumer builder called');
-        debugPrint(
-          '[CaptureWindowOverlay] lastTrigger: ${provider.lastTrigger}',
-        );
-
         return Material(
           color: Colors.black.withOpacity(0.85),
           child: SafeArea(
@@ -320,10 +315,6 @@ class _CaptureWindowOverlayState extends State<CaptureWindowOverlay>
                         height: 56,
                         child: ElevatedButton.icon(
                           onPressed: () async {
-                            debugPrint(
-                              '[CaptureWindow] ❌ User cancelled capture',
-                            );
-
                             // Cancel the capture in the safety service
                             await provider.cancelCapture();
 

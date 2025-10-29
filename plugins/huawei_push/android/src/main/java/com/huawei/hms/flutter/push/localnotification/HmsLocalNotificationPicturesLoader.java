@@ -48,13 +48,13 @@ public class HmsLocalNotificationPicturesLoader {
         void call(Bitmap largeIconImage, Bitmap bigPictureImage, MethodChannel.Result result);
     }
 
-    private volatile AtomicInteger count = new AtomicInteger(0);
+    private final AtomicInteger count = new AtomicInteger(0);
 
     private Bitmap largeIconImage;
 
     private Bitmap bigPictureImage;
 
-    private Callback callback;
+    private final Callback callback;
 
     private MethodChannel.Result flutterResult;
 

@@ -29,9 +29,9 @@ import com.facebook.datasource.DataSource;
 import com.huawei.hms.flutter.push.constants.LocalNotification;
 
 public class BitmapDataSubscriber extends BaseBitmapDataSubscriber {
-    private HmsLocalNotificationPicturesLoader hmsLocalNotificationPicturesLoader;
+    private final HmsLocalNotificationPicturesLoader hmsLocalNotificationPicturesLoader;
 
-    private LocalNotification.Bitmap bitmapType;
+    private final LocalNotification.Bitmap bitmapType;
 
     public BitmapDataSubscriber(HmsLocalNotificationPicturesLoader loader, LocalNotification.Bitmap bitmapType) {
         this.hmsLocalNotificationPicturesLoader = loader;

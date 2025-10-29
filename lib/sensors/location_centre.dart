@@ -45,7 +45,7 @@ class LocationServiceHelper {
       final location = await _locationService.getLastLocation();
       return location;
     } catch (e) {
-      print('Error getting last location: $e');
+
       return null;
     }
   }
@@ -58,7 +58,7 @@ class LocationServiceHelper {
     if (!await hasLocationPermission()) {
       final permissionGranted = await requestLocationPermission();
       if (!permissionGranted) {
-        print("Location permission not granted.");
+
         return null;
       }
     }
@@ -71,9 +71,6 @@ class LocationServiceHelper {
         final age = DateTime.now().millisecondsSinceEpoch - (lastLoc.time ?? 0);
         if (age < 120000) {
           // 2 minutes = 120,000 ms
-          debugPrint(
-            '[LocationService] ⚡ Using cached location (${age ~/ 1000}s old)',
-          );
           return lastLoc;
         }
       }
@@ -89,16 +86,10 @@ class LocationServiceHelper {
 
     final timer = Timer(timeoutDuration, () async {
       if (!completer.isCompleted) {
-        debugPrint(
-          "[LocationService] Location request timed out, falling back to last location",
-        );
         if (callbackId != null) {
           try {
             _locationService.removeLocationUpdates(callbackId);
           } on PlatformException catch (e) {
-            print(
-              "Error removing location updates on timeout (ignorable): ${e.message}",
-            );
           }
         }
         // Fallback to last known location
@@ -120,15 +111,12 @@ class LocationServiceHelper {
           onLocationResult: (locationResult) async {
             if (!completer.isCompleted) {
               timer.cancel();
-              debugPrint('[LocationService] ✅ Got fresh location');
+
               completer.complete(locationResult.lastLocation);
               if (callbackId != null) {
                 try {
                   await _locationService.removeLocationUpdates(callbackId);
                 } on PlatformException catch (e) {
-                  print(
-                    "Error removing location updates after success (ignorable): ${e.message}",
-                  );
                 }
               }
             }
@@ -139,7 +127,7 @@ class LocationServiceHelper {
         ),
       );
     } catch (e) {
-      print("Error requesting location updates: $e");
+
       if (!completer.isCompleted) {
         timer.cancel();
         // Fallback to last known location on error
@@ -183,7 +171,7 @@ class LocationServiceHelper {
         ),
       );
     } catch (e) {
-      print("Error starting location stream: $e");
+
       _locationStreamController?.addError(e);
     }
   }
@@ -192,13 +180,10 @@ class LocationServiceHelper {
     if (_streamCallbackId != null) {
       try {
         _locationService.removeLocationUpdates(_streamCallbackId!);
-        print("Successfully requested to remove location stream updates.");
+
       } on PlatformException catch (e) {
         // This can happen if the widget is disposed before the platform responds.
         // It's safe to ignore as the update removal will likely still succeed.
-        print(
-          "Error removing location stream updates (ignorable): ${e.message}",
-        );
       }
       _streamCallbackId = null;
     }
@@ -209,11 +194,11 @@ class LocationServiceHelper {
     _currentUserId = userId;
 
     if (_locationUpdateTimer != null) {
-      debugPrint('[LocationService] Location updates already running');
+
       return;
     }
 
-    debugPrint('[LocationService] Starting location updates for user: $userId');
+
 
     // Update immediately
     await _updateLocationToCloudDB();
@@ -227,7 +212,7 @@ class LocationServiceHelper {
 
   /// Stop automatic location updates
   void stopLocationUpdates() {
-    debugPrint('[LocationService] Stopping location updates');
+
     _locationUpdateTimer?.cancel();
     _locationUpdateTimer = null;
     _currentUserId = null;
@@ -240,7 +225,7 @@ class LocationServiceHelper {
     try {
       final location = await getCurrentLocation();
       if (location == null) {
-        debugPrint('[LocationService] Failed to get current location');
+
         return;
       }
 
@@ -265,16 +250,10 @@ class LocationServiceHelper {
         );
 
         await _userRepository.upsertUser(updatedUser);
-        debugPrint(
-          '[LocationService] Updated location: ${location.latitude}, ${location.longitude}',
-        );
       } else {
-        debugPrint(
-          '[LocationService] User not found in CloudDB: $_currentUserId',
-        );
       }
     } catch (e) {
-      debugPrint('[LocationService] Error updating location to CloudDB: $e');
+
     }
   }
 

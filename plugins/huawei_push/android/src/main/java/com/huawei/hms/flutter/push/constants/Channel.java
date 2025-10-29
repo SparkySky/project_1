@@ -28,7 +28,7 @@ public enum Channel {
     METHOD_CHANNEL("com.huawei.flutter.push/method"),
     BACKGROUND_MESSAGE_CHANNEL("com.huawei.flutter.push/background");
 
-    private String id;
+    private final String id;
 
     Channel(String id) {
         this.id = id;

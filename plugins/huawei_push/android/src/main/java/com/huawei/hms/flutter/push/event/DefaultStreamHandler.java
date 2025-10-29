@@ -27,13 +27,13 @@ import io.flutter.plugin.common.EventChannel;
 
 public class DefaultStreamHandler implements EventChannel.StreamHandler {
 
-    private Context context;
+    private final Context context;
 
     private BroadcastReceiver broadcastReceiver;
 
-    private CreateBroadcastReceiverCallback cb;
+    private final CreateBroadcastReceiverCallback cb;
 
-    private PushIntent intentAction;
+    private final PushIntent intentAction;
 
     public DefaultStreamHandler(Context context, CreateBroadcastReceiverCallback cb, PushIntent intentAction) {
         this.context = context;

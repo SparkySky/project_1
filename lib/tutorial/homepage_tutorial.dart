@@ -182,7 +182,7 @@ class _HomePageTutorialState extends State<HomePageTutorial>
   }
 
   void _handleInteraction(InteractionType? type) {
-    print('[Tutorial] _handleInteraction called with type: $type');
+
     if (type == null) return;
 
     // Hide tutorial temporarily
@@ -207,7 +207,7 @@ class _HomePageTutorialState extends State<HomePageTutorial>
           break;
         case InteractionType.navigateToLodge:
           // Complete tutorial - the onTutorialComplete callback will handle navigation
-          print('[Tutorial] Lodge button tapped, completing tutorial');
+
           _completeTutorial();
           break;
       }
@@ -215,17 +215,14 @@ class _HomePageTutorialState extends State<HomePageTutorial>
   }
 
   Future<void> _completeTutorial() async {
-    print('[Tutorial] _completeTutorial called');
+
     try {
       final prefs = await SharedPreferences.getInstance();
-      print('[Tutorial] Got SharedPreferences instance');
+
       await prefs.setBool('homepage_tutorial_completed', true);
-      print('[Tutorial] Saved to SharedPreferences');
-      print('[Tutorial] About to call widget.onComplete()');
       widget.onComplete();
-      print('[Tutorial] widget.onComplete() called');
     } catch (e) {
-      print('[Tutorial] Error in _completeTutorial: $e');
+
     }
   }
 
@@ -645,10 +642,10 @@ class HomePageTutorialManager {
       barrierColor: Colors.transparent,
       builder: (context) => HomePageTutorial(
         onComplete: () {
-          print('[Tutorial] onComplete called, closing dialog');
+
           Navigator.of(context).pop();
           // Call the tutorial complete callback
-          print('[Tutorial] Calling onTutorialComplete callback');
+
           onTutorialComplete?.call();
         },
         onFilterButtonTap: onFilterTap,

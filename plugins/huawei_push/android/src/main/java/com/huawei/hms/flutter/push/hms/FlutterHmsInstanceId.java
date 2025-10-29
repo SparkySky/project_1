@@ -72,8 +72,7 @@ public class FlutterHmsInstanceId {
             hmsLogger.sendSingleEvent("getAAID");
             result.success(aaid);
         }).addOnFailureListener(e -> {
-            if (e instanceof ApiException) {
-                ApiException ex = ((ApiException) e);
+            if (e instanceof ApiException ex) {
                 result.error(String.valueOf(ex.getStatusCode()), ex.getMessage(), null);
                 hmsLogger.sendSingleEvent("getAAID", String.valueOf(ex.getStatusCode()));
             } else {

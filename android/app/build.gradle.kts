@@ -21,27 +21,14 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
         isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        jvmTarget = JavaVersion.VERSION_17.toString()
     }
-    
-    // APK Size Optimization: Split APKs by architecture
-    // NOTE: Disabled due to conflict with Flutter's ndk.abiFilters
-    // To re-enable, first configure Flutter to not set ndk.abiFilters
-    splits {
-        abi {
-            isEnable = false  // Disabled to avoid conflict with Flutter's default ndk.abiFilters
-            reset()
-            include("armeabi-v7a", "arm64-v8a", "x86_64")
-            isUniversalApk = false
-        }
-    }
-    */
 
     signingConfigs {
         create("release") {
@@ -63,12 +50,16 @@ android {
 
         manifestPlaceholders.put("HUAWEI_API_KEY", project.property("HUAWEI_MAP_API_KEY") as String)
 
+        // APK Size: Limit to arm architectures only (removes x86, x86_64, mips)
+        ndk {
+            abiFilters.clear()
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
         
         // Optimize vector drawables
         vectorDrawables.useSupportLibrary = true
         
-        // APK Size Optimization: Keep only required language resources
-        // Add more languages as needed: "zh", "ms", etc.
+        // APK Size Optimization: Keep only English language resources
         resourceConfigurations += listOf("en")
     }
     
@@ -96,10 +87,12 @@ android {
             isDebuggable = false
             isJniDebuggable = false
             isPseudoLocalesEnabled = false
+            isCrunchPngs = true  // Compress PNG files
+            isZipAlignEnabled = true  // Optimize APK alignment
             
-            // Optimize native libraries
+            // Native code optimization
             ndk {
-                debugSymbolLevel = "SYMBOL_TABLE"  // Changed from NONE to avoid stripping errors
+                debugSymbolLevel = "SYMBOL_TABLE"
             }
         }
         debug {
@@ -124,9 +117,56 @@ android {
                 "org/apache/commons/codec/language/**",
                 "org/apache/commons/codec/language/bm/**",
                 "okhttp3/internal/**",
+                
+                // Exclude META-INF documentation and license files
                 "META-INF/commons-codec*",
-                "META-INF/LICENSE.txt",
-                "META-INF/NOTICE.txt"
+                "META-INF/LICENSE*",
+                "META-INF/NOTICE*",
+                "META-INF/DEPENDENCIES",
+                "META-INF/*.kotlin_module",
+                "META-INF/ASL2.0",
+                "META-INF/*.version",
+                "META-INF/LICENSE.md",
+                "META-INF/LICENSE-notice.md",
+                "META-INF/NOTICE.md",
+                
+                // Exclude documentation files from HMS/AGConnect plugins
+                "**/README.md",
+                "**/README.txt",
+                "**/CHANGELOG.md",
+                "**/CHANGELOG.txt",
+                "**/LICENSE",
+                "**/LICENSE.txt",
+                "**/LICENSE.md",
+                "**/NOTICE",
+                "**/NOTICE.txt",
+                "**/NOTICE.md",
+                "**/OpenSourceSoftwareNotice.html",
+                "**/THIRD PARTY OPEN SOURCE SOFTWARE NOTICE.txt",
+                
+                // Exclude Gradle wrapper and build files
+                "**/gradle-wrapper.jar",
+                "**/gradle-wrapper.properties",
+                "**/gradlew",
+                "**/gradlew.bat",
+                "**/build.gradle",
+                "**/build.gradle.kts",
+                "**/settings.gradle",
+                "**/gradle.properties",
+                "**/proguard-rules.pro",
+                
+                // Exclude analysis and config files
+                "**/analysis_options.yaml",
+                "**/pubspec.yaml",
+                "**/pubspec.lock",
+                "**/.packages",
+                
+                // Exclude protobuf definitions
+                "**/*.proto",
+                
+                // Exclude Kotlin debug
+                "DebugProbesKt.bin",
+                "kotlin/**/*.kotlin_builtins"
             )
             // Pick first for duplicate files
             pickFirsts += listOf(
@@ -137,6 +177,7 @@ android {
         // Handle duplicate classes from CloudDB
         jniLibs {
             pickFirsts += listOf("**/*.so")
+            useLegacyPackaging = false  // Better compression
         }
     }
 

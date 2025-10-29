@@ -27,7 +27,7 @@ class AuthService {
       );
       await _auth.requestVerifyCodeWithEmail(email, settings);
     } on AGCAuthException catch (e) {
-      debugPrint("AuthService requestEmailCodeForSignUp Error: ${e.message}");
+
       throw _handleAuthException(e);
     }
   }
@@ -59,7 +59,7 @@ class AuthService {
 
       return result.user;
     } on AGCAuthException catch (e) {
-      debugPrint("AuthService createEmailUser Error: ${e.message}");
+
       throw _handleAuthException(e);
     }
   }
@@ -92,7 +92,7 @@ class AuthService {
 
       return result.user;
     } on AGCAuthException catch (e) {
-      debugPrint("AuthService SignIn Error: ${e.message}");
+
       throw _handleAuthException(e);
     }
   }
@@ -100,7 +100,7 @@ class AuthService {
   // --- Link Huawei ID to existing email account ---
   Future<AGCUser?> linkHuaweiID(BuildContext? context) async {
     try {
-      debugPrint('[HuaweiLink] Starting Huawei ID linking');
+
 
       // Get current user
       final currentUser = await _auth.currentUser;
@@ -108,7 +108,7 @@ class AuthService {
         throw Exception('No user logged in. Please sign in first.');
       }
 
-      debugPrint('[HuaweiLink] Current user: ${currentUser.uid}');
+
 
       // Step 1: Get Huawei account
       final helper = AccountAuthParamsHelper();
@@ -126,14 +126,14 @@ class AuthService {
       AuthAccount? authAccount;
       try {
         authAccount = await authService.silentSignIn();
-        debugPrint('[HuaweiLink] Silent sign-in successful');
+
       } catch (silentError) {
-        debugPrint('[HuaweiLink] Silent sign-in failed, trying interactive');
+
         authAccount = await authService.signIn();
-        debugPrint('[HuaweiLink] Interactive sign-in successful');
+
       }
 
-      debugPrint('[HuaweiLink] Account email: ${authAccount.email}');
+
 
       // Step 3: Get authorization code or access token
       final String? authCode = authAccount.authorizationCode;
@@ -153,11 +153,11 @@ class AuthService {
       }
 
       // Step 5: Link the credential to current user
-      debugPrint('[HuaweiLink] Linking Huawei ID to current account');
+
       final SignInResult result = await currentUser.link(credential);
 
-      debugPrint('[HuaweiLink] 🎉 Successfully linked Huawei ID!');
-      debugPrint('[HuaweiLink] Photo URL: ${result.user?.photoUrl}');
+
+
 
       // Update CloudDB with Huawei info
       await _createOrUpdateUserInCloudDB(
@@ -174,7 +174,7 @@ class AuthService {
 
       return result.user;
     } on AGCAuthException catch (e) {
-      debugPrint('[HuaweiLink] AGCAuthException: ${e.code} - ${e.message}');
+
 
       // Handle specific linking errors
       if (e.code.toString().contains('205521') ||
@@ -196,18 +196,18 @@ class AuthService {
 
       throw _handleAuthException(e);
     } on PlatformException catch (e) {
-      debugPrint('[HuaweiLink] PlatformException: ${e.code} - ${e.message}');
+
       throw Exception('Huawei ID linking failed: ${e.message}');
     } catch (e, stackTrace) {
-      debugPrint('[HuaweiLink] Unexpected error: $e');
-      debugPrint('[HuaweiLink] Stack trace: $stackTrace');
+
+
       throw Exception('Huawei ID linking failed: $e');
     }
   }
 
   Future<AGCUser?> signInWithHuaweiID(BuildContext? context) async {
     try {
-      debugPrint('[HuaweiSignIn] Starting Huawei ID sign-in');
+
 
       // Step 1: Configure AccountAuthParams
       final helper = AccountAuthParamsHelper();
@@ -219,51 +219,35 @@ class AuthService {
       helper.setScopeList([Scope.openId, Scope.email, Scope.profile]);
 
       final params = helper.createParams();
-      debugPrint('[HuaweiSignIn] Auth params created');
+
 
       // Step 2: Get AuthService
       final authService = AccountAuthManager.getService(params);
-      debugPrint('[HuaweiSignIn] Auth service obtained');
+
 
       // Step 3: Attempt Silent Sign-In, fallback to interactive
       AuthAccount? authAccount;
       try {
-        debugPrint('[HuaweiSignIn] Attempting silent sign-in');
+
         authAccount = await authService.silentSignIn();
-        debugPrint('[HuaweiSignIn] Silent sign-in successful');
+
       } catch (silentError) {
-        debugPrint('[HuaweiSignIn] Silent sign-in failed: $silentError');
-        debugPrint('[HuaweiSignIn] Attempting interactive sign-in');
+
+
 
         try {
           authAccount = await authService.signIn();
-          debugPrint('[HuaweiSignIn] Interactive sign-in successful');
+
         } catch (signInError) {
-          debugPrint('[HuaweiSignIn] Interactive sign-in failed: $signInError');
+
           throw Exception(
             "Huawei ID sign-in cancelled or failed: $signInError",
           );
         }
       }
-
-      debugPrint(
-        '[HuaweiSignIn] Account display name: ${authAccount.displayName}',
-      );
-      debugPrint('[HuaweiSignIn] Account email: ${authAccount.email}');
-      debugPrint('[HuaweiSignIn] Account unionId: ${authAccount.unionId}');
-      debugPrint('[HuaweiSignIn] Account openId: ${authAccount.openId}');
-
       // Step 5: Get authorization code or access token
       final String? authCode = authAccount.authorizationCode;
       final String? accessToken = authAccount.accessToken;
-
-      debugPrint(
-        '[HuaweiSignIn] Auth code obtained: ${authCode?.isNotEmpty ?? false}',
-      );
-      debugPrint(
-        '[HuaweiSignIn] Access token obtained: ${accessToken?.isNotEmpty ?? false}',
-      );
-
       if ((authCode == null || authCode.isEmpty) &&
           (accessToken == null || accessToken.isEmpty)) {
         throw Exception(
@@ -272,24 +256,19 @@ class AuthService {
       }
 
       // Step 6: Create AGC credential
-      debugPrint('[HuaweiSignIn] Creating AGC credential');
+
       AGCAuthCredential credential;
 
       if (accessToken != null && accessToken.isNotEmpty) {
-        debugPrint('[HuaweiSignIn] Using access token for credential');
+
         credential = HuaweiAuthProvider.credentialWithToken(accessToken);
       } else {
-        debugPrint('[HuaweiSignIn] Using authorization code for credential');
+
         credential = HuaweiAuthProvider.credentialWithToken(authCode!);
       }
 
-      debugPrint('[HuaweiSignIn] Signing in to AGC');
+
       final SignInResult result = await _auth.signIn(credential);
-
-      debugPrint(
-        '[HuaweiSignIn] AGC sign-in complete. User: ${result.user?.uid}',
-      );
-
       if (result.user != null) {
         await _createOrUpdateUserInCloudDB(
           result.user!,
@@ -305,10 +284,10 @@ class AuthService {
 
       return result.user;
     } on AGCAuthException catch (e) {
-      debugPrint('[HuaweiSignIn] AGCAuthException: ${e.code} - ${e.message}');
+
       throw _handleAuthException(e);
     } on PlatformException catch (e) {
-      debugPrint('[HuaweiSignIn] PlatformException: ${e.code} - ${e.message}');
+
 
       if (e.code == '8002' || e.code == 'HMS_CORE_ERROR') {
         throw Exception(
@@ -318,8 +297,8 @@ class AuthService {
 
       throw Exception("Huawei ID Sign-In Failed: ${e.message}");
     } catch (e, stackTrace) {
-      debugPrint('[HuaweiSignIn] Unexpected error: $e');
-      debugPrint('[HuaweiSignIn] Stack trace: $stackTrace');
+
+
       Snackbar.error('$e');
       throw Exception("Huawei ID Sign-In Failed: $e");
     }
@@ -337,7 +316,7 @@ class AuthService {
     String? profileURL,
   }) async {
     try {
-      debugPrint('[CloudDB] Creating/updating user: ${agcUser.uid}');
+
 
       // Get current location
       final locationService = LocationServiceHelper();
@@ -348,9 +327,9 @@ class AuthService {
       if (location != null) {
         latitude = location.latitude;
         longitude = location.longitude;
-        debugPrint('[CloudDB] Got location: $latitude, $longitude');
+
       } else {
-        debugPrint('[CloudDB] Could not get current location');
+
       }
 
       // Get push token from PushNotificationService or SharedPreferences
@@ -363,9 +342,9 @@ class AuthService {
           pushToken = prefs.getString('pending_push_token');
         }
       } catch (e) {
-        debugPrint('[CloudDB] Error getting push token: $e');
+
       }
-      debugPrint('[CloudDB] Push token: $pushToken');
+
 
       // Check if user already exists
       await _userRepository.openZone();
@@ -379,9 +358,9 @@ class AuthService {
         if (userByEmail != null && userByEmail.uid != agcUser.uid) {
           // Found an account with same email but different UID
           // This happens when user registered with email then logged in with Huawei ID
-          debugPrint('[CloudDB] 🔗 Account linking detected!');
-          debugPrint('[CloudDB] 📧 Email account UID: ${userByEmail.uid}');
-          debugPrint('[CloudDB] 🆔 Current Huawei ID UID: ${agcUser.uid}');
+
+
+
 
           existingUser = userByEmail;
           isAccountMigration = true;
@@ -389,9 +368,9 @@ class AuthService {
           // Delete the old UID entry if it exists
           try {
             await _userRepository.deleteUserById(userByEmail.uid!);
-            debugPrint('[CloudDB] ✅ Old account deleted: ${userByEmail.uid}');
+
           } catch (e) {
-            debugPrint('[CloudDB] ⚠️  Could not delete old account: $e');
+
           }
         } else {
           // Check by current UID
@@ -403,10 +382,6 @@ class AuthService {
 
       if (existingUser != null) {
         // User exists, update with new UID if migration, otherwise just update info
-        debugPrint(
-          '[CloudDB] ${isAccountMigration ? "Migrating" : "Updating"} user...',
-        );
-
         final updatedUser = Users(
           uid: agcUser.uid, // Use new UID (important for migration)
           email: email ?? existingUser.email,
@@ -428,14 +403,14 @@ class AuthService {
         await _userRepository.upsertUser(updatedUser);
 
         if (isAccountMigration) {
-          debugPrint('[CloudDB] 🎉 Account successfully linked and migrated!');
+
           Snackbar.success('Account linked! Your data has been preserved.');
         } else {
-          debugPrint('[CloudDB] User updated successfully');
+
         }
       } else {
         // New user, create record
-        debugPrint('[CloudDB] Creating new user...');
+
 
         final newUser = Users(
           uid: agcUser.uid,
@@ -454,10 +429,10 @@ class AuthService {
         );
 
         await _userRepository.upsertUser(newUser);
-        debugPrint('[CloudDB] User created successfully');
+
       }
     } catch (e) {
-      debugPrint('[CloudDB] Error creating/updating user: $e');
+
       // Don't throw - we don't want to fail auth if CloudDB fails
     }
   }
@@ -471,7 +446,7 @@ class AuthService {
       );
       await _auth.requestVerifyCodeWithEmail(email, settings);
     } on AGCAuthException catch (e) {
-      debugPrint("AuthService requestPasswordResetCode Error: ${e.message}");
+
       throw _handleAuthException(e);
     }
   }
@@ -485,7 +460,7 @@ class AuthService {
     try {
       await _auth.resetPasswordWithEmail(email, newPassword, verifyCode);
     } on AGCAuthException catch (e) {
-      debugPrint("AuthService resetPasswordWithCode Error: ${e.message}");
+
       throw _handleAuthException(e);
     }
   }
@@ -496,7 +471,7 @@ class AuthService {
       await _auth.signOut();
       await _userRepository.closeZone();
     } on AGCAuthException catch (e) {
-      debugPrint("AuthService SignOut Error: ${e.message}");
+
       throw _handleAuthException(e);
     }
   }

@@ -242,7 +242,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage>
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
       // App came back to foreground - reload map if needed
-      debugPrint('[LodgeIncident] App resumed, reloading map location');
+
       if (_selectedPosition == null || _mapController == null) {
         _initializeLocation();
       }
@@ -276,7 +276,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage>
         });
       }
     } catch (e) {
-      print('Error getting current user: $e');
+
     }
   }
 
@@ -331,7 +331,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage>
           // Migrate to secure storage
           await secureStorage.write(key: 'gemini_api_key', value: customApiKey);
           await prefs.remove('gemini_api_key');
-          debugPrint('[LodgeIncident] 🔄 Migrated API key to secure storage');
+
         }
       }
 
@@ -341,11 +341,6 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage>
       if (apiKey == null || apiKey.isEmpty) {
         throw Exception('Gemini API key not configured');
       }
-
-      debugPrint(
-        '[LodgeIncident] Using ${customApiKey != null ? 'custom (🔐 encrypted)' : 'default'} API key for title generation',
-      );
-
       // Call Gemini API to generate title
       final response = await http.post(
         Uri.parse(
@@ -416,7 +411,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage>
       if (!mounted) return;
       Navigator.of(context).pop(); // Close loading if still open
 
-      debugPrint('Error generating title: $e');
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to generate title: ${e.toString()}'),
@@ -467,7 +462,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage>
           }
         }
       } catch (e) {
-        print('Error initializing location: $e');
+
         if (mounted) {
           setState(() {
             _isLoadingLocation = false;
@@ -515,8 +510,6 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage>
         'https://siteapi.cloud.huawei.com/mapApi/v1/siteService/reverseGeocode',
       );
 
-      print('Reverse geocoding: $latitude, $longitude'); // Debug log
-
       final response = await http.post(
         url,
         headers: {
@@ -529,9 +522,6 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage>
           'returnPoi': true,
         }),
       );
-
-      print('Response status: ${response.statusCode}'); // Debug log
-      print('Response body: ${response.body}'); // Debug log
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -612,7 +602,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage>
         );
       }
     } catch (e) {
-      print('Error reverse geocoding: $e');
+
       setState(() {});
 
       if (mounted) {
@@ -680,8 +670,8 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage>
           // Generate ONE media ID for all files in this incident
           mediaId = _uuid.v4();
 
-          print('Uploading ${_mediaFiles.length} media files to AWS S3...');
-          print('Media ID for this incident: $mediaId');
+
+
 
           for (int i = 0; i < _mediaFiles.length; i++) {
             final file = _mediaFiles[i];
@@ -690,7 +680,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage>
             // Get file extension
             var fileExtension = file.path.split('.').last.toLowerCase();
 
-            print('Uploading media $order/${_mediaFiles.length}...');
+
 
             // Read file and convert to base64
             final bytes = await File(file.path).readAsBytes();
@@ -744,8 +734,8 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage>
               );
             }
 
-            print('✅ Media $order uploaded to AWS S3');
-            print('✅ Media URL: $mediaURL');
+
+
 
             // Save media reference to CloudDB with the AWS S3 URL
             final mediaObject = media(
@@ -753,10 +743,6 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage>
               order: order,
               mediaType: fileExtension,
               mediaURI: mediaURL, // AWS S3 URL
-            );
-
-            print(
-              'Saving media reference to CloudDB - ID: $mediaId, Order: $order',
             );
             final success = await _mediaRepository.upsertMedia(mediaObject);
 
@@ -766,14 +752,10 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage>
               );
             }
 
-            print('✅ Media reference $order saved to CloudDB');
-          }
 
-          print(
-            '✅ All ${_mediaFiles.length} media files processed successfully',
-          );
+          }
         } else {
-          print('No media files to upload');
+
         }
 
         // 2. Combine title and description with separator
@@ -800,13 +782,13 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage>
           status: 'active',
         );
 
-        print('=== Incident Details ===');
-        print('Incident ID: $incidentId');
-        print('User ID: $_currentUserId');
-        print('Type: $_incidentType');
-        print('Media ID: $mediaId');
-        print('Total Media Files: ${_mediaFiles.length}');
-        print('========================');
+
+
+
+
+
+
+
 
         // 3. Upsert incident
         final success = await _incidentRepository.upsertIncident(incident);
@@ -815,7 +797,7 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage>
           throw Exception('Failed to insert incident');
         }
 
-        print('✅ Incident upserted successfully!');
+
 
         // Send push notifications to nearby users
         try {
@@ -830,9 +812,9 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage>
               ? descriptionText.split('\n')[0]
               : 'Emergency Incident Reported';
 
-          print('[Push] Sending notification with title: "$notificationTitle"');
-          print('[Push] Title controller value: "$titleText"');
-          print('[Push] Description: "$descriptionText"');
+
+
+
 
           await _pushService.notifyNearbyUsers(
             incidentTitle: notificationTitle,
@@ -843,9 +825,9 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage>
             incidentId: incidentId,
             radiusKm: 5.0, // 5km radius for prototyping
           );
-          print('✅ Push notifications sent to nearby users');
+
         } catch (e) {
-          print('⚠️ Failed to send push notifications: $e');
+
           // Don't fail the entire incident submission if push fails
         }
 
@@ -909,14 +891,14 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage>
             }
           }
         }
-      } catch (e, stackTrace) {
+      } catch (e) {
         if (dialogShown && mounted) {
           Navigator.of(context).pop();
           dialogShown = false;
         }
 
-        print('❌ Error submitting incident: $e');
-        print('Stack trace: $stackTrace');
+
+
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -1205,407 +1187,434 @@ class _LodgeIncidentPageState extends State<LodgeIncidentPage>
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: Colors.grey[50],
-      child: SingleChildScrollView(
-        controller: _scrollController,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 20),
-              ValueListenableBuilder<double>(
-                valueListenable: _titleAnimationValue,
-                builder: (context, value, child) {
-                  // Calculate opacity and offset from single value
-                  final opacity = value;
-                  final offset = -(1.0 - value) * 50.0;
+    return Scaffold(
+      backgroundColor: Colors.grey[50],
+      body: SafeArea(
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 20),
+                ValueListenableBuilder<double>(
+                  valueListenable: _titleAnimationValue,
+                  builder: (context, value, child) {
+                    // Calculate opacity and offset from single value
+                    final opacity = value;
+                    final offset = -(1.0 - value) * 50.0;
 
-                  return Opacity(
-                    opacity: opacity,
-                    child: Transform.translate(
-                      offset: Offset(0, offset),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 3000),
-                        curve: Curves.easeInOut,
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 12,
-                          horizontal: 20,
+                    return Opacity(
+                      opacity: opacity,
+                      child: Transform.translate(
+                        offset: Offset(0, offset),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 3000),
+                          curve: Curves.easeInOut,
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 12,
+                            horizontal: 20,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _titleBgColor,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: _titleShadowBaseColor.withOpacity(
+                                  0.2 * opacity,
+                                ),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Center(
+                            child: AnimatedDefaultTextStyle(
+                              duration: const Duration(milliseconds: 3000),
+                              curve: Curves.easeInOut,
+                              style: Theme.of(context).textTheme.headlineMedium!
+                                  .copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: _titleTextColor,
+                                  ),
+                              child: const Text('Lodge Incident'),
+                            ),
+                          ),
                         ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 20),
+                Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Combined white box with all content
+                      Container(
+                        padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
-                          color: _titleBgColor,
-                          borderRadius: BorderRadius.circular(12),
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
-                              color: _titleShadowBaseColor.withOpacity(
-                                0.2 * opacity,
-                              ),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
                             ),
                           ],
                         ),
-                        child: Center(
-                          child: AnimatedDefaultTextStyle(
-                            duration: const Duration(milliseconds: 3000),
-                            curve: Curves.easeInOut,
-                            style: Theme.of(context).textTheme.headlineMedium!
-                                .copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: _titleTextColor,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Map Section
+                            _buildMapWidget(),
+                            const SizedBox(height: 24),
+
+                            // Incident Type
+                            _buildLabelWithIcon(
+                              Icons.category,
+                              'Incident Type',
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildIncidentTypeCard(
+                                    type: 'general',
+                                    icon: Icons.info_outline,
+                                    label: 'General',
+                                  ),
                                 ),
-                            child: const Text('Lodge Incident'),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _buildIncidentTypeCard(
+                                    type: 'threat',
+                                    icon: Icons.warning_amber_rounded,
+                                    label: 'Threat',
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 24),
+
+                            // Description
+                            _buildLabelWithIcon(
+                              Icons.description,
+                              'Description',
+                            ),
+                            const SizedBox(height: 8),
+                            TextFormField(
+                              controller: _descriptionController,
+                              decoration: InputDecoration(
+                                hintText: 'Describe what happened in detail...',
+                                hintStyle: TextStyle(color: Colors.grey[400]),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: Colors.grey[300]!,
+                                  ),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: Colors.grey[300]!,
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: _incidentType == 'threat'
+                                        ? Colors.red
+                                        : AppTheme.primaryOrange,
+                                    width: 2,
+                                  ),
+                                ),
+                                filled: true,
+                                fillColor: Colors.white,
+                              ),
+                              maxLines: 6,
+                              cursorColor: _incidentType == 'threat'
+                                  ? Colors.red
+                                  : AppTheme.primaryOrange,
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Please enter a description';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Incident Title with Generate Button
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildLabelWithIcon(
+                                    Icons.title,
+                                    'Incident Title',
+                                  ),
+                                ),
+                                AnimatedContainer(
+                                  duration: const Duration(milliseconds: 3000),
+                                  curve: Curves.easeInOut,
+                                  child: TextButton.icon(
+                                    onPressed: _generateTitleFromDescription,
+                                    icon: const Icon(
+                                      Icons.auto_awesome,
+                                      size: 18,
+                                    ),
+                                    label: const Text('Generate'),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: _accentColor,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            TextFormField(
+                              controller: _titleController,
+                              decoration: InputDecoration(
+                                hintText: 'Enter or generate a brief title',
+                                hintStyle: TextStyle(color: Colors.grey[400]),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: Colors.grey[300]!,
+                                  ),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: Colors.grey[300]!,
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: _incidentType == 'threat'
+                                        ? Colors.red
+                                        : AppTheme.primaryOrange,
+                                    width: 2,
+                                  ),
+                                ),
+                                filled: true,
+                                fillColor: Colors.grey[50],
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 16,
+                                ),
+                              ),
+                              maxLines: 1,
+                              maxLength: 45,
+                              cursorColor: _incidentType == 'threat'
+                                  ? Colors.red
+                                  : AppTheme.primaryOrange,
+                              textCapitalization: TextCapitalization.sentences,
+                              validator: (value) {
+                                if (value == null || value.trim().isEmpty) {
+                                  return 'Please enter an incident title';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 12),
+
+                            // Media Evidence
+                            MediaOperationsWidget(
+                              mediaFiles: _mediaFiles,
+                              onMediaFilesChanged: (files) {
+                                setState(() {
+                                  _mediaFiles = files;
+                                });
+                              },
+                              initialAudioFile:
+                                  widget.audioRecordingPath != null
+                                  ? File(widget.audioRecordingPath!)
+                                  : null,
+                              accentColor: _accentColor,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 30),
+
+                      // Submit Button with DateTime inside
+                      SizedBox(
+                        width: double.infinity,
+                        height: 70,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 3000),
+                          curve: Curves.easeInOut,
+                          child: ElevatedButton(
+                            onPressed: _submitIncident,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _accentColor,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 12,
+                                horizontal: 20,
+                              ),
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Text(
+                                  'Submit',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Flexible(
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(
+                                          Icons.access_time,
+                                          size: 14,
+                                          color: Colors.white70,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'Datetime: ${DateFormat('MMM dd, yyyy • hh:mm a').format(DateTime.now())}',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.white70,
+                                            fontWeight: FontWeight.w400,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 20),
-              Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Combined white box with all content
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Map Section
-                          _buildMapWidget(),
-                          const SizedBox(height: 24),
 
-                          // Incident Type
-                          _buildLabelWithIcon(Icons.category, 'Incident Type'),
-                          const SizedBox(height: 8),
-                          Row(
+                      // Auto-submit countdown and Cancel/Modify buttons
+                      if (_isAutoSubmitting) ...[
+                        const SizedBox(height: 24),
+                        // Countdown display
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.orange[50],
+                            border: Border.all(color: Colors.orange, width: 2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              Expanded(
-                                child: _buildIncidentTypeCard(
-                                  type: 'general',
-                                  icon: Icons.info_outline,
-                                  label: 'General',
-                                ),
+                              const Icon(
+                                Icons.timer,
+                                color: Colors.orange,
+                                size: 28,
                               ),
                               const SizedBox(width: 12),
-                              Expanded(
-                                child: _buildIncidentTypeCard(
-                                  type: 'threat',
-                                  icon: Icons.warning_amber_rounded,
-                                  label: 'Threat',
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 24),
-
-                          // Description
-                          _buildLabelWithIcon(Icons.description, 'Description'),
-                          const SizedBox(height: 8),
-                          TextFormField(
-                            controller: _descriptionController,
-                            decoration: InputDecoration(
-                              hintText: 'Describe what happened in detail...',
-                              hintStyle: TextStyle(color: Colors.grey[400]),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: Colors.grey[300]!,
-                                ),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: Colors.grey[300]!,
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: _incidentType == 'threat'
-                                      ? Colors.red
-                                      : AppTheme.primaryOrange,
-                                  width: 2,
-                                ),
-                              ),
-                              filled: true,
-                              fillColor: Colors.white,
-                            ),
-                            maxLines: 6,
-                            cursorColor: _incidentType == 'threat'
-                                ? Colors.red
-                                : AppTheme.primaryOrange,
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter a description';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-
-                          // Incident Title with Generate Button
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildLabelWithIcon(
-                                  Icons.title,
-                                  'Incident Title',
-                                ),
-                              ),
-                              AnimatedContainer(
-                                duration: const Duration(milliseconds: 3000),
-                                curve: Curves.easeInOut,
-                                child: TextButton.icon(
-                                  onPressed: _generateTitleFromDescription,
-                                  icon: const Icon(
-                                    Icons.auto_awesome,
-                                    size: 18,
-                                  ),
-                                  label: const Text('Generate'),
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: _accentColor,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          TextFormField(
-                            controller: _titleController,
-                            decoration: InputDecoration(
-                              hintText: 'Enter or generate a brief title',
-                              hintStyle: TextStyle(color: Colors.grey[400]),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: Colors.grey[300]!,
-                                ),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: Colors.grey[300]!,
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: _incidentType == 'threat'
-                                      ? Colors.red
-                                      : AppTheme.primaryOrange,
-                                  width: 2,
-                                ),
-                              ),
-                              filled: true,
-                              fillColor: Colors.grey[50],
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 16,
-                              ),
-                            ),
-                            maxLines: 1,
-                            maxLength: 45,
-                            cursorColor: _incidentType == 'threat'
-                                ? Colors.red
-                                : AppTheme.primaryOrange,
-                            textCapitalization: TextCapitalization.sentences,
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'Please enter an incident title';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 12),
-
-                          // Media Evidence
-                          MediaOperationsWidget(
-                            mediaFiles: _mediaFiles,
-                            onMediaFilesChanged: (files) {
-                              setState(() {
-                                _mediaFiles = files;
-                              });
-                            },
-                            initialAudioFile: widget.audioRecordingPath != null
-                                ? File(widget.audioRecordingPath!)
-                                : null,
-                            accentColor: _accentColor,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 30),
-
-                    // Submit Button with DateTime inside
-                    SizedBox(
-                      width: double.infinity,
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 3000),
-                        curve: Curves.easeInOut,
-                        child: ElevatedButton(
-                          onPressed: _submitIncident,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _accentColor,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            elevation: 0,
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 16,
-                              horizontal: 20,
-                            ),
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Text(
-                                'Submit',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(
-                                    Icons.access_time,
-                                    size: 14,
-                                    color: Colors.white70,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Datetime: ${DateFormat('MMM dd, yyyy • hh:mm a').format(DateTime.now())}',
+                              Flexible(
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    'Auto-submitting in $_countdown seconds...',
                                     style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.white70,
-                                      fontWeight: FontWeight.w400,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.orange,
                                     ),
                                   ),
-                                ],
+                                ),
                               ),
                             ],
                           ),
                         ),
-                      ),
-                    ),
-
-                    // Auto-submit countdown and Cancel/Modify buttons
-                    if (_isAutoSubmitting) ...[
-                      const SizedBox(height: 24),
-                      // Countdown display
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.orange[50],
-                          border: Border.all(color: Colors.orange, width: 2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                        const SizedBox(height: 16),
+                        // Cancel and Modify buttons
+                        Row(
                           children: [
-                            const Icon(
-                              Icons.timer,
-                              color: Colors.orange,
-                              size: 28,
+                            Expanded(
+                              child: SizedBox(
+                                height: 56,
+                                child: ElevatedButton.icon(
+                                  onPressed: _handleCancel,
+                                  icon: const Icon(
+                                    Icons.cancel,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                  label: const Text(
+                                    'Cancel',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
+                              ),
                             ),
                             const SizedBox(width: 12),
-                            Text(
-                              'Auto-submitting in $_countdown seconds...',
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.orange,
+                            Expanded(
+                              child: SizedBox(
+                                height: 56,
+                                child: ElevatedButton.icon(
+                                  onPressed: _handleModify,
+                                  icon: const Icon(
+                                    Icons.edit,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                  label: const Text(
+                                    'Modify',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.blue,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
                           ],
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      // Cancel and Modify buttons
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: _handleCancel,
-                              icon: const Icon(
-                                Icons.cancel,
-                                color: Colors.white,
-                              ),
-                              label: const Text(
-                                'Cancel',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: _handleModify,
-                              icon: const Icon(Icons.edit, color: Colors.white),
-                              label: const Text(
-                                'Modify',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blue,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

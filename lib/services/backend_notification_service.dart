@@ -20,13 +20,13 @@ class BackendNotificationService {
     required String longitude,
   }) async {
     try {
-      debugPrint('[BackendService] 📤 Sending to ${pushTokens.length} devices');
-      debugPrint('[BackendService] Endpoint: $_apiEndpoint');
-      debugPrint('[BackendService] Title being sent: "$title"');
-      debugPrint('[BackendService] Incident Type: "$incidentType"');
+
+
+
+
 
       if (pushTokens.isEmpty) {
-        debugPrint('[BackendService] ⚠️ No push tokens to send');
+
         return false;
       }
 
@@ -42,7 +42,7 @@ class BackendNotificationService {
         'timestamp': DateTime.now().toIso8601String(),
       });
 
-      debugPrint('[BackendService] Request Body: $body');
+
 
       final response = await http
           .post(
@@ -53,31 +53,28 @@ class BackendNotificationService {
           .timeout(
             const Duration(seconds: 30),
             onTimeout: () {
-              debugPrint('[BackendService] ⏱️ Request timeout');
+
               throw TimeoutException('Backend request timed out');
             },
           );
 
-      debugPrint('[BackendService] Response status: ${response.statusCode}');
-      debugPrint('[BackendService] Response body: ${response.body}');
+
+
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['success'] == true) {
-          debugPrint('[BackendService] ✅ Notifications sent successfully');
+
           return true;
         } else {
-          debugPrint(
-            '[BackendService] ❌ Backend returned error: ${data['error']}',
-          );
           return false;
         }
       } else {
-        debugPrint('[BackendService] ❌ HTTP error: ${response.statusCode}');
+
         return false;
       }
     } catch (e) {
-      debugPrint('[BackendService] ❌ Error: $e');
+
       return false;
     }
   }

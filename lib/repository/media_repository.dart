@@ -17,29 +17,29 @@ class MediaRepository {
     try {
       final map = mediaObject.getObjectData(); // Use CloudDB method
 
-      print('=== Upserting Media to CloudDB ===');
-      print('Object Type: $_objectTypeName');
-      print('Map data: $map');
+
+
+
 
       // Detailed type logging
-      print('Field types:');
+
       map.forEach((key, value) {
-        print('  $key: ${value.runtimeType} = $value');
+
       });
 
       // Call CloudDB service
       final result = await _dbService.upsert(_objectTypeName, map);
-      print('CloudDB media upsert result: $result');
+
 
       if (result <= 0) {
         throw Exception('CloudDB upsert failed with result: $result');
       }
 
-      print('✅ Media upserted successfully');
+
       return true;
     } catch (e, stackTrace) {
-      print('❌ Error upserting media: $e');
-      print('Stack trace: $stackTrace');
+
+
       rethrow;
     }
   }
@@ -47,9 +47,9 @@ class MediaRepository {
   Future<void> openZone() async {
     try {
       await _dbService.openZone();
-      print('✅ Media zone opened successfully');
+
     } catch (e) {
-      print('❌ Error opening Media zone: $e');
+
       rethrow;
     }
   }
@@ -73,7 +73,7 @@ class MediaRepository {
 
       return results;
     } catch (e) {
-      print('❌ Error getting media by ID: $e');
+
       return [];
     }
   }
@@ -85,10 +85,10 @@ class MediaRepository {
         ..equalTo('mediaID', mediaId);
 
       final result = await _dbService.deleteByQuery(_objectTypeName, query);
-      print('✅ Deleted media for mediaID: $mediaId');
+
       return result > 0;
     } catch (e) {
-      print('❌ Error deleting media: $e');
+
       return false;
     }
   }
@@ -96,9 +96,9 @@ class MediaRepository {
   Future<void> closeZone() async {
     try {
       await _dbService.closeZone();
-      print('✅ Media zone closed');
+
     } catch (e) {
-      print('❌ Error closing Media zone: $e');
+
       rethrow;
     }
   }

@@ -217,42 +217,36 @@ class MicrophoneService {
   // This function ensures the recorder is ready right before we need it.
   void _ensureRecorderInitialized() {
     if (_audioRecorder == null) {
-      debugPrint(
-        "[MicrophoneService] Initializing AudioRecorder for the first time.",
-      );
       _audioRecorder = AudioRecorder();
     }
   }
 
   Future<bool> hasPermission() async {
     _ensureRecorderInitialized();
-    debugPrint("[MicrophoneService] Checking for permission.");
+
     return await _audioRecorder!.hasPermission();
   }
 
   Future<void> startRecording(String filePath) async {
     _ensureRecorderInitialized();
     if (await _audioRecorder!.hasPermission()) {
-      debugPrint("[MicrophoneService] Starting recording to path: $filePath");
+
       await _audioRecorder!.start(
         const RecordConfig(encoder: AudioEncoder.wav, sampleRate: 16000),
         path: filePath,
       );
     } else {
-      debugPrint(
-        "[MicrophoneService] ERROR: Microphone permission not granted.",
-      );
     }
   }
 
   Future<String?> stopRecording() async {
-    debugPrint("[MicrophoneService] Attempting to stop recording.");
+
     if (await _audioRecorder?.isRecording() ?? false) {
       final path = await _audioRecorder!.stop();
-      debugPrint("[MicrophoneService] Recording stopped. File saved at: $path");
+
       return path;
     }
-    debugPrint("[MicrophoneService] No active recording to stop.");
+
     return null;
   }
 
@@ -263,7 +257,7 @@ class MicrophoneService {
     _keywordController ??= StreamController<String>.broadcast();
 
     final available = await _speechToText!.initialize();
-    debugPrint("[MicrophoneService] Speech-to-text initialized: $available");
+
     return available;
   }
 
@@ -279,20 +273,7 @@ class MicrophoneService {
 
     // Combine all keywords
     _customKeywords = [...enKeywords, ...msKeywords, ...zhKeywords];
-
-    debugPrint('[MicrophoneService] 🎯 Loaded custom keywords:');
-    debugPrint('[MicrophoneService]   - EN: ${enKeywords.length} keywords');
-    debugPrint('[MicrophoneService]   - MS: ${msKeywords.length} keywords');
-    debugPrint(
-      '[MicrophoneService]   - ZH: ${zhKeywords.length} keywords (Chinese)',
-    );
-    debugPrint(
-      '[MicrophoneService]   - TOTAL: ${_customKeywords.length} keywords',
-    );
     if (zhKeywords.isNotEmpty) {
-      debugPrint(
-        '[MicrophoneService] 🇨🇳 Chinese keywords: ${zhKeywords.join(", ")}',
-      );
     }
   }
 
@@ -301,23 +282,12 @@ class MicrophoneService {
     final languageChanged = _preferredLanguage != preferredLanguage;
 
     if (_shouldKeepListening && !languageChanged) {
-      debugPrint(
-        "[MicrophoneService] Already in listening mode with same language, skipping...",
-      );
       return;
     }
 
     if (languageChanged && _shouldKeepListening) {
-      debugPrint(
-        "[MicrophoneService] Language changed from $_preferredLanguage to $preferredLanguage, restarting...",
-      );
-
       // Clear transcript buffer when changing language
       _transcriptBuffer.clear();
-      debugPrint(
-        "[MicrophoneService] 🗑️ Transcript buffer cleared for language change",
-      );
-
       await stopKeywordDetection(); // Stop existing session
       await Future.delayed(
         const Duration(milliseconds: 500),
@@ -327,7 +297,7 @@ class MicrophoneService {
     if (_speechToText == null) {
       final initialized = await initializeSpeechToText();
       if (!initialized) {
-        debugPrint("[MicrophoneService] Failed to initialize speech-to-text");
+
         return;
       }
     }
@@ -343,19 +313,7 @@ class MicrophoneService {
         : preferredLanguage == 'zh'
         ? 'Chinese (Traditional)'
         : 'Smart Mode (Auto-detect)';
-    debugPrint(
-      "[MicrophoneService] 🌍 Preferred language set to: $languageName",
-    );
-
     if (preferredLanguage == 'smart') {
-      debugPrint("[MicrophoneService] 🤖 SMART MODE ACTIVATED");
-      debugPrint(
-        "[MicrophoneService] 🔥 MULTI-ANALYSIS: Each phrase analyzed by 3 languages",
-      );
-      debugPrint(
-        "[MicrophoneService] 🌍 Analysis: English → Malay → Mandarin (sequential)",
-      );
-      debugPrint("[MicrophoneService] 💡 Instant detection in any language!");
     }
 
     _shouldKeepListening = true;
@@ -367,7 +325,7 @@ class MicrophoneService {
     if (!_shouldKeepListening || _isListening) return;
 
     _isListening = true;
-    debugPrint("[MicrophoneService] 🎤 Starting listening session");
+
 
     try {
       // Try to get available locales
@@ -377,13 +335,6 @@ class MicrophoneService {
       // Debug: Log all available locales
       if (locales.isNotEmpty) {
         final allLocales = locales.map((l) => l.localeId).toList();
-        debugPrint(
-          "[MicrophoneService] 📋 Total available locales: ${allLocales.length}",
-        );
-        debugPrint(
-          "[MicrophoneService] 📋 All locales: ${allLocales.join(', ')}",
-        );
-
         // Check for specific language availability
         final hasEnglish = allLocales.any((id) => id.startsWith('en'));
         final hasMalay = allLocales.any((id) => id.startsWith('ms'));
@@ -391,9 +342,9 @@ class MicrophoneService {
           (id) => id.startsWith('zh') || id.startsWith('cmn'),
         );
 
-        debugPrint("[MicrophoneService] ✓ English available: $hasEnglish");
-        debugPrint("[MicrophoneService] ✓ Malay available: $hasMalay");
-        debugPrint("[MicrophoneService] ✓ Mandarin available: $hasMandarin");
+
+
+
       }
 
       if (locales.isNotEmpty) {
@@ -419,14 +370,6 @@ class MicrophoneService {
                 ),
               )
               .localeId;
-
-          debugPrint(
-            "[MicrophoneService] 🌍 ENGLISH MODE: Best for phonetic matching",
-          );
-          debugPrint("[MicrophoneService] 📋 Using locale: $selectedLocale");
-          debugPrint(
-            "[MicrophoneService] 💡 Detects: English (native) + Chinese (phonetic)",
-          );
         } else if (effectiveLanguage == 'ms') {
           // Malay mode: Bahasa Melayu (Malaysia)
           try {
@@ -439,31 +382,9 @@ class MicrophoneService {
                   locale.localeId.startsWith('ms'),
             );
             selectedLocale = malayLocale.localeId;
-
-            debugPrint("[MicrophoneService] 🌍 MALAY MODE: Bahasa Melayu");
-            debugPrint("[MicrophoneService] 📋 Using locale: $selectedLocale");
-            debugPrint(
-              "[MicrophoneService] 💡 Detects: Malay (native) + English keywords",
-            );
           } catch (e) {
             // Malay not available - use first available locale
             selectedLocale = locales.first.localeId;
-
-            debugPrint(
-              "[MicrophoneService] ⚠️ MALAY MODE: ms-MY locale NOT FOUND on device",
-            );
-            debugPrint(
-              "[MicrophoneService] ⚠️ Falling back to: $selectedLocale",
-            );
-            debugPrint(
-              "[MicrophoneService] 💡 NOTE: Android only shows language packs matching your system language",
-            );
-            debugPrint(
-              "[MicrophoneService] 💡 To use Malay: Add 'Bahasa Melayu' to phone languages in Settings → System → Languages",
-            );
-            debugPrint(
-              "[MicrophoneService] 📝 Current mode will still detect 'tolong' and other keywords phonetically",
-            );
           }
         } else {
           // Mandarin mode: Traditional Chinese (Taiwan)
@@ -481,14 +402,6 @@ class MicrophoneService {
                 orElse: () => locales.first,
               )
               .localeId;
-
-          debugPrint(
-            "[MicrophoneService] 🌍 MANDARIN MODE: Traditional Chinese (Taiwan)",
-          );
-          debugPrint("[MicrophoneService] 📋 Using locale: $selectedLocale");
-          debugPrint(
-            "[MicrophoneService] 💡 Detects: Mandarin (native) + English keywords",
-          );
         }
       }
 
@@ -501,18 +414,6 @@ class MicrophoneService {
 
           // Always send transcript, even if empty
           if (transcript.isNotEmpty) {
-            debugPrint(
-              "[MicrophoneService] 📝 RAW TRANSCRIPT (original): '$originalTranscript'",
-            );
-            debugPrint(
-              "[MicrophoneService] 📝 RAW TRANSCRIPT (lowercased): '$transcript' (${isFinal ? 'FINAL' : 'partial'})",
-            );
-            debugPrint(
-              "[MicrophoneService] 🌐 Current language mode: $_preferredLanguage",
-            );
-            debugPrint(
-              "[MicrophoneService] 🔍 Checking against ${KEYWORDS.length} default keywords + ${_customKeywords.length} custom keywords",
-            );
             _transcriptController?.add(transcript);
 
             // Only add FINAL results to rolling buffer (avoid duplicates from partial results)
@@ -521,9 +422,6 @@ class MicrophoneService {
               if (_transcriptBuffer.length > MAX_BUFFER_SIZE) {
                 _transcriptBuffer.removeAt(0); // Remove oldest
               }
-              debugPrint(
-                "[MicrophoneService] 💾 Stored final phrase in buffer (${_transcriptBuffer.length}/$MAX_BUFFER_SIZE)",
-              );
             }
 
             // Check for keywords with detailed logging
@@ -532,9 +430,6 @@ class MicrophoneService {
             // Smart Mode: If no keyword found AND final result, note it
             // (Currently Android STT doesn't support re-analyzing audio files)
             if (!keywordFound && isFinal && _preferredLanguage == 'smart') {
-              debugPrint(
-                "[MicrophoneService] 🤖 Smart Mode: No keywords in English phonetic transcription",
-              );
             }
           }
         },
@@ -551,19 +446,16 @@ class MicrophoneService {
           // Note: This is SpeechToText's sound level (0-10 scale, NOT actual dB)
           // Only log significant sound for debugging
           if (level > 5) {
-            debugPrint(
-              "[MicrophoneService] 🎙️ STT Sound Level: ${level.toStringAsFixed(1)}/10 (not actual dB)",
-            );
           }
         },
       );
 
-      debugPrint("[MicrophoneService] ✅ Session started");
+
 
       // Start monitoring to detect when listening stops
       _startMonitoring();
     } catch (e) {
-      debugPrint("[MicrophoneService] ❌ Error starting listener: $e");
+
       _isListening = false;
 
       // Retry after error
@@ -589,7 +481,7 @@ class MicrophoneService {
 
       if (!isActuallyListening && _isListening) {
         // Listener has stopped unexpectedly
-        debugPrint("[MicrophoneService] 🔄 Listener stopped, restarting...");
+
         _isListening = false;
 
         // Small delay before restart
@@ -604,7 +496,7 @@ class MicrophoneService {
 
   /// Stop keyword detection
   Future<void> stopKeywordDetection() async {
-    debugPrint("[MicrophoneService] 🛑 Stopping keyword detection");
+
     _shouldKeepListening = false;
     _isListening = false;
     _monitorTimer?.cancel();
@@ -617,7 +509,7 @@ class MicrophoneService {
 
   /// Pause listening temporarily (for audio recording)
   Future<void> pauseListening() async {
-    debugPrint("[MicrophoneService] ⏸️ Pausing listening");
+
     _shouldKeepListening = false;
     _isListening = false;
     _monitorTimer?.cancel();
@@ -630,7 +522,7 @@ class MicrophoneService {
 
   /// Resume listening after pause
   Future<void> resumeListening() async {
-    debugPrint("[MicrophoneService] ▶️ Resuming listening");
+
     _shouldKeepListening = true;
     _startListening();
   }
@@ -647,7 +539,7 @@ class MicrophoneService {
   /// Clear the transcript buffer (call after trigger is handled)
   void clearPreTriggerContext() {
     _transcriptBuffer.clear();
-    debugPrint("[MicrophoneService] 🗑️ Pre-trigger context cleared");
+
   }
 
   /// Get current transcript
@@ -662,7 +554,7 @@ class MicrophoneService {
     }
 
     if (_isMonitoringDecibels) {
-      debugPrint("[MicrophoneService] 📊 Decibel monitoring already active");
+
       yield* _decibelController!.stream;
       return;
     }
@@ -673,14 +565,14 @@ class MicrophoneService {
 
       // Check permission
       if (await _amplitudeRecorder!.hasPermission()) {
-        debugPrint("[MicrophoneService] 🎤 Starting amplitude recorder...");
+
 
         // Create temp file for amplitude monitoring (we won't actually use the file)
         final tempDir = await getTemporaryDirectory();
         final tempPath =
             '${tempDir.path}/amplitude_monitor_${DateTime.now().millisecondsSinceEpoch}.wav';
 
-        debugPrint("[MicrophoneService] 📁 Temp amplitude file: $tempPath");
+
 
         // Use WAV/PCM format for reliable amplitude monitoring
         // AAC encoder doesn't provide accurate real-time amplitude
@@ -696,24 +588,13 @@ class MicrophoneService {
 
         // Verify recording started
         final isRecording = await _amplitudeRecorder!.isRecording();
-        debugPrint(
-          "[MicrophoneService] 📊 Amplitude recorder status: $isRecording",
-        );
-
         if (!isRecording) {
-          debugPrint(
-            "[MicrophoneService] ❌ Amplitude recorder failed to start",
-          );
           _isMonitoringDecibels = false;
           yield* _decibelController!.stream;
           return;
         }
 
         _isMonitoringDecibels = true;
-        debugPrint(
-          "[MicrophoneService] ✅ Amplitude recorder started successfully",
-        );
-
         // Poll amplitude periodically (every 100ms)
         _amplitudeTimer = Timer.periodic(const Duration(milliseconds: 100), (
           timer,
@@ -728,9 +609,6 @@ class MicrophoneService {
 
             // Debug: Log first 100 readings, then every 2 seconds
             if (timer.tick <= 100 || timer.tick % 20 == 0) {
-              debugPrint(
-                "[MicrophoneService] 🎤 TICK ${timer.tick} | current: ${amplitude.current.toStringAsFixed(1)} dBFS, max: ${amplitude.max.toStringAsFixed(1)} dBFS",
-              );
             }
 
             // Use MAX value for peak detection (better for shouting/loud sounds)
@@ -741,9 +619,6 @@ class MicrophoneService {
 
               // Debug: Log first 100 conversions, then every 2 seconds
               if (timer.tick <= 100 || timer.tick % 20 == 0) {
-                debugPrint(
-                  "[MicrophoneService] 📊 TICK ${timer.tick} | Using MAX: ${amplitude.max.toStringAsFixed(1)} dBFS → ${db.toStringAsFixed(1)} dB SPL",
-                );
               }
 
               if (!_decibelController!.isClosed && db > 0) {
@@ -751,32 +626,20 @@ class MicrophoneService {
               }
             } else {
               if (timer.tick <= 50 || timer.tick % 30 == 0) {
-                debugPrint(
-                  "[MicrophoneService] 🔇 TICK ${timer.tick} | Silence: max=${amplitude.max.toStringAsFixed(1)} dBFS",
-                );
               }
             }
           } catch (e) {
-            debugPrint("[MicrophoneService] ❌ Amplitude read error: $e");
+
             if (e.toString().contains('not recording')) {
-              debugPrint(
-                "[MicrophoneService] ⚠️ Recorder stopped unexpectedly, canceling timer",
-              );
               timer.cancel();
               _isMonitoringDecibels = false;
             }
           }
         });
       } else {
-        debugPrint(
-          "[MicrophoneService] ❌ No microphone permission for decibel monitoring",
-        );
         _isMonitoringDecibels = false;
       }
     } catch (e) {
-      debugPrint(
-        "[MicrophoneService] ❌ Failed to start decibel monitoring: $e",
-      );
       _isMonitoringDecibels = false;
     }
 
@@ -807,25 +670,18 @@ class MicrophoneService {
     if (_amplitudeTimer != null) {
       _amplitudeTimer!.cancel();
       _amplitudeTimer = null;
-      debugPrint("[MicrophoneService] ⏸️ Paused decibel monitoring");
+
     }
   }
 
   /// Resume decibel monitoring after pause
   Future<void> resumeDecibelMonitoring() async {
     if (!_isMonitoringDecibels || _amplitudeRecorder == null) {
-      debugPrint(
-        "[MicrophoneService] ⚠️ Cannot resume - monitoring not active",
-      );
       return;
     }
 
     try {
       // STOP and RESTART the recorder to reset the max amplitude buffer
-      debugPrint(
-        "[MicrophoneService] 🔄 Restarting recorder to reset amplitude buffer...",
-      );
-
       if (await _amplitudeRecorder!.isRecording()) {
         final oldPath = await _amplitudeRecorder!.stop();
         // Delete old temp file
@@ -834,10 +690,10 @@ class MicrophoneService {
             final file = File(oldPath);
             if (await file.exists()) {
               await file.delete();
-              debugPrint("[MicrophoneService] 🗑️ Deleted old amplitude file");
+
             }
           } catch (e) {
-            debugPrint("[MicrophoneService] ⚠️ Failed to delete old file: $e");
+
           }
         }
       }
@@ -857,7 +713,7 @@ class MicrophoneService {
         path: tempPath,
       );
 
-      debugPrint("[MicrophoneService] ✅ Recorder restarted with fresh buffer");
+
 
       // Restart the timer (recorder is now fresh, no old peak values)
       _amplitudeTimer = Timer.periodic(const Duration(milliseconds: 100), (
@@ -873,9 +729,6 @@ class MicrophoneService {
 
           // Log first 5 readings to confirm fresh values, then every 2 seconds
           if (timer.tick <= 5 || timer.tick % 20 == 0) {
-            debugPrint(
-              "[MicrophoneService] 🎤 TICK ${timer.tick} | current: ${amplitude.current.toStringAsFixed(1)} dBFS, max: ${amplitude.max.toStringAsFixed(1)} dBFS",
-            );
           }
 
           // Use MAX value for peak detection (now truly fresh!)
@@ -883,9 +736,6 @@ class MicrophoneService {
             final db = _amplitudeToDB(amplitude.max);
 
             if (timer.tick <= 5 || timer.tick % 20 == 0) {
-              debugPrint(
-                "[MicrophoneService] 📊 TICK ${timer.tick} | Using MAX: ${amplitude.max.toStringAsFixed(1)} dBFS → ${db.toStringAsFixed(1)} dB SPL",
-              );
             }
 
             if (!_decibelController!.isClosed && db > 0) {
@@ -893,20 +743,17 @@ class MicrophoneService {
             }
           }
         } catch (e) {
-          debugPrint("[MicrophoneService] ❌ Amplitude read error: $e");
+
           if (e.toString().contains('not recording')) {
-            debugPrint(
-              "[MicrophoneService] ⚠️ Recorder stopped unexpectedly, canceling timer",
-            );
             timer.cancel();
             _isMonitoringDecibels = false;
           }
         }
       });
 
-      debugPrint("[MicrophoneService] ▶️ Resumed decibel monitoring");
+
     } catch (e) {
-      debugPrint("[MicrophoneService] ❌ Error resuming decibel monitoring: $e");
+
     }
   }
 
@@ -925,35 +772,26 @@ class MicrophoneService {
               final file = File(filePath);
               if (await file.exists()) {
                 await file.delete();
-                debugPrint(
-                  "[MicrophoneService] 🗑️ Deleted temp amplitude file",
-                );
               }
             } catch (e) {
-              debugPrint(
-                "[MicrophoneService] ⚠️ Failed to delete temp file: $e",
-              );
             }
           }
         }
         _amplitudeRecorder!.dispose();
       } catch (e) {
-        debugPrint(
-          "[MicrophoneService] ⚠️ Error stopping amplitude recorder: $e",
-        );
       }
       _amplitudeRecorder = null;
     }
 
     _isMonitoringDecibels = false;
-    debugPrint("[MicrophoneService] 📊 Stopped decibel monitoring");
+
   }
 
   /// Check if decibel monitoring is active
   bool get isMonitoringDecibels => _isMonitoringDecibels;
 
   void dispose() {
-    debugPrint("[MicrophoneService] Disposing AudioRecorder and SpeechToText.");
+
     _shouldKeepListening = false;
     _isListening = false;
     _monitorTimer?.cancel();
@@ -1040,15 +878,6 @@ class MicrophoneService {
       if (normalizedTranscript.contains(normalizedKeyword)) {
         // Normalize the keyword before sending (e.g., "sauce" → "SOS")
         final displayKeyword = normalizeKeyword(keyword);
-        debugPrint(
-          "[MicrophoneService] ✅✅✅ KEYWORD MATCH: '$keyword' → normalized to '$displayKeyword'",
-        );
-        debugPrint(
-          "[MicrophoneService] 📤 Sending normalized keyword: '$displayKeyword'",
-        );
-        debugPrint(
-          "[MicrophoneService] 📜 Pre-trigger context: ${getPreTriggerContext()}",
-        );
         _keywordController?.add(displayKeyword);
         return true;
       }
@@ -1058,38 +887,16 @@ class MicrophoneService {
     for (final keyword in _customKeywords) {
       final normalizedKeyword = _normalizeForMatching(keyword);
       if (normalizedTranscript.contains(normalizedKeyword)) {
-        debugPrint("[MicrophoneService] 🎯✅ CUSTOM KEYWORD MATCH: '$keyword'");
-        debugPrint("[MicrophoneService] 🔍 Original transcript: '$transcript'");
-        debugPrint(
-          "[MicrophoneService] 🔍 Normalized transcript: '$normalizedTranscript'",
-        );
-        debugPrint(
-          "[MicrophoneService] 🔍 Normalized keyword: '$normalizedKeyword'",
-        );
-        debugPrint("[MicrophoneService] 📤 Sending custom keyword: '$keyword'");
-        debugPrint(
-          "[MicrophoneService] 📜 Pre-trigger context: ${getPreTriggerContext()}",
-        );
         _keywordController?.add(keyword.toUpperCase());
         return true;
       }
     }
-
-    debugPrint("[MicrophoneService] ❌ No keyword match in: '$transcript'");
-    debugPrint(
-      "[MicrophoneService] 🔍 Normalized transcript: '$normalizedTranscript'",
-    );
     // Log individual words for debugging
     final words = transcript.split(' ');
-    debugPrint("[MicrophoneService] 📋 Individual words: ${words.join(', ')}");
-
     // Debug: Show what custom keywords we're looking for
     if (_customKeywords.isNotEmpty) {
-      debugPrint("[MicrophoneService] 🎯 Custom keywords being checked:");
+
       for (final kw in _customKeywords) {
-        debugPrint(
-          "[MicrophoneService]   - '$kw' (normalized: '${_normalizeForMatching(kw)}')",
-        );
       }
     }
 

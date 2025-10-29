@@ -100,10 +100,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           onFilterTap: _showRadiusFilterDialog,
           onNavigateToLodge: _navigateToLodge,
           onTutorialComplete: () {
-            print('[Homepage] onTutorialComplete called');
+
             // After tutorial completes, automatically navigate to Lodge
             Future.delayed(const Duration(milliseconds: 500), () {
-              print('[Homepage] Navigating to Lodge page');
+
               if (mounted) {
                 _navigateToLodge();
               }
@@ -363,11 +363,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           setState(() {
             _allowDiscoverable = true;
           });
-
-          debugPrint(
-            '[Homepage] ✅ Auto-enabled discoverable mode on activation',
-          );
-
           // Show success message
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -394,7 +389,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         await _userRepository.closeZone();
       }
     } catch (e) {
-      debugPrint('[Homepage] Error enabling discoverable mode: $e');
+
     }
   }
 
@@ -413,11 +408,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           setState(() {
             _allowDiscoverable = userData.allowDiscoverable ?? false;
           });
-          print('[Homepage] User allowDiscoverable: $_allowDiscoverable');
+
         }
       }
     } catch (e) {
-      print('[Homepage] Error loading user settings: $e');
+
     }
   }
 
@@ -457,7 +452,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         await _userRepository.closeZone();
       }
     } catch (e) {
-      print('[Homepage] Error checking profile info: $e');
+
       try {
         await _userRepository.closeZone();
       } catch (_) {}
@@ -477,11 +472,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             _userLatitude = location.latitude;
             _userLongitude = location.longitude;
           });
-          print('[Homepage] User location: $_userLatitude, $_userLongitude');
+
         }
       }
     } catch (e) {
-      print('[Homepage] Error getting user location: $e');
+
     }
   }
 
@@ -490,9 +485,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (!mounted) return;
 
     if (!_allowDiscoverable || _currentUserId == null) {
-      print(
-        '[Homepage] Location update skipped - allowDiscoverable: $_allowDiscoverable',
-      );
       return;
     }
 
@@ -516,9 +508,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           userData.locUpdateTime = DateTime.now(); // Update timestamp
 
           await _userRepository.upsertUser(userData);
-          print(
-            '[Homepage] ✅ Updated user location to CloudDB: ${location.latitude}, ${location.longitude} at ${userData.locUpdateTime}',
-          );
         }
 
         await _userRepository.closeZone();
@@ -532,7 +521,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         }
       }
     } catch (e) {
-      print('[Homepage] ❌ Error updating location to CloudDB: $e');
+
     }
   }
 
@@ -557,7 +546,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (!mounted) return;
 
     if (_userLatitude == null || _userLongitude == null) {
-      print('[Homepage] User location not available, skipping incident load');
+
       return;
     }
 
@@ -702,7 +691,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               ].where((e) => e != null && e.isNotEmpty).join(', ');
             }
           } catch (e) {
-            print('[Homepage] Geocoding error: $e');
+
           }
 
           // Format status label and color
@@ -774,14 +763,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             }
           }
         });
-        print(
-          '[Homepage] Loaded ${_incidents.length} incidents within ${_radiusFilter}m (Type: ${_incidentTypeFilter ?? 'all'}, Sort: $_sortBy ${_sortAscending ? 'asc' : 'desc'})',
-        );
       }
 
       await _incidentRepository.closeZone();
     } catch (e) {
-      print('[Homepage] Error loading incidents: $e');
+
       if (mounted) {
         setState(() {
           _isLoadingIncidents = false;
@@ -1113,7 +1099,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   void _navigateToLodge() {
-    print('[Homepage] _navigateToLodge called, setting _selectedIndex to 1');
+
     setState(() {
       _selectedIndex = 1; // Navigate to Lodge tab (index 1)
     });
@@ -1225,7 +1211,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    print('HomePage building, selectedIndex: $_selectedIndex');
+
 
     return ValueListenableBuilder<String>(
       valueListenable: _incidentTypeNotifier,
@@ -1305,7 +1291,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       _isRefreshing = true;
     });
 
-    debugPrint('[HomePage] 🔄 Manual refresh triggered');
+
 
     try {
       // Reload location and incidents
@@ -1321,7 +1307,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         );
       }
     } catch (e) {
-      debugPrint('[HomePage] ❌ Refresh error: $e');
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -1345,15 +1331,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
       // App came back to foreground - reload everything
-      debugPrint(
-        '[HomePage] 🔄 App resumed, reloading map, location and incidents',
-      );
-
       // Force rebuild to refresh map by changing its key
       if (mounted) {
         setState(() {
           _mapRebuildKey++; // Increment key to force new MapWidget instance
-          debugPrint('[HomePage] 🗺️ Map rebuild key: $_mapRebuildKey');
+
         });
       }
 
@@ -1361,7 +1343,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       _getUserLocation();
       _loadIncidents();
 
-      debugPrint('[HomePage] ✅ Map and data refreshed after resume');
+
     }
   }
 
@@ -1392,7 +1374,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       color: Colors.transparent,
       child: InkWell(
         onTap: () {
-          print('Navigation tapped: $index');
+
           setState(() {
             _selectedIndex = index;
             // Reset to yellow/general when leaving Lodge page
@@ -1441,7 +1423,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     Map<String, dynamic> incident, {
     bool fromMarker = false,
   }) {
-    debugPrint('[HomePage] 🔔 Incident tapped: ${incident['iid']}');
+
 
     // If tapped from marker, scroll to incident card and set list to middle position
     if (fromMarker) {
@@ -1460,7 +1442,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   // Scroll to incident card in the list
   void _scrollToIncident(String incidentId) {
-    debugPrint('[HomePage] 🎯 Attempting to scroll to incident: $incidentId');
+
 
     // Find the index of the incident in the filtered list
     final index = _incidents.indexWhere(
@@ -1468,30 +1450,25 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
 
     if (index == -1) {
-      debugPrint('[HomePage] ❌ Cannot scroll: incident not found in list');
-      debugPrint('[HomePage] Incident ID: $incidentId');
-      debugPrint('[HomePage] Total incidents: ${_incidents.length}');
+
+
+
       return;
     }
 
-    debugPrint('[HomePage] ✅ Found incident at index $index');
+
 
     // Set overlay to middle/default position (0) to make list visible
     _listOverlayPosition.value = 0.0;
-    debugPrint('[HomePage] ✅ List position set to middle (0.0)');
-
     // Step 1: Reset scroll to top first to recalibrate
     if (_incidentListScrollController.hasClients) {
       _incidentListScrollController.jumpTo(0);
-      debugPrint('[HomePage] ⬆️ Reset scroll to top for recalibration');
+
     }
 
     // Step 2: Wait for overlay animation, then scroll to calculated position
     Future.delayed(const Duration(milliseconds: 400), () {
       if (!mounted || !_incidentListScrollController.hasClients) {
-        debugPrint(
-          '[HomePage] ⚠️ Cannot scroll - widget not mounted or no clients',
-        );
         return;
       }
 
@@ -1522,13 +1499,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           ? maxScroll
           : targetPosition;
 
-      debugPrint('[HomePage] 📍 Scroll calculation:');
-      debugPrint('  - Index: $index');
-      debugPrint('  - Card height: $cardHeight px');
-      debugPrint('  - Header height: $totalHeaderHeight px');
-      debugPrint('  - Target position: $targetPosition px');
-      debugPrint('  - Max scroll: $maxScroll px');
-      debugPrint('  - Final scroll to: $scrollTo px');
+
+
+
+
+
+
+
 
       try {
         _incidentListScrollController.animateTo(
@@ -1536,17 +1513,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           duration: const Duration(milliseconds: 500),
           curve: Curves.easeInOut,
         );
-        debugPrint(
-          '[HomePage] ✅ Successfully scrolled to incident: $incidentId',
-        );
       } catch (e) {
-        debugPrint('[HomePage] ❌ Error scrolling: $e');
+
       }
     });
   }
 
   Widget _buildHomePage() {
-    print('Building HomePage content');
+
     final screenHeight = MediaQuery.of(context).size.height;
     final mapHeight = screenHeight * 0.7;
     final defaultListPosition = mapHeight - 250; // Start 250px visible map
@@ -1567,60 +1541,33 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               builder: (context) {
                 // Calculate emergency services with debug logging
                 List<EmergencyService>? emergencyServices;
-
-                print('[HomePage] 🔍 Checking emergency services...');
-                print(
-                  '[HomePage] User location: $_userLatitude, $_userLongitude',
-                );
-                print(
-                  '[HomePage] Total services in DB: ${EmergencyServicesData.allServices.length}',
-                );
-
                 if (_userLatitude != null &&
                     _userLongitude != null &&
                     _userLatitude != 0.0 &&
                     _userLongitude != 0.0) {
-                  print(
-                    '[HomePage] ✅ Valid user location: ($_userLatitude, $_userLongitude)',
-                  );
-
                   emergencyServices = EmergencyServicesData.getServicesWithinRadius(
                     _userLatitude!,
                     _userLongitude!,
                     50.0, // TEMP: 50km radius for testing (change back to 1.5 later)
                   );
-
-                  print(
-                    '[HomePage] 📍 Emergency services within 1.5km: ${emergencyServices.length}',
-                  );
-
                   if (emergencyServices.isEmpty) {
-                    print(
-                      '[HomePage] ⚠️ No services found within 1.5km, trying 5km...',
-                    );
                     final services5km =
                         EmergencyServicesData.getServicesWithinRadius(
                           _userLatitude!,
                           _userLongitude!,
                           5.0,
                         );
-                    print(
-                      '[HomePage] Services within 5km: ${services5km.length}',
-                    );
                     if (services5km.isNotEmpty) {
-                      print(
-                        '[HomePage] Closest service: ${services5km.first.name}',
-                      );
                     }
                   } else {
                     for (var service in emergencyServices) {
-                      print('[HomePage]   - ${service.type}: ${service.name}');
+
                     }
                   }
                 } else {
-                  print('[HomePage] ❌ User location not available or invalid');
-                  print('[HomePage]    _userLatitude: $_userLatitude');
-                  print('[HomePage]    _userLongitude: $_userLongitude');
+
+
+
                 }
 
                 return MapWidget(
@@ -1665,9 +1612,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
                 // If touch is in bottom 40px, don't capture (allow system back gesture)
                 if (touchY > screenHeight - 40) {
-                  debugPrint(
-                    '[HomePage] ⚠️ Touch at bottom edge, allowing system gesture',
-                  );
                   return;
                 }
               },
@@ -1862,9 +1806,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                       child: Center(
                                         child: TextButton(
                                           onPressed: () {
-                                            debugPrint(
-                                              '[HomePage] 🧪 TEST BUTTON PRESSED',
-                                            );
                                             safetyProvider.manualTrigger(
                                               'TEST TRIGGER',
                                             );

@@ -66,7 +66,6 @@ class _IncidentDetailPageState extends State<IncidentDetailPage> {
       final apiKey = dotenv.env['HUAWEI_SITE_API_KEY'];
 
       if (apiKey == null || apiKey.isEmpty) {
-        debugPrint('Huawei Site API key not found');
         if (mounted) {
           setState(() {
             _address = '${lat.toStringAsFixed(6)}, ${lon.toStringAsFixed(6)}';
@@ -111,7 +110,6 @@ class _IncidentDetailPageState extends State<IncidentDetailPage> {
           }
         }
       } else {
-        debugPrint('Reverse geocode failed: ${response.statusCode}');
         if (mounted) {
           setState(() {
             _address = '${lat.toStringAsFixed(6)}, ${lon.toStringAsFixed(6)}';
@@ -119,7 +117,6 @@ class _IncidentDetailPageState extends State<IncidentDetailPage> {
         }
       }
     } catch (e) {
-      debugPrint('Error fetching address: $e');
       final double? lat = widget.incident['latitude'];
       final double? lon = widget.incident['longitude'];
       if (mounted) {
@@ -135,10 +132,8 @@ class _IncidentDetailPageState extends State<IncidentDetailPage> {
   Future<void> _fetchMedia() async {
     try {
       final String? mediaID = widget.incident['mediaID'];
-      debugPrint('[IncidentDetail] Fetching media for mediaID: $mediaID');
 
       if (mediaID == null || mediaID.isEmpty) {
-        debugPrint('[IncidentDetail] No mediaID, skipping media fetch');
         if (mounted) {
           setState(() {
             _mediaList = [];
@@ -149,7 +144,6 @@ class _IncidentDetailPageState extends State<IncidentDetailPage> {
       }
 
       final mediaItems = await _mediaRepository.getMediaByMediaId(mediaID);
-      debugPrint('[IncidentDetail] Fetched ${mediaItems.length} media items');
 
       // Sort by order field
       mediaItems.sort((a, b) => a.order.compareTo(b.order));
@@ -159,10 +153,8 @@ class _IncidentDetailPageState extends State<IncidentDetailPage> {
           _mediaList = mediaItems;
           _isLoadingMedia = false;
         });
-        debugPrint('[IncidentDetail] Media list updated in state');
       }
     } catch (e) {
-      debugPrint('[IncidentDetail] Error fetching media: $e');
       if (mounted) {
         setState(() {
           _mediaList = [];
@@ -335,9 +327,6 @@ class _IncidentDetailPageState extends State<IncidentDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    debugPrint('[IncidentDetail] Building detail page');
-    debugPrint('[IncidentDetail] Incident data: ${widget.incident}');
-
     final isAIGenerated = widget.incident['isAIGenerated'] == 'true';
     final incidentType = widget.incident['incidentType'] ?? 'general';
     final isThreat = incidentType.toLowerCase() == 'threat';
@@ -352,32 +341,23 @@ class _IncidentDetailPageState extends State<IncidentDetailPage> {
     String description = '';
     final String rawDesc = widget.incident['desc'] ?? '';
 
-    debugPrint('[IncidentDetail] Raw description: $rawDesc');
-
     if (rawDesc.contains('\n---\n')) {
       final parts = rawDesc.split('\n---\n');
       title = parts[0];
       description = parts.length > 1 ? parts[1] : '';
-      debugPrint('[IncidentDetail] Parsed - Title: $title, Desc: $description');
     } else {
       description = rawDesc;
       title = description.length > 50
           ? '${description.substring(0, 50)}...'
           : description;
-      debugPrint('[IncidentDetail] No separator - Using desc as title: $title');
     }
-
-    debugPrint('[IncidentDetail] Media list count: ${_mediaList.length}');
-    debugPrint('[IncidentDetail] Is loading media: $_isLoadingMedia');
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
         backgroundColor: isThreat ? Colors.red[700] : Colors.orange[700],
         automaticallyImplyLeading: false,
-        title: const Text(
-          'MYSafeZone',
-        ),
+        title: const Text('MYSafeZone'),
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -627,46 +607,6 @@ class _IncidentDetailPageState extends State<IncidentDetailPage> {
                 child: const Center(child: CircularProgressIndicator()),
               ),
             ],
-
-            const SizedBox(height: 24),
-
-            // Emergency Contact Button (Threat only)
-            if (isThreat)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      // TODO: Implement emergency contact functionality
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Emergency contact feature coming soon',
-                          ),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.phone, color: Colors.white),
-                    label: const Text(
-                      'Contact Emergency Services',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red[700],
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
 
             const SizedBox(height: 32),
           ],

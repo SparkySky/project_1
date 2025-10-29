@@ -243,9 +243,9 @@ class _AuthScreenState extends State<AuthScreen> {
   Future<void> _handleHuaweiSignIn() async {
     setState(() => _isLoading = true);
     try {
-      debugPrint('[HuaweiSignIn] Starting sign-in');
+
       final user = await _authService.signInWithHuaweiID(context);
-      debugPrint('[HuaweiSignIn] Sign-in completed: ${user?.uid}');
+
 
       if (user != null && mounted) {
         Navigator.pushReplacement(

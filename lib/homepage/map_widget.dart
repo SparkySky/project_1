@@ -93,12 +93,6 @@ class _MapWidgetState extends State<MapWidget>
         widget.emergencyServices != oldWidget.emergencyServices;
 
     if (incidentsChanged || servicesChanged) {
-      debugPrint(
-        '[MapWidget] 🔄 Incidents or services changed, rebuilding markers',
-      );
-      debugPrint(
-        '[MapWidget]   Old incidents: ${oldWidget.incidents.length}, New: ${widget.incidents.length}',
-      );
       _buildMarkersFromIncidents();
     }
 
@@ -115,7 +109,7 @@ class _MapWidgetState extends State<MapWidget>
     super.activate();
     // Re-activate map when coming back from background
     _isDisposed = false;
-    debugPrint('[MapWidget] 🔄 Widget activated, reinitializing map');
+
 
     // Reinitialize map to prevent blank screen
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -129,7 +123,7 @@ class _MapWidgetState extends State<MapWidget>
   void deactivate() {
     // Mark as disposed early to prevent operations during navigation
     _isDisposed = true;
-    debugPrint('[MapWidget] ⏸️ Widget deactivated');
+
     super.deactivate();
   }
 
@@ -157,7 +151,7 @@ class _MapWidgetState extends State<MapWidget>
       _isFlashVisible = true;
     });
 
-    debugPrint('[MapWidget] ✨ Starting flash animation for: $markerId');
+
 
     // Flash 2 times with longer intervals to reduce GPU load
     // 800ms per flash instead of 500ms
@@ -177,7 +171,7 @@ class _MapWidgetState extends State<MapWidget>
       // Stop after 2 complete flashes
       if (_flashCount >= 2) {
         timer.cancel();
-        debugPrint('[MapWidget] ✅ Flash animation completed');
+
         // Reset to normal
         Future.delayed(const Duration(milliseconds: 800), () {
           if (mounted && !_isDisposed) {
@@ -211,7 +205,6 @@ class _MapWidgetState extends State<MapWidget>
       final now = DateTime.now();
       if (_lastMarkerRebuild != null &&
           now.difference(_lastMarkerRebuild!).inMilliseconds < 300) {
-        debugPrint('[MapWidget] ⏸️ Throttling marker rebuild (too frequent)');
         return;
       }
       _lastMarkerRebuild = now;
@@ -220,11 +213,8 @@ class _MapWidgetState extends State<MapWidget>
     } else {
       if (_isFirstLoad) {
         _isFirstLoad = false;
-        debugPrint('[MapWidget] 🚀 First load - building initial markers');
+
       } else {
-        debugPrint(
-          '[MapWidget] 🆕 Incidents just loaded - building markers immediately',
-        );
       }
       // Show loading indicator on first load or when incidents just arrived
       setState(() => _isLoadingMarkers = true);
@@ -235,11 +225,6 @@ class _MapWidgetState extends State<MapWidget>
 
     // Only log on first load or when debugging
     if (_isFirstLoad || widget.incidents.isEmpty) {
-      print('[MapWidget] Building markers...');
-      print('[MapWidget] Incidents count: ${widget.incidents.length}');
-      print(
-        '[MapWidget] Emergency services count: ${widget.emergencyServices?.length ?? 0}',
-      );
     }
 
     // Add incident markers
@@ -291,7 +276,7 @@ class _MapWidgetState extends State<MapWidget>
                 : 1.0, // Semi-transparent when flashing
             zIndex: isSelected ? 999.0 : 1.0, // Selected marker on top
             onClick: () {
-              print('[MapWidget] Incident marker clicked: $markerId');
+
               // Start flash animation for clicked marker
               _startMarkerFlash(markerId);
               // Notify parent widget
@@ -312,9 +297,6 @@ class _MapWidgetState extends State<MapWidget>
         widget.emergencyServices!.isNotEmpty) {
       // Only log on first load
       if (_isFirstLoad || widget.emergencyServices!.isEmpty) {
-        print(
-          '[MapWidget] 🚨 Processing ${widget.emergencyServices!.length} emergency services',
-        );
       }
 
       int addedCount = 0;
@@ -354,9 +336,6 @@ class _MapWidgetState extends State<MapWidget>
             alpha: 1.0,
             zIndex: 10.0, // Higher z-index to ensure visibility
             onClick: () {
-              print(
-                '[MapWidget] 🎯 Emergency service marker clicked: $markerId',
-              );
               _showEmergencyServiceDialog(service);
             },
           );
@@ -375,15 +354,11 @@ class _MapWidgetState extends State<MapWidget>
             'phone': service.phone,
           };
         } catch (e) {
-          print('[MapWidget] ❌ Error adding service ${service.name}: $e');
+
         }
       }
       // Only log summary on first load
       if (_isFirstLoad || addedCount == 0) {
-        print(
-          '[MapWidget] ✅ Successfully added $addedCount/${widget.emergencyServices!.length} emergency service markers',
-        );
-        print('[MapWidget] 📊 Total markers on map: ${markers.length}');
       }
     }
 
@@ -421,11 +396,6 @@ class _MapWidgetState extends State<MapWidget>
 
   Future<void> _fetchInitialLocation() async {
     if (_isDisposed) return;
-
-    print("=== Fetching initial location using LocationServiceHelper ===");
-    print(
-      "=== Current zoom level will be: 15.5 (zoomed out to show wider area) ===",
-    );
     hwLocation.Location? location = await _locationHelper.getCurrentLocation();
 
     if (mounted && !_isDisposed) {
@@ -448,18 +418,9 @@ class _MapWidgetState extends State<MapWidget>
             ),
             zoom: 15.5, // Zoomed out 2 levels from 17.5 to show wider area
           );
-          print(
-            "SUCCESS! Got location: ${location.latitude}, ${location.longitude}",
-          );
-          print(
-            "Camera centered at: ${location.latitude! - latitudeOffset} (small offset for zoom 15.5)",
-          );
-          print(
-            "✅ Initial camera position set: zoom=${_initialPosition!.zoom}, target=(${_initialPosition!.target.lat}, ${_initialPosition!.target.lng})",
-          );
         } else {
           _initialPosition = _kFallbackPosition;
-          print("Failed to get location, using fallback.");
+
         }
         _isLoadingLocation = false;
       });
@@ -478,15 +439,15 @@ class _MapWidgetState extends State<MapWidget>
 
   // Method to focus on a specific incident
   void _focusOnIncident(Map<String, dynamic> incident) {
-    debugPrint('[MapWidget] 🎯 Focus on incident requested');
+
 
     if (_isDisposed) {
-      debugPrint('[MapWidget] ❌ Cannot focus - widget disposed');
+
       return;
     }
 
     if (_mapController == null) {
-      debugPrint('[MapWidget] ❌ Cannot focus - map controller is null');
+
       return;
     }
 
@@ -494,7 +455,7 @@ class _MapWidgetState extends State<MapWidget>
     final double? lon = incident['longitude'];
     final String markerId = 'incident_${incident['id']}';
 
-    debugPrint('[MapWidget] Incident location: lat=$lat, lon=$lon');
+
 
     if (lat != null && lon != null) {
       try {
@@ -503,11 +464,6 @@ class _MapWidgetState extends State<MapWidget>
         final double latitudeOffset = 0.0001; // Minimal offset for zoom 19.0
         final targetLat =
             lat + latitudeOffset; // Add to move camera north slightly
-
-        debugPrint(
-          '[MapWidget] 📍 Animating camera to: lat=$targetLat, lon=$lon, zoom=19.0',
-        );
-
         _mapController!.animateCamera(
           CameraUpdate.newLatLngZoom(
             LatLng(
@@ -525,12 +481,12 @@ class _MapWidgetState extends State<MapWidget>
           }
         });
 
-        debugPrint('[MapWidget] ✅ Camera animation started');
+
       } catch (e) {
-        debugPrint('[MapWidget] ❌ Error animating camera: $e');
+
       }
     } else {
-      debugPrint('[MapWidget] ❌ Invalid coordinates: lat=$lat, lon=$lon');
+
     }
   }
 
@@ -577,7 +533,7 @@ class _MapWidgetState extends State<MapWidget>
                   try {
                     _onMapCreated(controller);
                   } catch (e) {
-                    debugPrint('[MapWidget] Error in onMapCreated: $e');
+
                   }
                 }
               },
@@ -705,10 +661,10 @@ class _MapWidgetState extends State<MapWidget>
       if (await canLaunchUrl(phoneUri)) {
         await launchUrl(phoneUri);
       } else {
-        print('[MapWidget] Could not launch phone app for $phoneNumber');
+
       }
     } catch (e) {
-      print('[MapWidget] Error launching phone app: $e');
+
     }
   }
 }

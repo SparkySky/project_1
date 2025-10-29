@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -57,7 +56,7 @@ class SafetyTriggerService {
 
   // Thresholds
   static const double IMU_MAGNITUDE_THRESHOLD =
-      10.0; // User acceleration threshold (without gravity) - detects sudden movements
+      18.0; // User acceleration threshold (without gravity) - detects sudden movements
   static const double DECIBEL_THRESHOLD =
       90.0; // Shouting detection threshold (triggers at 90-92 dB range)
 
@@ -134,7 +133,7 @@ class SafetyTriggerService {
         // Migrate to secure storage
         await secureStorage.write(key: 'gemini_api_key', value: customApiKey);
         await prefs.remove('gemini_api_key');
-        debugPrint('[SafetyTrigger] 🔄 Migrated API key to secure storage');
+
       }
     }
 
@@ -142,15 +141,12 @@ class SafetyTriggerService {
     final apiKey = customApiKey ?? dotenv.env['GEMINI_API_KEY'] ?? '';
 
     _geminiService = GeminiAnalysisService(apiKey: apiKey);
-    debugPrint(
-      '[SafetyTrigger] Initialized with ${customApiKey != null ? 'custom (🔐 encrypted)' : 'default'} Gemini API key',
-    );
   }
 
   /// Set current user ID for location updates
   void setCurrentUserId(String userId) {
     _currentUserId = userId;
-    debugPrint('[SafetyTrigger] Set current user ID: $userId');
+
   }
 
   String _preferredLanguage = 'en'; // Default to English
@@ -162,20 +158,12 @@ class SafetyTriggerService {
 
     // Get the first available locale (system default)
     if (locales.isEmpty) {
-      debugPrint('[SafetyTrigger] No locales available, defaulting to English');
+
       return 'en';
     }
-
-    debugPrint(
-      '[SafetyTrigger] 🔍 Scanning ${locales.length} available locales',
-    );
-
     // Priority 1: Check for Malay (if phone is in Malay, use it)
     final hasMalay = locales.any((locale) => locale.localeId.startsWith('ms'));
     if (hasMalay) {
-      debugPrint(
-        '[SafetyTrigger] ✅ Malay (ms) locale detected - using Malay mode',
-      );
       return 'ms';
     }
 
@@ -185,9 +173,6 @@ class SafetyTriggerService {
           locale.localeId.startsWith('zh') || locale.localeId.startsWith('cmn'),
     );
     if (hasChinese) {
-      debugPrint(
-        '[SafetyTrigger] ✅ Chinese (zh/cmn) locale detected - using Chinese mode',
-      );
       return 'zh';
     }
 
@@ -196,36 +181,26 @@ class SafetyTriggerService {
     for (final locale in locales) {
       final localeId = locale.localeId.toLowerCase();
       if (!localeId.startsWith('en')) {
-        debugPrint(
-          '[SafetyTrigger] ✅ Found non-English locale: ${locale.localeId}',
-        );
         // For other languages, fall back to English mode with phonetic matching
-        debugPrint(
-          '[SafetyTrigger] 💡 Using English mode with custom keywords for: ${locale.localeId}',
-        );
         return 'en'; // Use English for phonetic matching + custom keywords
       }
     }
 
     // Default to English
-    debugPrint('[SafetyTrigger] ✅ Using English mode (default)');
     return 'en';
   }
 
   /// Set preferred detection language ('en', 'zh', 'ms', or 'auto')
   Future<void> setPreferredLanguage(String language) async {
     if (_preferredLanguage == language) {
-      debugPrint('[SafetyTrigger] Language unchanged, skipping update');
+
       return;
     }
 
     // Handle 'auto' mode - detect phone's system language
     if (language == 'auto') {
-      debugPrint('[SafetyTrigger] 🤖 Auto-Detect mode activated');
+
       final detectedLanguage = await _detectSystemLanguage();
-      debugPrint(
-        '[SafetyTrigger] 📱 Detected system language: $detectedLanguage',
-      );
       language = detectedLanguage;
     }
 
@@ -233,47 +208,18 @@ class SafetyTriggerService {
     final isAvailable = await _microphoneService.isLanguageAvailable(language);
 
     if (!isAvailable && language != 'en') {
-      debugPrint(
-        '[SafetyTrigger] ⚠️  $language is not available on this device',
-      );
-      debugPrint('[SafetyTrigger] 🔄 Falling back to English mode');
-
-      final languageName = language == 'ms' ? 'Malay' : 'Chinese (Traditional)';
-      debugPrint('[SafetyTrigger] 💡 To use $languageName mode:');
-      if (language == 'ms') {
-        debugPrint(
-          '[SafetyTrigger] 💡 Change your phone language to Bahasa Melayu',
-        );
-      } else {
-        debugPrint('[SafetyTrigger] 💡 Add Chinese language to your phone');
-      }
-
       // Fallback to English
       language = 'en';
     }
 
     _preferredLanguage = language;
-    final languageName = language == 'en'
-        ? 'English'
-        : language == 'ms'
-        ? 'Malay'
-        : language == 'zh'
-        ? 'Chinese (Traditional)'
-        : 'Auto-Detect';
-    debugPrint('[SafetyTrigger] Set preferred language: $languageName');
 
     // If system is running, restart keyword detection with new language
     if (_isRunning) {
-      debugPrint(
-        '[SafetyTrigger] System is running, restarting keyword detection with new language...',
-      );
       await _microphoneService.stopKeywordDetection();
       await Future.delayed(const Duration(milliseconds: 300));
       await _microphoneService.startKeywordDetection(
         preferredLanguage: language,
-      );
-      debugPrint(
-        '[SafetyTrigger] ✅ Keyword detection restarted with $languageName',
       );
     }
   }
@@ -281,18 +227,18 @@ class SafetyTriggerService {
   /// Start the safety trigger system
   Future<void> start() async {
     if (_isRunning) {
-      debugPrint('[SafetyTrigger] Already running');
+
       return;
     }
 
-    debugPrint('[SafetyTrigger] Starting safety trigger system');
+
 
     // Handle 'auto' mode at startup
     String languageToUse = _preferredLanguage;
     if (_preferredLanguage == 'auto') {
-      debugPrint('[SafetyTrigger] 🤖 Auto-Detect mode at startup');
+
       languageToUse = await _detectSystemLanguage();
-      debugPrint('[SafetyTrigger] 📱 Using detected language: $languageToUse');
+
     }
 
     // Verify language availability before starting
@@ -300,9 +246,6 @@ class SafetyTriggerService {
       languageToUse,
     );
     if (!isAvailable && languageToUse != 'en') {
-      debugPrint(
-        '[SafetyTrigger] ⚠️  $languageToUse not available, falling back to English',
-      );
       languageToUse = 'en';
     }
 
@@ -328,14 +271,14 @@ class SafetyTriggerService {
       await _locationService.startLocationUpdates(_currentUserId!);
     }
 
-    debugPrint('[SafetyTrigger] System started successfully');
+
   }
 
   /// Stop the safety trigger system
   Future<void> stop() async {
     if (!_isRunning) return;
 
-    debugPrint('[SafetyTrigger] Stopping safety trigger system');
+
     _isRunning = false;
     _isCaptureWindowActive = false;
 
@@ -361,17 +304,17 @@ class SafetyTriggerService {
     _audioFilePath = null;
     _triggerSource = '';
 
-    debugPrint('[SafetyTrigger] System stopped');
+
   }
 
   /// Cancel the current 8-second capture window
   Future<void> cancelCapture() async {
     if (!_isCaptureWindowActive) {
-      debugPrint('[SafetyTrigger] No active capture to cancel');
+
       return;
     }
 
-    debugPrint('[SafetyTrigger] ❌ Cancelling capture window');
+
 
     // Cancel the capture timer
     _captureTimer?.cancel();
@@ -380,7 +323,7 @@ class SafetyTriggerService {
     // Stop audio recording if active
     if (_audioFilePath != null) {
       await _microphoneService.stopRecording();
-      debugPrint('[SafetyTrigger] Audio recording stopped');
+
     }
 
     // Resume monitoring
@@ -389,13 +332,9 @@ class SafetyTriggerService {
 
   /// Resume monitoring after incident is resolved (user confirmed, cancelled, or dismissed)
   Future<void> resumeMonitoring() async {
-    debugPrint(
-      '[SafetyTrigger] 🔄 Resuming monitoring after incident handling',
-    );
-
     // Resume speech-to-text listening
     await _microphoneService.resumeListening();
-    debugPrint('[SafetyTrigger] Speech recognition resumed');
+
 
     // Clear captured data
     _imuReadings.clear();
@@ -405,7 +344,7 @@ class SafetyTriggerService {
     // Mark capture as inactive - ready for next trigger
     _isCaptureWindowActive = false;
 
-    debugPrint('[SafetyTrigger] ✅ System ready for next trigger');
+
   }
 
   /// Check if IMU magnitude exceeds threshold
@@ -417,15 +356,9 @@ class SafetyTriggerService {
 
     // Debug: Log magnitude occasionally
     if (magnitude > 5.0) {
-      debugPrint(
-        '[SafetyTrigger] IMU magnitude: ${magnitude.toStringAsFixed(2)}',
-      );
     }
 
     if (magnitude > IMU_MAGNITUDE_THRESHOLD) {
-      debugPrint(
-        '[SafetyTrigger] 🚨 IMU TRIGGER DETECTED! Magnitude: ${magnitude.toStringAsFixed(2)}',
-      );
       onTriggerDetected('IMU - Magnitude: ${magnitude.toStringAsFixed(2)}');
     }
   }
@@ -436,7 +369,7 @@ class SafetyTriggerService {
 
   /// Start keyword detection from microphone
   Future<void> _startKeywordDetection() async {
-    debugPrint('[SafetyTrigger] Starting keyword detection');
+
 
     // Cancel existing subscriptions
     await _transcriptSubscription?.cancel();
@@ -449,7 +382,7 @@ class SafetyTriggerService {
     String languageToUse = _preferredLanguage;
     if (_preferredLanguage == 'auto') {
       languageToUse = await _detectSystemLanguage();
-      debugPrint('[SafetyTrigger] 🤖 Auto mode resolved to: $languageToUse');
+
     }
 
     // Start keyword detection with user's preferred language
@@ -466,26 +399,19 @@ class SafetyTriggerService {
 
     // Listen for keyword detections
     _keywordSubscription = _microphoneService.keywordStream.listen((keyword) {
-      debugPrint(
-        '[SafetyTrigger] 🔔 Keyword stream fired: $keyword, isRunning=$_isRunning, isCaptureActive=$_isCaptureWindowActive',
-      );
-
       if (!_isCaptureWindowActive) {
-        debugPrint('[SafetyTrigger] 🚨 KEYWORD TRIGGER DETECTED: $keyword');
+
         onTriggerDetected('Keyword: $keyword');
       } else {
-        debugPrint(
-          '[SafetyTrigger] ⚠️  Keyword ignored - capture window already active',
-        );
       }
     });
 
-    debugPrint('[SafetyTrigger] ✅ Keyword detection subscriptions set up');
+
   }
 
   /// Stop keyword detection
   Future<void> _stopKeywordDetection() async {
-    debugPrint('[SafetyTrigger] Stopping keyword detection');
+
     await _keywordSubscription?.cancel();
     await _transcriptSubscription?.cancel();
     await _microphoneService.stopKeywordDetection();
@@ -498,16 +424,8 @@ class SafetyTriggerService {
     _isCaptureWindowActive = true;
     _triggerSource = source;
     _imuReadings.clear();
-
-    debugPrint(
-      '[SafetyTrigger] Trigger detected: $source. Starting 8-second capture window',
-    );
-
-    debugPrint(
-      '[SafetyTrigger] 🔔 About to call onTriggerDetectedCallback: ${onTriggerDetectedCallback != null}',
-    );
     onTriggerDetectedCallback?.call(source);
-    debugPrint('[SafetyTrigger] ✅ onTriggerDetectedCallback called');
+
 
     // Start 8-second capture window (will record audio, not transcript)
     await _startCaptureWindow();
@@ -515,15 +433,15 @@ class SafetyTriggerService {
 
   /// Start the 8-second data capture window
   Future<void> _startCaptureWindow() async {
-    debugPrint('[SafetyTrigger] 📊 Starting 8-second data collection');
+
 
     // PAUSE speech-to-text, then start audio recording
-    debugPrint('[SafetyTrigger] Pausing speech recognition');
+
     await _microphoneService.pauseListening();
 
-    debugPrint('[SafetyTrigger] Starting audio recording for Gemini analysis');
+
     _audioFilePath = await _startAudioRecording();
-    debugPrint('[SafetyTrigger] Audio recording started: $_audioFilePath');
+
 
     // Show initial message on overlay
     onCaptureWindowData?.call(_imuReadings, 'Recording audio for analysis...');
@@ -540,11 +458,6 @@ class SafetyTriggerService {
       // Collect current IMU reading
       _collectIMUReading();
       readingCount++;
-
-      debugPrint(
-        '[SafetyTrigger] Collected IMU reading $readingCount/$MAX_IMU_READINGS',
-      );
-
       // Update overlay with progress
       onCaptureWindowData?.call(
         _imuReadings,
@@ -596,19 +509,19 @@ class SafetyTriggerService {
 
     // Start recording audio for Gemini analysis
     await _microphoneService.startRecording(filePath);
-    debugPrint('[SafetyTrigger] 🎙️ Audio recording started: $filePath');
+
 
     return filePath;
   }
 
   /// Finish the capture window and analyze data
   Future<void> _finishCaptureWindow() async {
-    debugPrint('[SafetyTrigger] Finishing capture window');
+
 
     // Stop audio recording
     if (_audioFilePath != null) {
       await _microphoneService.stopRecording();
-      debugPrint('[SafetyTrigger] Audio recording stopped: $_audioFilePath');
+
     }
 
     // DON'T resume speech recognition yet - keep it paused during analysis and result screens
@@ -616,15 +529,11 @@ class SafetyTriggerService {
 
     // Get pre-trigger context (what was said BEFORE the keyword)
     final preTriggerContext = _microphoneService.getPreTriggerContext();
-    debugPrint('[SafetyTrigger] 📜 Pre-trigger context: "$preTriggerContext"');
+
 
     // Use ONLY the pre-trigger context for Gemini (audio file will provide the rest)
     // No need for placeholder text since Gemini will transcribe the audio
     final transcriptForGemini = preTriggerContext;
-    debugPrint(
-      '[SafetyTrigger] 📝 Sending pre-trigger context to Gemini: "$transcriptForGemini"',
-    );
-
     // Clear the buffer for next trigger
     _microphoneService.clearPreTriggerContext();
 
@@ -640,10 +549,6 @@ class SafetyTriggerService {
     final peakGyro = _calculatePeakGyro();
 
     // Send to Gemini for analysis (with audio and pre-trigger context)
-    debugPrint('[SafetyTrigger] Sending data to Gemini for analysis');
-    debugPrint(
-      '[SafetyTrigger] Audio file: ${_audioFilePath ?? "Not recorded"}',
-    );
     final result = await _geminiService.analyzeIncident(
       accelX: peakAccel.x,
       accelY: peakAccel.y,
@@ -662,12 +567,6 @@ class SafetyTriggerService {
       final title = result['title'] as String? ?? '';
       final description = result['description'] as String? ?? '';
       final geminiTranscript = result['transcript'] as String? ?? '';
-      debugPrint(
-        '[SafetyTrigger] Gemini verdict: ${isIncident ? "TRUE POSITIVE" : "FALSE POSITIVE"}',
-      );
-      debugPrint('[SafetyTrigger] Gemini title: $title');
-      debugPrint('[SafetyTrigger] Gemini transcript: $geminiTranscript');
-
       // Show result screen with Gemini's transcript
       // The provider will handle resuming monitoring based on user actions
       onAnalysisResult?.call(isIncident, title, description, geminiTranscript);
@@ -679,7 +578,7 @@ class SafetyTriggerService {
       }
       // For false positive: Provider will resume monitoring when user dismisses the screen
     } else {
-      debugPrint('[SafetyTrigger] Gemini analysis failed');
+
       // Resume monitoring immediately on failure
       await resumeMonitoring();
     }
@@ -733,10 +632,6 @@ class SafetyTriggerService {
     Map<String, dynamic> geminiResult,
     String transcript,
   ) async {
-    debugPrint(
-      '[SafetyTrigger] Navigating to lodge screen with pre-filled data',
-    );
-
     try {
       // Get current location
       final location = await _locationService.getCurrentLocation();
@@ -767,7 +662,7 @@ class SafetyTriggerService {
       // DON'T set _isCaptureWindowActive to false here
       // It will be set by resumeMonitoring() when user returns from lodge page
     } catch (e) {
-      debugPrint('[SafetyTrigger] Error preparing lodge data: $e');
+
       // On error, resume monitoring immediately
       await resumeMonitoring();
     }

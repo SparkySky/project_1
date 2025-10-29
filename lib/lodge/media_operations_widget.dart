@@ -186,7 +186,7 @@ class _MediaOperationsWidgetState extends State<MediaOperationsWidget> {
                     _addMediaFile(File(photo.path));
                   }
                 } catch (e) {
-                  debugPrint('Error picking photo: $e');
+
                   _showPermissionError(
                     'Camera access denied. Please enable camera permission in settings.',
                   );
@@ -208,7 +208,7 @@ class _MediaOperationsWidgetState extends State<MediaOperationsWidget> {
                     _addMediaFile(File(image.path));
                   }
                 } catch (e) {
-                  debugPrint('Error picking photo from gallery: $e');
+
                   _showPermissionError(
                     'Unable to access photo gallery. Please check permissions.',
                   );
@@ -232,7 +232,7 @@ class _MediaOperationsWidgetState extends State<MediaOperationsWidget> {
                     await _generateVideoThumbnail(videoFile);
                   }
                 } catch (e) {
-                  debugPrint('Error picking video: $e');
+
                   _showPermissionError(
                     'Camera access denied. Please enable camera permission in settings.',
                   );
@@ -256,7 +256,7 @@ class _MediaOperationsWidgetState extends State<MediaOperationsWidget> {
                     await _generateVideoThumbnail(videoFile);
                   }
                 } catch (e) {
-                  debugPrint('Error picking video from gallery: $e');
+
                   _showPermissionError(
                     'Unable to access video gallery. Please check permissions.',
                   );
@@ -332,7 +332,7 @@ class _MediaOperationsWidgetState extends State<MediaOperationsWidget> {
         });
       }
     } catch (e) {
-      print('Error generating thumbnail: $e');
+
     }
   }
 
@@ -493,7 +493,7 @@ class _MediaOperationsWidgetState extends State<MediaOperationsWidget> {
         return false;
       }
     } catch (e) {
-      debugPrint('Error starting recording: $e');
+
       _showPermissionError(
         'Unable to start audio recording. Please check microphone permissions.',
       );
@@ -508,7 +508,7 @@ class _MediaOperationsWidgetState extends State<MediaOperationsWidget> {
         _isRecording = false;
       });
     } catch (e) {
-      debugPrint('Error stopping recording: $e');
+
     }
   }
 
@@ -535,7 +535,7 @@ class _MediaOperationsWidgetState extends State<MediaOperationsWidget> {
         );
       }
     } catch (e) {
-      debugPrint('Error picking audio file: $e');
+
       _showPermissionError(
         'Unable to access audio files. Please check permissions.',
       );

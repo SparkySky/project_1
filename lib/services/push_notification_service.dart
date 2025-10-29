@@ -25,7 +25,7 @@ class PushNotificationService {
   /// Initialize push notification service
   Future<void> initialize() async {
     if (_isInitialized) {
-      debugPrint('[PushService] Already initialized');
+
       return;
     }
 
@@ -33,18 +33,15 @@ class PushNotificationService {
       // Check and request notification permission if needed
       final hasPermission = await Permission.notification.isGranted;
       if (!hasPermission) {
-        debugPrint(
-          '[PushService] Notification permission not granted, requesting...',
-        );
         final status = await Permission.notification.request();
         if (status.isGranted) {
-          debugPrint('[PushService] ✅ Notification permission granted');
+
         } else {
-          debugPrint('[PushService] ❌ Notification permission denied');
+
           // Don't return - still try to get token as it might work on some devices
         }
       } else {
-        debugPrint('[PushService] ✅ Notification permission already granted');
+
       }
 
       // Request push token
@@ -54,31 +51,31 @@ class PushNotificationService {
       Push.getTokenStream.listen(
         (token) async {
           if (token == _lastToken) {
-            debugPrint('[PushService] Token unchanged, skipping update');
+
             return;
           }
 
-          debugPrint('[PushService] Token received: $token');
+
           _lastToken = token;
 
           // Save token and try to update user profile
           await _saveTokenAndUpdateUser(token);
         },
         onError: (error) {
-          debugPrint('[PushService] Error receiving token: $error');
+
         },
       );
 
       // Listen for remote messages
       Push.onMessageReceivedStream.listen((RemoteMessage message) {
-        debugPrint('[PushService] Remote message received: ${message.data}');
+
         _handleRemoteMessage(message);
       });
 
       _isInitialized = true;
-      debugPrint('[PushService] Initialized successfully');
+
     } catch (e) {
-      debugPrint('[PushService] Initialization error: $e');
+
     }
   }
 
@@ -90,10 +87,6 @@ class PushNotificationService {
     try {
       // Check if user is authenticated
       if (!_userProvider.isAuthenticated) {
-        debugPrint(
-          '[PushService] User not authenticated, saving token to SharedPreferences',
-        );
-
         // Save token locally for later upload
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('pending_push_token', token);
@@ -103,24 +96,20 @@ class PushNotificationService {
       // Check if cloudDbUser is available
       final cloudDbUser = _userProvider.cloudDbUser;
       if (cloudDbUser == null) {
-        debugPrint(
-          '[PushService] User authenticated but cloudDbUser not loaded yet, saving token to SharedPreferences',
-        );
-
         // Save token locally for later upload
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('pending_push_token', token);
 
         // Schedule a retry after a short delay
         Future.delayed(const Duration(seconds: 2), () async {
-          debugPrint('[PushService] Retrying token upload after delay');
+
           await uploadPendingToken();
         });
         return;
       }
 
       // User is authenticated and cloudDbUser is available, update both Firebase and CloudDB
-      debugPrint('[PushService] User authenticated, updating token');
+
       cloudDbUser.pushToken = token;
       await _userProvider.updateCloudDbUser(cloudDbUser);
 
@@ -128,7 +117,7 @@ class PushNotificationService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('pending_push_token');
     } catch (e) {
-      debugPrint('[PushService] Error saving token: $e');
+
     }
   }
 
@@ -144,23 +133,23 @@ class PushNotificationService {
 
       final cloudDbUser = _userProvider.cloudDbUser;
       if (cloudDbUser == null) {
-        debugPrint('[PushService] cloudDbUser still null, will retry later');
+
         return;
       }
 
-      debugPrint('[PushService] Uploading pending token');
+
       cloudDbUser.pushToken = pendingToken;
       await _userProvider.updateCloudDbUser(cloudDbUser);
       await prefs.remove('pending_push_token');
-      debugPrint('[PushService] Pending token uploaded successfully');
+
     } catch (e) {
-      debugPrint('[PushService] Error uploading pending token: $e');
+
     }
   }
 
   /// Handle incoming remote messages
   void _handleRemoteMessage(RemoteMessage message) {
-    debugPrint('[PushService] Handling remote message: ${message.data}');
+
     // Handle different types of messages here
   }
 
@@ -175,12 +164,6 @@ class PushNotificationService {
     double radiusKm = 5.0, // Default 5km radius
   }) async {
     try {
-      debugPrint(
-        '[PushService] Starting notification process for incident: $incidentId',
-      );
-      debugPrint('[PushService] Received title: "$incidentTitle"');
-      debugPrint('[PushService] Received incident type: "$incidentType"');
-
       // Get all users
       await _userRepository.openZone();
       final allUsers = await _userRepository.getAllUsers();
@@ -192,11 +175,6 @@ class PushNotificationService {
         incidentLongitude,
         radiusKm,
       );
-
-      debugPrint(
-        '[PushService] Found ${nearbyUsers.length} nearby users out of ${allUsers.length} total users',
-      );
-
       // Send notifications to nearby users
       await _sendNotificationsToUsers(nearbyUsers, {
         'incidentTitle': incidentTitle,
@@ -208,7 +186,7 @@ class PushNotificationService {
         'timestamp': DateTime.now().toIso8601String(),
       });
     } catch (e) {
-      debugPrint('[PushService] Error notifying nearby users: $e');
+
     } finally {
       await _userRepository.closeZone();
     }
@@ -266,26 +244,16 @@ class PushNotificationService {
     Map<String, String> data,
   ) async {
     final userIds = users.map((user) => user.uid).whereType<String>().toList();
-    debugPrint('[PushService] Sending notifications to users: $userIds');
+
 
     final pushTokens = await getPushTokensForUsers(userIds);
-    debugPrint('Push tokens: $pushTokens');
+
 
     if (pushTokens.isEmpty) {
-      debugPrint('[PushService] ⚠️ No push tokens available for sending');
+
       return;
     }
-
-    debugPrint(
-      '[PushService] 📤 Sending to ${pushTokens.length} devices via backend',
-    );
-
     try {
-      debugPrint('[PushService] Title from data: "${data['incidentTitle']}"');
-      debugPrint(
-        '[PushService] Incident Type from data: "${data['incidentType']}"',
-      );
-
       final success = await _backendService.sendNotificationsToNearbyUsers(
         pushTokens: pushTokens,
         title: data['incidentTitle']!,
@@ -297,25 +265,15 @@ class PushNotificationService {
       );
 
       if (success) {
-        debugPrint(
-          '[PushService] ✅ Notifications sent successfully via backend',
-        );
       } else {
-        debugPrint('[PushService] ❌ Failed to send notifications via backend');
+
       }
     } catch (e) {
-      debugPrint('[PushService] ❌ Error sending via backend: $e');
+
     }
 
     // Log notification details for debugging
     for (final user in users) {
-      debugPrint('[PushService] 🚨 Emergency Alert for ${user.username}');
-      debugPrint('[PushService] Incident Type: ${data['incidentType']}');
-      debugPrint('[PushService] Description: ${data['incidentDescription']}');
-      debugPrint(
-        '[PushService] Location: ${data['latitude']}, ${data['longitude']}',
-      );
-      debugPrint('[PushService] Push Token: ${user.pushToken}');
     }
   }
 
@@ -327,7 +285,7 @@ class PushNotificationService {
   ) async {
     // This would be called from your backend server
     // to send to multiple device tokens via Huawei Push Kit
-    debugPrint('[PushService] Sending to ${pushTokens.length} tokens');
-    debugPrint('[PushService] Data: $notificationData');
+
+
   }
 }

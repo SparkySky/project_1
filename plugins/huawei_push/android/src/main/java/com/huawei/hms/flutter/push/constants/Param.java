@@ -24,7 +24,7 @@ public enum Param {
     MESSAGE("msg"),
     SUBJECT_ID("subjectId");
 
-    private String code;
+    private final String code;
 
     Param(String code) {
         this.code = code;

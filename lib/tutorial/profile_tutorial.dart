@@ -197,7 +197,7 @@ class _ProfileTutorialState extends State<ProfileTutorial>
   }
 
   void _handleInteraction(InteractionType? type) {
-    print('[ProfileTutorial] _handleInteraction called with type: $type');
+
     if (type == null) return;
 
     // Hide tutorial temporarily
@@ -208,7 +208,7 @@ class _ProfileTutorialState extends State<ProfileTutorial>
     // Wait a moment then trigger the actual feature
     Future.delayed(const Duration(milliseconds: 100), () {
       if (type == InteractionType.customKeywords) {
-        print('[ProfileTutorial] Calling onCustomKeywordsTap callback');
+
         widget.onCustomKeywordsTap?.call();
       }
 
@@ -319,10 +319,6 @@ class _ProfileTutorialState extends State<ProfileTutorial>
               height: currentStep.highlightArea!.height,
               child: GestureDetector(
                 onTap: () {
-                  print('[ProfileTutorial] Tap detected on highlighted area');
-                  print(
-                    '[ProfileTutorial] Callback is null: ${widget.onCustomKeywordsTap == null}',
-                  );
                   _handleInteraction(currentStep.interactionType);
                 },
                 behavior: HitTestBehavior.translucent,

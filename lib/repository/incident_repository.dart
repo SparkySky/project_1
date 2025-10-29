@@ -59,23 +59,23 @@ class IncidentRepository {
     try {
       final map = incident.getObjectData(); // Use CloudDB method
 
-      print('=== Upserting Incident to CloudDB ===');
-      print('Object Type: $_objectTypeName');
-      print('Map data: $map');
+
+
+
 
       // Call CloudDB service
       final result = await _dbService.upsert(_objectTypeName, map);
-      print('CloudDB upsert result: $result');
+
 
       if (result <= 0) {
         throw Exception('CloudDB upsert failed with result: $result');
       }
 
-      print('✅ Incident upserted successfully');
+
       return true;
     } catch (e, stackTrace) {
-      print('❌ Error upserting incident: $e');
-      print('Stack trace: $stackTrace');
+
+
       rethrow;
     }
   }
@@ -87,7 +87,7 @@ class IncidentRepository {
       final result = await _dbService.upsertBatch(_objectTypeName, maps);
       return result > 0;
     } catch (e) {
-      print('Error upserting incidents: $e');
+
       return false;
     }
   }
@@ -101,7 +101,7 @@ class IncidentRepository {
       );
       return result > 0;
     } catch (e) {
-      print('Error deleting incident: $e');
+
       return false;
     }
   }
@@ -114,7 +114,7 @@ class IncidentRepository {
       final result = await _dbService.deleteByQuery(_objectTypeName, query);
       return result > 0;
     } catch (e) {
-      print('Error deleting incident by id: $e');
+
       return false;
     }
   }
@@ -122,9 +122,9 @@ class IncidentRepository {
   Future<void> openZone() async {
     try {
       await _dbService.openZone();
-      print('✅ Incidents zone opened successfully');
+
     } catch (e) {
-      print('❌ Error opening Incidents zone: $e');
+
       rethrow;
     }
   }
@@ -136,7 +136,7 @@ class IncidentRepository {
       final userIncidents = await getIncidentsByUserId(uid);
 
       if (userIncidents.isEmpty) {
-        print('No incidents to disable for user $uid');
+
         return true;
       }
 
@@ -146,10 +146,10 @@ class IncidentRepository {
         await upsertIncident(incident);
       }
 
-      print('✅ Disabled ${userIncidents.length} incidents for user $uid');
+
       return true;
     } catch (e) {
-      print('❌ Error disabling incidents: $e');
+
       return false;
     }
   }
@@ -157,9 +157,9 @@ class IncidentRepository {
   Future<void> closeZone() async {
     try {
       await _dbService.closeZone();
-      print('✅ Incidents zone closed');
+
     } catch (e) {
-      print('❌ Error closing Incidents zone: $e');
+
       rethrow;
     }
   }

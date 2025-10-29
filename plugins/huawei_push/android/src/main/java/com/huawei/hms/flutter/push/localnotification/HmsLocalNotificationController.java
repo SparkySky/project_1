@@ -64,7 +64,7 @@ import java.util.Map;
 public class HmsLocalNotificationController {
     private final String TAG = HmsLocalNotificationController.class.getSimpleName();
 
-    private Context context;
+    private final Context context;
 
     private final SharedPreferences sharedPreferences;
 
