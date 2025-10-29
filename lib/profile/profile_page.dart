@@ -1304,7 +1304,8 @@ class _ProfilePageState extends State<ProfilePage> {
                                 ),
                               )
                             // user avatar
-                            : (_cloudDbUser!.profileURL != null &&
+                            : (_cloudDbUser != null &&
+                                      _cloudDbUser!.profileURL != null &&
                                       _cloudDbUser!.profileURL!.isNotEmpty
                                   ? ClipOval(
                                       child: Image.network(

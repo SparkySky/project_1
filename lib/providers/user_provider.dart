@@ -88,12 +88,15 @@ class UserProvider extends ChangeNotifier {
         // Immediately sync language preference from SharedPreferences
         // SharedPreferences is the single source of truth for language
         await _syncLanguageFromPreferences();
+        debugPrint('✅ Pending push token applied: ${_cloudDbUser!.pushToken}');
       } else {
         debugPrint(
           '[UserProvider] ⚠️  CloudDB user not found for UID: ${_agcUser!.uid}',
         );
+        debugPrint(
+          '[UserProvider] 💡 This may happen if the user was just created. Try refreshing.',
+        );
       }
-
       notifyListeners();
     } catch (e) {
       debugPrint('[UserProvider] ❌ Error loading CloudDB user: $e');
@@ -195,6 +198,24 @@ class UserProvider extends ChangeNotifier {
 
     await _loadCloudDbUser();
 
+    // If CloudDB user is still null after loading, try again with a short delay
+    // This handles race conditions where CloudDB sync hasn't completed yet
+    if (_cloudDbUser == null) {
+      debugPrint(
+        '[UserProvider] ⏳ CloudDB user not found, retrying after delay...',
+      );
+      await Future.delayed(const Duration(milliseconds: 1500));
+      await _loadCloudDbUser();
+
+      if (_cloudDbUser != null) {
+        debugPrint('[UserProvider] ✅ CloudDB user loaded on retry');
+      } else {
+        debugPrint(
+          '[UserProvider] ⚠️  CloudDB user still not found after retry',
+        );
+      }
+    }
+
     _isLoading = false;
     notifyListeners();
   }
@@ -256,5 +277,17 @@ class UserProvider extends ChangeNotifier {
   void dispose() {
     _userRepository.closeZone();
     super.dispose();
+  }
+
+  Future<void> updateUserPushToken(String token) async {
+    try {
+      _cloudDbUser?.pushToken = token;
+      await updateCloudDbUser(_cloudDbUser!);
+      debugPrint('✅ Local state updated: ${_cloudDbUser!.pushToken}');
+      debugPrint('✅ Push token updated: ${_cloudDbUser!.pushToken}');
+      notifyListeners();
+    } catch (e) {
+      debugPrint('❌ Error updating push token: $e');
+    }
   }
 }

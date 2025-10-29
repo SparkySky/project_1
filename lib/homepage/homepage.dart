@@ -1289,7 +1289,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 _buildNavItem(1, Icons.add_box, 'Lodge', appBarColor),
                 _buildNavItem(2, Icons.history, 'History', appBarColor),
                 _buildNavItem(3, Icons.person, 'Profile', appBarColor),
-                // _buildNavItem(4, Icons.person, 'Debug', appBarColor),
               ],
             ),
           ),

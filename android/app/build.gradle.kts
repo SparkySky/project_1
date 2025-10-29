@@ -31,15 +31,14 @@ android {
     }
     
     // APK Size Optimization: Split APKs by architecture
-    // TEMPORARILY DISABLED - Conflicts with Flutter defaults
-    // TODO: Fix ABI filter conflict between Flutter plugin and splits configuration
-    /*
+    // NOTE: Disabled due to conflict with Flutter's ndk.abiFilters
+    // To re-enable, first configure Flutter to not set ndk.abiFilters
     splits {
         abi {
-            isEnable = true
+            isEnable = false  // Disabled to avoid conflict with Flutter's default ndk.abiFilters
             reset()
-            include("armeabi-v7a", "arm64-v8a")
-            isUniversalApk = false  // Set to true if you need a universal APK for testing
+            include("armeabi-v7a", "arm64-v8a", "x86_64")
+            isUniversalApk = false
         }
     }
     */
@@ -63,12 +62,7 @@ android {
         versionName = flutter.versionName
 
         manifestPlaceholders.put("HUAWEI_API_KEY", project.property("HUAWEI_MAP_API_KEY") as String)
-
-        // Note: Explicitly clear ndk.abiFilters to avoid conflicts with splits.abi
-        // This allows generating separate APKs per architecture
-        ndk {
-            // Empty - using splits.abi configuration instead
-        }
+        
         
         // Optimize vector drawables
         vectorDrawables.useSupportLibrary = true
@@ -151,6 +145,7 @@ android {
 flutter {
     source = "../.."
 }
+
 
 // Dependencies
 dependencies {
