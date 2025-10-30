@@ -25,8 +25,8 @@ class _IncidentHistoryPageState extends State<IncidentHistoryPage> {
   final _mediaRepository = MediaRepository();
 
   List<incidents> _incidents = [];
-  Map<String, List<media>> _mediaMap = {}; // mediaID -> List of media
-  Map<String, String> _addressMap = {}; // iid -> address
+  final Map<String, List<media>> _mediaMap = {}; // mediaID -> List of media
+  final Map<String, String> _addressMap = {}; // iid -> address
   bool _isLoading = true;
   String? _currentUserId;
 

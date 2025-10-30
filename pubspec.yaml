@@ -1,7 +1,7 @@
 name: project_1
 description: "A new Flutter project."
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.1+2
 
 environment:
   sdk: ^3.9.2
@@ -140,3 +140,7 @@ flutter:
       - asset: assets/fonts/goldman/Goldman-Regular.ttf
       - asset: assets/fonts/goldman/Goldman-Bold.ttf
         weight: 700
+  
+  # Enable font tree shaking to remove unused glyphs
+  # This reduces font file sizes significantly
+  # Build command: flutter build apk --tree-shake-icons

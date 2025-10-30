@@ -44,17 +44,14 @@ android {
     defaultConfig {
         applicationId = "com.meowResQ.mysafezone"
         minSdk = 29
-        targetSdk = 34  // Updated to latest Android requirement
+        targetSdk = 35  // Updated for Android 15 compatibility
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 
         manifestPlaceholders.put("HUAWEI_API_KEY", project.property("HUAWEI_MAP_API_KEY") as String)
-
-        // APK Size: Limit to arm architectures only (removes x86, x86_64, mips)
-        ndk {
-            abiFilters.clear()
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
-        }
+        
+        // Note: ABI filtering is handled by Flutter build command (--split-per-abi or --target-platform)
+        // Removing ndk filters to avoid conflicts with Flutter's split mechanism
         
         // Optimize vector drawables
         vectorDrawables.useSupportLibrary = true
@@ -166,7 +163,24 @@ android {
                 
                 // Exclude Kotlin debug
                 "DebugProbesKt.bin",
-                "kotlin/**/*.kotlin_builtins"
+                "kotlin/**/*.kotlin_builtins",
+                
+                // Additional exclusions for size optimization
+                "**/*.srcjar",
+                "**/MANIFEST.MF",
+                "META-INF/services/**",
+                "META-INF/proguard/**",
+                "**/*.properties",
+                "**/package.html",
+                "**/overview.html",
+                "**/*-metadata.json",
+                
+                // Exclude debug and test resources
+                "**/debug/**",
+                "**/test/**",
+                "**/androidTest/**",
+                "**/*Test.class",
+                "**/*Tests.class"
             )
             // Pick first for duplicate files
             pickFirsts += listOf(
@@ -174,7 +188,7 @@ android {
                 "**/*.dll"
             )
         }
-        // Handle duplicate classes from CloudDB
+        // Handle native libraries
         jniLibs {
             pickFirsts += listOf("**/*.so")
             useLegacyPackaging = false  // Better compression

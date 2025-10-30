@@ -58,7 +58,7 @@ class ChatbotTutorial extends StatefulWidget {
 class _ChatbotTutorialState extends State<ChatbotTutorial>
     with SingleTickerProviderStateMixin {
   int _currentStep = 0;
-  bool _isHidden = false;
+  final bool _isHidden = false;
   late AnimationController _arrowAnimationController;
 
   @override

@@ -1795,7 +1795,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 100), // Increased padding for bottom nav + system buttons
                 ],
               ),
             ),
@@ -2797,11 +2797,16 @@ class _ProfilePageState extends State<ProfilePage> {
                     // If turning off discoverable, also turn off emergency alerts
                     if (!value && _allowEmergencyAlert) {
                       _allowEmergencyAlert = false;
-                      _cloudDbUser?.allowEmergencyAlert = false;
                     }
                   });
-                  _cloudDbUser?.allowDiscoverable = value;
-                  await _userProvider!.updateCloudDbUser(_cloudDbUser!);
+                  
+                  // Save to SharedPreferences for local persistence only
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setBool('allow_discoverable', value);
+                  if (!value && _allowEmergencyAlert) {
+                    await prefs.setBool('allow_emergency_alert', false);
+                  }
+                  
                   // Show warning if turning off discoverable
                   if (!value && mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -2921,8 +2926,10 @@ class _ProfilePageState extends State<ProfilePage> {
               setState(() {
                 _allowEmergencyAlert = value;
               });
-              _cloudDbUser?.allowEmergencyAlert = value;
-              await _userProvider!.updateCloudDbUser(_cloudDbUser!);
+              
+              // Save to SharedPreferences for local persistence only
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool('allow_emergency_alert', value);
 
               if (!mounted) return;
             },
